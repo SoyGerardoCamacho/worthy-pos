@@ -315,6 +315,12 @@ let state = {
   dispatchProduct: "",
   dispatchQty: "",
   dispatchTarget: "quicentro",
+  kardexProduct: "",
+  kardexQty: "",
+  kardexLote: "",
+  kardexObs: "",
+  kardexSaving: false,
+  kardexFilter: "all",
   unsubInventory: null,
   unsubSales: null,
 };
@@ -449,11 +455,13 @@ function getTabsForRole(role) {
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"inventario",icon:"📦",label:"Inventario"},
     {id:"bodega",icon:"🏭",label:"Bodega"},
+    {id:"kardex",icon:"📒",label:"Kardex"},
   ];
   if (role === "bodega") return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"inventario",icon:"📦",label:"Bodega"},
     {id:"despachar",icon:"🚚",label:"Despachar"},
+    {id:"kardex",icon:"📒",label:"Kardex"},
   ];
   return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
@@ -479,6 +487,7 @@ function renderTab() {
     case "ventas":     return renderVentas();
     case "despachar":  return renderDespachar();
     case "bodega":     return renderAdminBodega();
+    case "kardex":     return renderKardex();
     default:           return "<p>Tab no encontrado</p>";
   }
 }
@@ -1015,6 +1024,14 @@ function bindApp() {
   document.getElementById("dispatch-target")?.addEventListener("change",e=>{ state.dispatchTarget=e.target.value; });
   document.getElementById("dispatch-qty")?.addEventListener("input",e=>{ state.dispatchQty=e.target.value; });
   document.getElementById("dispatch-btn")?.addEventListener("click", handleDispatch);
+
+  // Kardex
+  document.getElementById("kardex-product")?.addEventListener("change",e=>{ state.kardexProduct=e.target.value; });
+  document.getElementById("kardex-qty")?.addEventListener("input",e=>{ state.kardexQty=e.target.value; });
+  document.getElementById("kardex-lote")?.addEventListener("input",e=>{ state.kardexLote=e.target.value; });
+  document.getElementById("kardex-obs")?.addEventListener("input",e=>{ state.kardexObs=e.target.value; });
+  document.getElementById("kardex-save-btn")?.addEventListener("click", handleKardexEntrada);
+  document.getElementById("kardex-filter")?.addEventListener("change",e=>{ state.kardexFilter=e.target.value; render(); });
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────
@@ -1092,11 +1109,19 @@ async function handleDispatch() {
     standInv[product] = (standInv[product]||0)+qty;
     await db.collection("inventarios").doc(target).set(standInv);
 
-    // Registrar movimiento
+    // Registrar movimiento en despachos y kardex
     await db.collection("despachos").add({
       fecha: today(), timestamp: new Date().toISOString(),
       product, qty, from:"bodega", to:target,
       productName: CATALOG.find(p=>p.id===product)?.name+" "+CATALOG.find(p=>p.id===product)?.sub
+    });
+    await db.collection("kardex").add({
+      id: genId(),
+      fecha: today(), timestamp: new Date().toISOString(),
+      type: "salida",
+      product, qty, lote:"", obs:"",
+      to: target,
+      registradoPor: state.user.email,
     });
 
     state.inventory["bodega"] = bodegaInv;
@@ -1106,6 +1131,46 @@ async function handleDispatch() {
     render();
   } catch(e) {
     state.dispatching=false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+
+async function handleKardexEntrada() {
+  const product = state.kardexProduct;
+  const qty = parseInt(state.kardexQty)||0;
+  const lote = state.kardexLote.trim();
+  if(!product||qty<=0) { showToast("Selecciona producto y cantidad","err"); return; }
+
+  state.kardexSaving = true; render();
+  try {
+    const mov = {
+      id: genId(),
+      fecha: today(),
+      timestamp: new Date().toISOString(),
+      type: "entrada",
+      product, qty, lote,
+      obs: state.kardexObs,
+      registradoPor: state.user.email,
+    };
+
+    // Guardar movimiento en Firestore
+    await db.collection("kardex").doc(mov.id).set(mov);
+
+    // Sumar al inventario de bodega
+    const bodegaInv = {...(state.inventory["bodega"]||{})};
+    bodegaInv[product] = (bodegaInv[product]||0) + qty;
+    await db.collection("inventarios").doc("bodega").set(bodegaInv);
+
+    state.inventory["bodega"] = bodegaInv;
+    state.kardexMovements = [mov, ...(state.kardexMovements||[])];
+    state.kardexProduct=""; state.kardexQty=""; state.kardexLote=""; state.kardexObs="";
+    state.kardexSaving = false;
+    showToast(`✅ Entrada registrada: ${qty} uds`);
+    render();
+  } catch(e) {
+    state.kardexSaving = false;
     showToast("⚠️ Error: "+e.message,"err");
     render();
   }
@@ -1135,6 +1200,12 @@ function setupListeners(userInfo) {
 
   state.unsubSales = salesQuery.onSnapshot(snap=>{
     state.sales = snap.docs.map(d=>d.data());
+    render();
+  });
+
+  // Kardex listener
+  db.collection("kardex").orderBy("timestamp","desc").limit(500).onSnapshot(snap=>{
+    state.kardexMovements = snap.docs.map(d=>d.data());
     render();
   });
 }
