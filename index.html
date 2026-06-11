@@ -237,12 +237,12 @@ const db = firebase.firestore();
 
 // ─── USUARIOS DEL SISTEMA ────────────────────────────────────
 const USERS = {
-  "admin@worthy.com":   { role:"admin",  name:"Gerardo (Admin)",  emoji:"👑" },
-  "bodega@worthy.com":  { role:"bodega", name:"Bodega Central",   emoji:"🏭" },
-  "gerardo@worthy.com": { role:"seller", name:"Gerardo",          emoji:"👤" },
-  "rosita@worthy.com":  { role:"seller", name:"Rosita",           emoji:"👤" },
-  "asesor1@worthy.com": { role:"seller", name:"Asesor 1",         emoji:"👤" },
-  "asesor2@worthy.com": { role:"seller", name:"Asesor 2",         emoji:"👤" },
+  "admin@worthy.com":   { role:"admin",       name:"Administrador", emoji:"👑", canKardex:false },
+  "bodega@worthy.com":  { role:"bodega",      name:"Bodega Central",emoji:"🏭", canKardex:true  },
+  "gerardo@worthy.com": { role:"seller",      name:"Gerardo",       emoji:"👤", canKardex:true  },
+  "rosita@worthy.com":  { role:"seller",      name:"Rosita",        emoji:"👤", canKardex:true  },
+  "asesor1@worthy.com": { role:"seller",      name:"Asesor 1",      emoji:"👤", canKardex:false },
+  "asesor2@worthy.com": { role:"seller",      name:"Asesor 2",      emoji:"👤", canKardex:false },
 };
 
 // ─── CATÁLOGO ────────────────────────────────────────────────
@@ -463,13 +463,15 @@ function getTabsForRole(role) {
     {id:"despachar",icon:"🚚",label:"Despachar"},
     {id:"kardex",icon:"📒",label:"Kardex"},
   ];
-  return [
+  const sellerTabs = [
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"ventas",icon:"📋",label:"Ventas"},
-    {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
+  if (state.userInfo?.canKardex) sellerTabs.push({id:"kardex",icon:"📒",label:"Kardex"});
+  sellerTabs.push({id:"cambiar",icon:"🔄",label:"Cambiar"});
+  return sellerTabs;
 }
 
 function renderTab() {
