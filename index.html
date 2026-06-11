@@ -237,11 +237,12 @@ const db = firebase.firestore();
 
 // ─── USUARIOS DEL SISTEMA ────────────────────────────────────
 const USERS = {
-  "admin@worthy.com":       { role:"admin",    stand:"all",         name:"Administrador",       emoji:"👑" },
-  "bodega@worthy.com":      { role:"bodega",   stand:"bodega",      name:"Bodega Central",      emoji:"🏭" },
-  "quicentro@worthy.com":   { role:"stand",    stand:"quicentro",   name:"Quicentro Norte",     emoji:"🏪" },
-  "sanfrancisco@worthy.com":{ role:"stand",    stand:"sanfrancisco",name:"San Francisco",       emoji:"🏪" },
-  "mercadito@worthy.com":   { role:"stand",    stand:"mercadito",   name:"El Mercadito",        emoji:"🏪" },
+  "admin@worthy.com":   { role:"admin",  name:"Gerardo (Admin)",  emoji:"👑" },
+  "bodega@worthy.com":  { role:"bodega", name:"Bodega Central",   emoji:"🏭" },
+  "gerardo@worthy.com": { role:"seller", name:"Gerardo",          emoji:"👤" },
+  "rosita@worthy.com":  { role:"seller", name:"Rosita",           emoji:"👤" },
+  "asesor1@worthy.com": { role:"seller", name:"Asesor 1",         emoji:"👤" },
+  "asesor2@worthy.com": { role:"seller", name:"Asesor 2",         emoji:"👤" },
 };
 
 // ─── CATÁLOGO ────────────────────────────────────────────────
@@ -292,6 +293,7 @@ const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6
 let state = {
   user: null,
   userInfo: null,
+  selectedStand: null,
   tab: "dashboard",
   inventory: {},
   sales: [],
@@ -320,8 +322,39 @@ function render() {
   const app = document.getElementById("app");
   if (state.loading) { app.innerHTML = renderLoading(); return; }
   if (!state.user) { app.innerHTML = renderLogin(); bindLogin(); return; }
+  if (state.userInfo.role === "seller" && !state.selectedStand) {
+    app.innerHTML = renderStandSelector();
+    bindStandSelector();
+    return;
+  }
   app.innerHTML = renderApp();
   bindApp();
+}
+
+function renderStandSelector() {
+  return `<div class="login-screen">
+    <div class="login-logo">WORTHY</div>
+    <div class="login-sub">Hola ${state.userInfo.name} 👋</div>
+    <div class="login-card">
+      <h2>¿En qué punto estás hoy?</h2>
+      ${STANDS.map(s => `<button class="btn-primary" data-select-stand="${s.id}" style="margin-bottom:12px;background:var(--purple);">
+        🏪 ${s.name}
+      </button>`).join("")}
+      <button id="logout-btn-select" style="width:100%;background:transparent;border:none;color:var(--gray);font-size:13px;cursor:pointer;margin-top:8px;font-family:inherit;">Cerrar sesión</button>
+    </div>
+  </div>`;
+}
+
+function bindStandSelector() {
+  document.querySelectorAll("[data-select-stand]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.selectedStand = btn.dataset.selectStand;
+      state.tab = "pos";
+      setupListeners(state.userInfo);
+      render();
+    });
+  });
+  document.getElementById("logout-btn-select")?.addEventListener("click", () => auth.signOut());
 }
 
 function renderLoading() {
@@ -384,7 +417,7 @@ function renderApp() {
     <div class="header">
       <div class="header-brand">
         <div class="brand-name">WORTHY</div>
-        <div class="brand-stand">${u.emoji} ${u.name}</div>
+        <div class="brand-stand">${u.emoji} ${u.name}${u.role==="seller"&&state.selectedStand?" · "+STANDS.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
         ${u.role==="stand"?`<div><div class="today-total">${fmt(todayTotal)} hoy</div><div class="today-date">${fmtDate(today())}</div></div>`:""}
@@ -425,11 +458,18 @@ function getTabsForRole(role) {
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"ventas",icon:"📋",label:"Ventas"},
+    {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
 }
 
 function renderTab() {
   const role = state.userInfo.role;
+  if (state.tab === "cambiar" && role === "seller") {
+    state.selectedStand = null;
+    state.tab = "pos";
+    render();
+    return "";
+  }
   switch(state.tab) {
     case "dashboard":  return role==="admin" ? renderAdminDashboard() : role==="bodega" ? renderBodegaDashboard() : renderStandDashboard();
     case "pos":        return renderPOS();
@@ -451,7 +491,8 @@ function renderStandDashboard() {
   const topMap={};
   todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
   const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
-  const inv = state.inventory[state.userInfo.stand] || {};
+  const standId = state.userInfo.role==="seller" ? state.selectedStand : state.userInfo.stand;
+  const inv = state.inventory[standId] || {};
   const lowStock = CATALOG.filter(p=>((inv[p.id]||0)>0&&(inv[p.id]||0)<=3));
   const outStock = CATALOG.filter(p=>(inv[p.id]||0)===0);
 
@@ -588,7 +629,7 @@ function renderPOS() {
     </div>`;
   }
 
-  const inv = state.inventory[state.userInfo.stand] || {};
+  const inv = state.inventory[state.userInfo.role==="seller"?state.selectedStand:state.userInfo.stand] || {};
   const visible = CATALOG.filter(p=>state.catFilter==="all"||p.cat===state.catFilter);
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
   const discAmt = subtotal*state.discount/100;
@@ -675,7 +716,7 @@ function renderPOS() {
 // ─── INVENTARIO ──────────────────────────────────────────────
 function renderInventario() {
   const role = state.userInfo.role;
-  const standId = role==="admin" ? (state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter) : state.userInfo.stand;
+  const standId = role==="admin" ? (state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter) : role==="seller" ? state.selectedStand : state.userInfo.stand;
   const inv = state.inventory[standId] || {};
   const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
 
@@ -952,7 +993,7 @@ function bindApp() {
 
   // Inventory edit
   document.querySelectorAll("[data-edit-stock]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const inv=state.inventory[state.userInfo.stand]||{}; state.editStockVal=String(inv[id]||0); render(); });
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=state.userInfo.role==="seller"?state.selectedStand:state.userInfo.stand; const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
   });
   document.querySelectorAll("[data-edit-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ const id=btn.dataset.editBodega; state.editingStock=id; const inv=state.inventory["bodega"]||{}; state.editStockVal=String(inv[id]||0); render(); });
@@ -961,7 +1002,7 @@ function bindApp() {
   document.getElementById("inv-input")?.addEventListener("input",e=>{ state.editStockVal=e.target.value; });
 
   document.querySelectorAll("[data-save]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ handleUpdateStock(state.userInfo.stand, btn.dataset.save, parseInt(state.editStockVal)||0); });
+    btn.addEventListener("click",()=>{ const sId=state.userInfo.role==="seller"?state.selectedStand:state.userInfo.stand; handleUpdateStock(sId, btn.dataset.save, parseInt(state.editStockVal)||0); });
   });
   document.querySelectorAll("[data-save-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ handleUpdateStock("bodega", btn.dataset.saveBodega, parseInt(state.editStockVal)||0); });
@@ -985,7 +1026,7 @@ async function handleSell() {
     id: genId(),
     fecha: today(),
     timestamp: new Date().toISOString(),
-    stand: state.userInfo.stand,
+    stand: state.userInfo.role==="seller" ? state.selectedStand : state.userInfo.stand,
     items: state.cart.map(i=>({id:i.id,ref:i.ref,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty})),
     subtotal, descuento:state.discount, descuentoAmt:discAmt, total,
     pago: state.payment, nota: state.note
@@ -996,7 +1037,7 @@ async function handleSell() {
     await db.collection("ventas").doc(sale.id).set(sale);
 
     // Actualizar inventario del stand
-    const standId = state.userInfo.stand;
+    const standId = state.userInfo.role==="seller" ? state.selectedStand : state.userInfo.stand;
     const inv = {...(state.inventory[standId]||{})};
     sale.items.forEach(item=>{ inv[item.id]=Math.max(0,(inv[item.id]||0)-item.qty); });
     await db.collection("inventarios").doc(standId).set(inv);
@@ -1088,7 +1129,7 @@ function setupListeners(userInfo) {
 
   // Listen to sales - stand only sees own, admin/bodega sees all
   let salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(200);
-  if(userInfo.role==="stand") salesQuery = salesQuery.where("stand","==",userInfo.stand);
+  if(userInfo.role==="seller" && state.selectedStand) salesQuery = salesQuery.where("stand","==",state.selectedStand);
 
   state.unsubSales = salesQuery.onSnapshot(snap=>{
     state.sales = snap.docs.map(d=>d.data());
@@ -1103,7 +1144,7 @@ auth.onAuthStateChanged(user=>{
     if(!userInfo) { auth.signOut(); state.loading=false; render(); return; }
     state.user = user;
     state.userInfo = userInfo;
-    state.tab = userInfo.role==="stand"?"pos":"dashboard";
+    state.tab = userInfo.role==="seller"?"pos":userInfo.role==="bodega"?"dashboard":"dashboard";
     state.loading = false;
     setupListeners(userInfo);
     render();
