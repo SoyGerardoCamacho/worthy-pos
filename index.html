@@ -237,12 +237,12 @@ const db = firebase.firestore();
 
 // ─── USUARIOS DEL SISTEMA ────────────────────────────────────
 const USERS = {
-  "admin@worthy.com":   { role:"admin",       name:"Administrador", emoji:"👑", canKardex:true  },
-  "bodega@worthy.com":  { role:"bodega",      name:"Bodega Central",emoji:"🏭", canKardex:true  },
-  "gerardo@worthy.com": { role:"seller",      name:"Gerardo",       emoji:"👤", canKardex:true  },
-  "rosita@worthy.com":  { role:"seller",      name:"Rosita",        emoji:"👤", canKardex:true  },
-  "asesor1@worthy.com": { role:"seller",      name:"Asesor 1",      emoji:"👤", canKardex:false },
-  "asesor2@worthy.com": { role:"seller",      name:"Asesor 2",      emoji:"👤", canKardex:false },
+  "admin@worthy.com":   { role:"admin",   name:"Administrador", emoji:"👑", canKardex:false, canSell:false, canBodega:false },
+  "bodega@worthy.com":  { role:"bodega",  name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:false, canBodega:true  },
+  "gerardo@worthy.com": { role:"full",    name:"Gerardo",       emoji:"👤", canKardex:true,  canSell:true,  canBodega:true  },
+  "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true  },
+  "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false },
+  "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false },
 };
 
 // ─── CATÁLOGO ────────────────────────────────────────────────
@@ -276,12 +276,90 @@ const STANDS = [
 ];
 
 const CATS = [
-  { id:"all", label:"Todos" },
-  { id:"aceite", label:"Aceite" },
-  { id:"balm", label:"Bálsamos" },
-  { id:"deo", label:"Desod." },
-  { id:"shampoo", label:"Shampoo" },
-  { id:"tonico", label:"Tónico" },
+  { id:"all",     label:"Todos"    },
+  { id:"aceite",  label:"Aceite"   },
+  { id:"balm",    label:"Bálsamos" },
+  { id:"deo",     label:"Desod."   },
+  { id:"shampoo", label:"Shampoo"  },
+  { id:"tonico",  label:"Tónico"   },
+  { id:"rutinas", label:"Rutinas"  },
+];
+
+// ─── RUTINAS ─────────────────────────────────────────────────
+const RUTINAS = [
+  { id:"R1", name:"Rutina 1", price:65.20, emoji:"⭐",
+    desc:"Tónico 80ml + Aceite 50ml + Shampoo",
+    gifts:"2 Desodorantes 30g + 1 Lip Balm",
+    variantes:[
+      { id:"R1-1", label:"Deo Adult×2 + Lip Balm Nude",  items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDS30",q:2},{id:"WLBN6",q:1}] },
+      { id:"R1-2", label:"Deo Adult×2 + Lip Balm Pink",  items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDS30",q:2},{id:"WLBP6",q:1}] },
+      { id:"R1-3", label:"Deo Adult×2 + Lip Balm Red",   items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDS30",q:2},{id:"WLBR6",q:1}] },
+      { id:"R1-4", label:"Deo Kids×2 + Lip Balm Nude",   items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:2},{id:"WLBN6",q:1}] },
+      { id:"R1-5", label:"Deo Kids×2 + Lip Balm Pink",   items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:2},{id:"WLBP6",q:1}] },
+      { id:"R1-6", label:"Deo Kids×2 + Lip Balm Red",    items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:2},{id:"WLBR6",q:1}] },
+      { id:"R1-7", label:"Deo Adult+Kids + Lip Balm Nude",items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WDSK30",q:1},{id:"WLBN6",q:1}] },
+      { id:"R1-8", label:"Deo Adult+Kids + Lip Balm Pink",items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WDSK30",q:1},{id:"WLBP6",q:1}] },
+      { id:"R1-9", label:"Deo Adult+Kids + Lip Balm Red", items:[{id:"WHT80",q:1},{id:"WMO45",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WDSK30",q:1},{id:"WLBR6",q:1}] },
+    ]
+  },
+  { id:"R2", name:"Rutina 2", price:51.60, emoji:"⭐",
+    desc:"Tónico 50ml + Aceite 30ml + Shampoo",
+    gifts:"1 Desodorante 30g + 2 Lip Balms",
+    variantes:[
+      { id:"R2-1",  label:"Deo Adult + Nude+Nude",   items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WLBN6",q:2}] },
+      { id:"R2-2",  label:"Deo Adult + Pink+Pink",   items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WLBP6",q:2}] },
+      { id:"R2-3",  label:"Deo Adult + Red+Red",     items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WLBR6",q:2}] },
+      { id:"R2-4",  label:"Deo Adult + Nude+Pink",   items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WLBN6",q:1},{id:"WLBP6",q:1}] },
+      { id:"R2-5",  label:"Deo Adult + Nude+Red",    items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WLBN6",q:1},{id:"WLBR6",q:1}] },
+      { id:"R2-6",  label:"Deo Adult + Pink+Red",    items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1},{id:"WLBP6",q:1},{id:"WLBR6",q:1}] },
+      { id:"R2-7",  label:"Deo Kids + Nude+Nude",    items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1},{id:"WLBN6",q:2}] },
+      { id:"R2-8",  label:"Deo Kids + Pink+Pink",    items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1},{id:"WLBP6",q:2}] },
+      { id:"R2-9",  label:"Deo Kids + Red+Red",      items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1},{id:"WLBR6",q:2}] },
+      { id:"R2-10", label:"Deo Kids + Nude+Pink",    items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1},{id:"WLBN6",q:1},{id:"WLBP6",q:1}] },
+      { id:"R2-11", label:"Deo Kids + Nude+Red",     items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1},{id:"WLBN6",q:1},{id:"WLBR6",q:1}] },
+      { id:"R2-12", label:"Deo Kids + Pink+Red",     items:[{id:"WHT50",q:1},{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1},{id:"WLBP6",q:1},{id:"WLBR6",q:1}] },
+    ]
+  },
+  { id:"R3", name:"Rutina 3", price:32.05, emoji:"⭐",
+    desc:"Tónico 50ml + Shampoo",
+    gifts:"1 Desodorante 30g",
+    variantes:[
+      { id:"R3-1", label:"Deo Adult 30g", items:[{id:"WHT50",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1}] },
+      { id:"R3-2", label:"Deo Kids 30g",  items:[{id:"WHT50",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1}] },
+    ]
+  },
+  { id:"R4", name:"Rutina 4", price:31.05, emoji:"⭐",
+    desc:"Aceite 30ml + Shampoo",
+    gifts:"1 Desodorante 30g",
+    variantes:[
+      { id:"R4-1", label:"Deo Adult 30g", items:[{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDS30",q:1}] },
+      { id:"R4-2", label:"Deo Kids 30g",  items:[{id:"WMO30",q:1},{id:"WSF90",q:1},{id:"WDSK30",q:1}] },
+    ]
+  },
+  { id:"R5", name:"Rutina 5", price:23.00, emoji:"⭐",
+    desc:"Shampoo + Desodorante 45g",
+    gifts:"1 Lip Balm",
+    variantes:[
+      { id:"R5-1", label:"Deo Adult 45g + Nude", items:[{id:"WSF90",q:1},{id:"WDS45",q:1},{id:"WLBN6",q:1}] },
+      { id:"R5-2", label:"Deo Adult 45g + Pink", items:[{id:"WSF90",q:1},{id:"WDS45",q:1},{id:"WLBP6",q:1}] },
+      { id:"R5-3", label:"Deo Adult 45g + Red",  items:[{id:"WSF90",q:1},{id:"WDS45",q:1},{id:"WLBR6",q:1}] },
+      { id:"R5-4", label:"Deo Kids 45g + Nude",  items:[{id:"WSF90",q:1},{id:"WDSK45",q:1},{id:"WLBN6",q:1}] },
+      { id:"R5-5", label:"Deo Kids 45g + Pink",  items:[{id:"WSF90",q:1},{id:"WDSK45",q:1},{id:"WLBP6",q:1}] },
+      { id:"R5-6", label:"Deo Kids 45g + Red",   items:[{id:"WSF90",q:1},{id:"WDSK45",q:1},{id:"WLBR6",q:1}] },
+    ]
+  },
+  { id:"R6", name:"Rutina 6", price:13.95, emoji:"⭐",
+    desc:"Desodorante 45g + Lip Balm",
+    gifts:"",
+    variantes:[
+      { id:"R6-1", label:"Deo Adult 45g + Nude", items:[{id:"WDS45",q:1},{id:"WLBN6",q:1}] },
+      { id:"R6-2", label:"Deo Adult 45g + Pink", items:[{id:"WDS45",q:1},{id:"WLBP6",q:1}] },
+      { id:"R6-3", label:"Deo Adult 45g + Red",  items:[{id:"WDS45",q:1},{id:"WLBR6",q:1}] },
+      { id:"R6-4", label:"Deo Kids 45g + Nude",  items:[{id:"WDSK45",q:1},{id:"WLBN6",q:1}] },
+      { id:"R6-5", label:"Deo Kids 45g + Pink",  items:[{id:"WDSK45",q:1},{id:"WLBP6",q:1}] },
+      { id:"R6-6", label:"Deo Kids 45g + Red",   items:[{id:"WDSK45",q:1},{id:"WLBR6",q:1}] },
+    ]
+  },
 ];
 
 // ─── HELPERS ─────────────────────────────────────────────────
@@ -309,6 +387,7 @@ let state = {
   editingStock: null,
   editStockVal: "",
   success: null,
+  rutinaModal: null,
   loading: true,
   toast: null,
   dispatching: false,
@@ -330,7 +409,7 @@ function render() {
   const app = document.getElementById("app");
   if (state.loading) { app.innerHTML = renderLoading(); return; }
   if (!state.user) { app.innerHTML = renderLogin(); bindLogin(); return; }
-  if (state.userInfo.role === "seller" && !state.selectedStand) {
+  if ((state.userInfo.role === "full" || state.userInfo.role === "asesor") && !state.selectedStand) {
     app.innerHTML = renderStandSelector();
     bindStandSelector();
     return;
@@ -425,7 +504,7 @@ function renderApp() {
     <div class="header">
       <div class="header-brand">
         <div class="brand-name">WORTHY</div>
-        <div class="brand-stand">${u.emoji} ${u.name}${u.role==="seller"&&state.selectedStand?" · "+STANDS.find(s=>s.id===state.selectedStand)?.name:""}</div>
+        <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor")&&state.selectedStand?" · "+STANDS.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
         ${u.role==="stand"?`<div><div class="today-total">${fmt(todayTotal)} hoy</div><div class="today-date">${fmtDate(today())}</div></div>`:""}
@@ -450,40 +529,55 @@ function renderApp() {
 }
 
 function getTabsForRole(role) {
+  const u = state.userInfo;
+
+  // Admin - solo reportes
   if (role === "admin") return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"inventario",icon:"📦",label:"Inventario"},
     {id:"bodega",icon:"🏭",label:"Bodega"},
-    {id:"kardex",icon:"📒",label:"Kardex"},
   ];
+
+  // Bodega - solo bodega central
   if (role === "bodega") return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"inventario",icon:"📦",label:"Bodega"},
     {id:"despachar",icon:"🚚",label:"Despachar"},
     {id:"kardex",icon:"📒",label:"Kardex"},
   ];
-  const sellerTabs = [
+
+  // Full (gerardo, rosita) - todo
+  if (role === "full") return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"pos",icon:"🛒",label:"Vender"},
-    {id:"inventario",icon:"📦",label:"Stock"},
     {id:"ventas",icon:"📋",label:"Ventas"},
+    {id:"inventario",icon:"📦",label:"Stock"},
+    {id:"bodega",icon:"🏭",label:"Bodega"},
+    {id:"kardex",icon:"📒",label:"Kardex"},
+    {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
-  if (state.userInfo?.canKardex) sellerTabs.push({id:"kardex",icon:"📒",label:"Kardex"});
-  sellerTabs.push({id:"cambiar",icon:"🔄",label:"Cambiar"});
-  return sellerTabs;
+
+  // Asesor - vender + inventario stand
+  return [
+    {id:"dashboard",icon:"📊",label:"Inicio"},
+    {id:"pos",icon:"🛒",label:"Vender"},
+    {id:"ventas",icon:"📋",label:"Ventas"},
+    {id:"inventario",icon:"📦",label:"Stock"},
+    {id:"cambiar",icon:"🔄",label:"Cambiar"},
+  ];
 }
 
 function renderTab() {
   const role = state.userInfo.role;
-  if (state.tab === "cambiar" && role === "seller") {
+  if (state.tab === "cambiar" && (role === "full" || role === "asesor")) {
     state.selectedStand = null;
     state.tab = "pos";
     render();
     return "";
   }
   switch(state.tab) {
-    case "dashboard":  return role==="admin" ? renderAdminDashboard() : role==="bodega" ? renderBodegaDashboard() : renderStandDashboard();
+    case "dashboard":  return (role==="admin"||role==="full") ? renderAdminDashboard() : role==="bodega" ? renderBodegaDashboard() : renderStandDashboard();
     case "pos":        return renderPOS();
     case "inventario": return renderInventario();
     case "ventas":     return renderVentas();
@@ -504,7 +598,7 @@ function renderStandDashboard() {
   const topMap={};
   todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
   const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
-  const standId = state.userInfo.role==="seller" ? state.selectedStand : state.userInfo.stand;
+  const standId = (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand;
   const inv = state.inventory[standId] || {};
   const lowStock = CATALOG.filter(p=>((inv[p.id]||0)>0&&(inv[p.id]||0)<=3));
   const outStock = CATALOG.filter(p=>(inv[p.id]||0)===0);
@@ -642,7 +736,7 @@ function renderPOS() {
     </div>`;
   }
 
-  const inv = state.inventory[state.userInfo.role==="seller"?state.selectedStand:state.userInfo.stand] || {};
+  const inv = state.inventory[(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand] || {};
   const visible = CATALOG.filter(p=>state.catFilter==="all"||p.cat===state.catFilter);
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
   const discAmt = subtotal*state.discount/100;
@@ -653,7 +747,45 @@ function renderPOS() {
     ${CATS.map(c=>`<button class="filter-btn ${state.catFilter===c.id?"active":""}" data-cat="${c.id}">${c.label}</button>`).join("")}
   </div>
 
+  ${state.catFilter === "rutinas" ? `
+  ${state.rutinaModal ? `
+  <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:flex-end;">
+    <div style="background:white;width:100%;border-radius:20px 20px 0 0;padding:20px;max-height:80vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--purple);">${RUTINAS.find(r=>r.id===state.rutinaModal)?.name}</div>
+          <div style="font-size:22px;font-weight:900;color:var(--lime);">${fmt(RUTINAS.find(r=>r.id===state.rutinaModal)?.price||0)}</div>
+        </div>
+        <button id="close-rutina-modal" style="background:var(--lavender-light);border:none;border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--gray);margin-bottom:4px;">Base: ${RUTINAS.find(r=>r.id===state.rutinaModal)?.desc}</div>
+      ${RUTINAS.find(r=>r.id===state.rutinaModal)?.gifts?`<div style="font-size:12px;color:var(--lime);font-weight:700;margin-bottom:16px;">🎁 Obsequio: ${RUTINAS.find(r=>r.id===state.rutinaModal)?.gifts}</div>`:""}
+      <div class="section-title">Elige la variante:</div>
+      ${(RUTINAS.find(r=>r.id===state.rutinaModal)?.variantes||[]).map(v=>`
+        <button data-add-rutina="${state.rutinaModal}" data-variante="${v.id}" style="width:100%;text-align:left;padding:12px;border-radius:12px;border:1.5px solid var(--lavender);background:white;margin-bottom:8px;cursor:pointer;font-family:inherit;">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${v.label}</div>
+          <div style="font-size:11px;color:var(--gray);">${v.items.map(i=>{ const p=CATALOG.find(c=>c.id===i.id); return (p?.name||i.id)+" "+( p?.sub||"")+(i.q>1?" ×"+i.q:""); }).join(" + ")}</div>
+        </button>
+      `).join("")}
+    </div>
+  </div>` : ""}
   <div class="product-grid">
+    ${RUTINAS.map(r=>{
+      const inCart = state.cart.find(i=>i.id===r.id);
+      return `<button class="product-card ${inCart?"in-cart":""}" data-rutina-open="${r.id}">
+        <div class="p-emoji">${r.emoji}</div>
+        <div class="p-name" style="font-size:13px;">${r.name}</div>
+        <div class="p-sub">${r.desc}</div>
+        ${r.gifts?`<div style="font-size:10px;color:var(--lime);margin-top:3px;">🎁 ${r.gifts}</div>`:""}
+        <div class="p-bottom" style="margin-top:8px;">
+          <span class="p-price">${fmt(r.price)}</span>
+          <span style="font-size:10px;color:var(--gray);">${r.variantes.length} var.</span>
+        </div>
+        ${inCart?`<div class="p-cart-qty">En carrito</div>`:""}
+      </button>`;
+    }).join("")}
+  </div>` :
+  `<div class="product-grid">
     ${visible.map(p=>{
       const stock = inv[p.id]||0;
       const inCart = state.cart.find(i=>i.id===p.id);
@@ -669,7 +801,7 @@ function renderPOS() {
         ${inCart?`<div class="p-cart-qty">× ${inCart.qty} en carrito</div>`:""}
       </button>`;
     }).join("")}
-  </div>
+  </div>`}
 
   ${state.cart.length>0?`
   <div class="card card-lavender" style="margin-top:12px;">
@@ -729,7 +861,7 @@ function renderPOS() {
 // ─── INVENTARIO ──────────────────────────────────────────────
 function renderInventario() {
   const role = state.userInfo.role;
-  const standId = role==="admin" ? (state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter) : role==="seller" ? state.selectedStand : state.userInfo.stand;
+  const standId = (role==="admin"||role==="full") ? (state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter) : (role==="asesor") ? state.selectedStand : state.userInfo.stand;
   const inv = state.inventory[standId] || {};
   const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
 
@@ -921,6 +1053,86 @@ function renderAdminBodega() {
   </div>`;
 }
 
+
+// ─── KARDEX ──────────────────────────────────────────────────
+function renderKardex() {
+  const canAdd = state.userInfo?.canKardex;
+  const movs = (state.kardexMovements || []).filter(m =>
+    state.kardexFilter === "all" || m.product === state.kardexFilter
+  ).sort((a,b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+
+  return `
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Kardex de Bodega</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Registro de entradas y salidas</div>
+  </div>
+
+  ${canAdd ? `<div class="card card-lavender" style="margin-bottom:12px;">
+    <div class="section-title">Nueva Entrada de Produccion</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <select class="dispatch-select" id="kardex-product">
+        <option value="">Selecciona producto...</option>
+        ${CATALOG.map(p=>`<option value="${p.id}" ${state.kardexProduct===p.id?"selected":""}>${p.name} ${p.sub}</option>`).join("")}
+      </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <input type="number" class="dispatch-input" id="kardex-qty" min="1" placeholder="Cantidad" value="${state.kardexQty}">
+        <input type="text" class="dispatch-input" id="kardex-lote" placeholder="Lote" value="${state.kardexLote}">
+      </div>
+      <input type="text" class="dispatch-input" id="kardex-obs" placeholder="Observacion (opcional)" value="${state.kardexObs}">
+      <button class="btn-lime btn-lime-full" id="kardex-save-btn" ${state.kardexSaving?"disabled":""}>
+        ${state.kardexSaving?"Guardando...":"Registrar Entrada"}
+      </button>
+    </div>
+  </div>` : ""}
+
+  <div class="card" style="margin-bottom:12px;">
+    <select class="dispatch-select" id="kardex-filter">
+      <option value="all">Todos los productos</option>
+      ${CATALOG.map(p=>`<option value="${p.id}" ${state.kardexFilter===p.id?"selected":""}>${p.name} ${p.sub}</option>`).join("")}
+    </select>
+  </div>
+
+  ${movs.length===0
+    ? `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin movimientos registrados</div>`
+    : movs.map(m=>{
+        const p = CATALOG.find(c=>c.id===m.product);
+        const isE = m.type==="entrada";
+        return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${isE?"var(--lime)":"var(--red)"};">
+          <div style="display:flex;justify-content:space-between;">
+            <div>
+              <div style="font-size:11px;color:var(--gray);">${fmtDate(m.fecha)} - ${fmtTime(m.timestamp)}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--purple);">${p?.name||m.product} ${p?.sub||""}</div>
+              <div style="font-size:11px;color:var(--gray);">${m.lote?"Lote: "+m.lote:""}${m.type==="salida"?" a "+( STANDS.find(s=>s.id===m.to)?.name||m.to||""):""}${m.obs?" - "+m.obs:""}</div>
+              <div style="font-size:11px;color:var(--gray);">Por: ${m.registradoPor||"sistema"}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:900;color:${isE?"var(--lime)":"var(--red)"};">${isE?"+":"-"}${m.qty}</div>
+              <div style="font-size:10px;color:var(--gray);">${isE?"ENTRADA":"SALIDA"}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join("")}`;
+}
+
+async function handleKardexEntrada() {
+  const product = state.kardexProduct;
+  const qty = parseInt(state.kardexQty)||0;
+  if(!product||qty<=0) { showToast("Selecciona producto y cantidad","err"); return; }
+  state.kardexSaving = true; render();
+  try {
+    const mov = { id:genId(), fecha:today(), timestamp:new Date().toISOString(), type:"entrada", product, qty, lote:state.kardexLote.trim(), obs:state.kardexObs, registradoPor:state.user.email };
+    await db.collection("kardex").doc(mov.id).set(mov);
+    const inv = {...(state.inventory["bodega"]||{})};
+    inv[product] = (inv[product]||0)+qty;
+    await db.collection("inventarios").doc("bodega").set(inv);
+    state.inventory["bodega"] = inv;
+    state.kardexProduct=""; state.kardexQty=""; state.kardexLote=""; state.kardexObs="";
+    state.kardexSaving=false;
+    showToast("Entrada registrada: "+qty+" uds");
+    render();
+  } catch(e) { state.kardexSaving=false; showToast("Error: "+e.message,"err"); render(); }
+}
+
 // ─── HELPERS ─────────────────────────────────────────────────
 function getLast7(sales) {
   return Array.from({length:7},(_,i)=>{
@@ -1006,7 +1218,7 @@ function bindApp() {
 
   // Inventory edit
   document.querySelectorAll("[data-edit-stock]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=state.userInfo.role==="seller"?state.selectedStand:state.userInfo.stand; const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand; const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
   });
   document.querySelectorAll("[data-edit-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ const id=btn.dataset.editBodega; state.editingStock=id; const inv=state.inventory["bodega"]||{}; state.editStockVal=String(inv[id]||0); render(); });
@@ -1015,7 +1227,7 @@ function bindApp() {
   document.getElementById("inv-input")?.addEventListener("input",e=>{ state.editStockVal=e.target.value; });
 
   document.querySelectorAll("[data-save]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ const sId=state.userInfo.role==="seller"?state.selectedStand:state.userInfo.stand; handleUpdateStock(sId, btn.dataset.save, parseInt(state.editStockVal)||0); });
+    btn.addEventListener("click",()=>{ const sId=(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand; handleUpdateStock(sId, btn.dataset.save, parseInt(state.editStockVal)||0); });
   });
   document.querySelectorAll("[data-save-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ handleUpdateStock("bodega", btn.dataset.saveBodega, parseInt(state.editStockVal)||0); });
@@ -1026,6 +1238,36 @@ function bindApp() {
   document.getElementById("dispatch-target")?.addEventListener("change",e=>{ state.dispatchTarget=e.target.value; });
   document.getElementById("dispatch-qty")?.addEventListener("input",e=>{ state.dispatchQty=e.target.value; });
   document.getElementById("dispatch-btn")?.addEventListener("click", handleDispatch);
+
+  // Rutinas
+  document.querySelectorAll("[data-rutina-open]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.rutinaModal=btn.dataset.rutinaOpen; render(); });
+  });
+  document.getElementById("close-rutina-modal")?.addEventListener("click",()=>{ state.rutinaModal=null; render(); });
+  document.querySelectorAll("[data-add-rutina]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const rutinaId = btn.dataset.addRutina;
+      const varId = btn.dataset.variante;
+      const rutina = RUTINAS.find(r=>r.id===rutinaId);
+      const variante = rutina?.variantes.find(v=>v.id===varId);
+      if(!rutina||!variante) return;
+      const cartItem = {
+        id: varId,
+        rutinaId,
+        name: rutina.name,
+        sub: variante.label,
+        price: rutina.price,
+        qty: 1,
+        isRutina: true,
+        items: variante.items,
+      };
+      const ex = state.cart.find(i=>i.id===varId);
+      if(ex) state.cart = state.cart.map(i=>i.id===varId?{...i,qty:i.qty+1}:i);
+      else state.cart = [...state.cart, cartItem];
+      state.rutinaModal = null;
+      render();
+    });
+  });
 
   // Kardex
   document.getElementById("kardex-product")?.addEventListener("change",e=>{ state.kardexProduct=e.target.value; });
@@ -1047,8 +1289,8 @@ async function handleSell() {
     id: genId(),
     fecha: today(),
     timestamp: new Date().toISOString(),
-    stand: state.userInfo.role==="seller" ? state.selectedStand : state.userInfo.stand,
-    items: state.cart.map(i=>({id:i.id,ref:i.ref,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty})),
+    stand: (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand,
+    items: state.cart.map(i=>({id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null})),
     subtotal, descuento:state.discount, descuentoAmt:discAmt, total,
     pago: state.payment, nota: state.note
   };
@@ -1058,9 +1300,15 @@ async function handleSell() {
     await db.collection("ventas").doc(sale.id).set(sale);
 
     // Actualizar inventario del stand
-    const standId = state.userInfo.role==="seller" ? state.selectedStand : state.userInfo.stand;
+    const standId = (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand;
     const inv = {...(state.inventory[standId]||{})};
-    sale.items.forEach(item=>{ inv[item.id]=Math.max(0,(inv[item.id]||0)-item.qty); });
+    sale.items.forEach(item=>{
+      if(item.isRutina && item.rutinaItems) {
+        item.rutinaItems.forEach(ri=>{ inv[ri.id]=Math.max(0,(inv[ri.id]||0)-(ri.q*item.qty)); });
+      } else {
+        inv[item.id]=Math.max(0,(inv[item.id]||0)-item.qty);
+      }
+    });
     await db.collection("inventarios").doc(standId).set(inv);
 
     state.inventory[standId] = inv;
@@ -1198,7 +1446,7 @@ function setupListeners(userInfo) {
 
   // Listen to sales - stand only sees own, admin/bodega sees all
   let salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(200);
-  if(userInfo.role==="seller" && state.selectedStand) salesQuery = salesQuery.where("stand","==",state.selectedStand);
+  if(userInfo.role==="asesor" && state.selectedStand) salesQuery = salesQuery.where("stand","==",state.selectedStand);
 
   state.unsubSales = salesQuery.onSnapshot(snap=>{
     state.sales = snap.docs.map(d=>d.data());
@@ -1219,7 +1467,7 @@ auth.onAuthStateChanged(user=>{
     if(!userInfo) { auth.signOut(); state.loading=false; render(); return; }
     state.user = user;
     state.userInfo = userInfo;
-    state.tab = userInfo.role==="seller"?"pos":userInfo.role==="bodega"?"dashboard":"dashboard";
+    state.tab = (userInfo.role==="full"||userInfo.role==="asesor")?"pos":"dashboard";
     state.loading = false;
     setupListeners(userInfo);
     render();
