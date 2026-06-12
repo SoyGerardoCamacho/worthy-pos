@@ -364,7 +364,11 @@ const RUTINAS = [
 
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n).toFixed(2)}`;
-const today = () => new Date().toISOString().slice(0,10);
+// Ecuador no usa horario de verano: UTC-5 fijo
+const today = () => {
+  const d = new Date(Date.now() - 5*60*60*1000); // ajusta a hora Ecuador
+  return d.toISOString().slice(0,10);
+};
 const fmtDate = iso => new Date(iso+"T12:00:00").toLocaleDateString("es-EC",{day:"2-digit",month:"short",year:"numeric"});
 const fmtTime = ts => new Date(ts).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"});
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -1171,25 +1175,6 @@ function renderKardex() {
       }).join("")}`;
 }
 
-async function handleKardexEntrada() {
-  const product = state.kardexProduct;
-  const qty = parseInt(state.kardexQty)||0;
-  if(!product||qty<=0) { showToast("Selecciona producto y cantidad","err"); return; }
-  state.kardexSaving = true; render();
-  try {
-    const mov = { id:genId(), fecha:today(), timestamp:new Date().toISOString(), type:"entrada", product, qty, lote:state.kardexLote.trim(), obs:state.kardexObs, registradoPor:state.user.email };
-    await db.collection("kardex").doc(mov.id).set(mov);
-    const inv = {...(state.inventory["bodega"]||{})};
-    inv[product] = (inv[product]||0)+qty;
-    await db.collection("inventarios").doc("bodega").set(inv);
-    state.inventory["bodega"] = inv;
-    state.kardexProduct=""; state.kardexQty=""; state.kardexLote=""; state.kardexObs="";
-    state.kardexSaving=false;
-    showToast("Entrada registrada: "+qty+" uds");
-    render();
-  } catch(e) { state.kardexSaving=false; showToast("Error: "+e.message,"err"); render(); }
-}
-
 async function handleKardexEditSave(id) {
   const movs = state.kardexMovements || [];
   const original = movs.find(m=>m.id===id);
@@ -1545,6 +1530,7 @@ async function handleDispatch() {
 
 
 async function handleKardexEntrada() {
+  if (state.kardexSaving) return; // evita doble-registro por doble click
   const product = state.kardexProduct;
   const qty = parseInt(state.kardexQty)||0;
   const lote = state.kardexLote.trim();
