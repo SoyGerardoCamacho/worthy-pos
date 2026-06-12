@@ -276,6 +276,29 @@ const STANDS = [
   { id:"mercadito",    name:"El Mercadito" },
 ];
 
+// Puntos de venta para el POS (incluye Oficina, que vende desde el inventario de Bodega Central)
+const PUNTOS_VENTA = [
+  ...STANDS,
+  { id:"oficina", name:"Oficina", invSource:"bodega" },
+];
+
+function getInvSourceForStand(standId) {
+  const pv = PUNTOS_VENTA.find(p=>p.id===standId);
+  return (pv && pv.invSource) ? pv.invSource : standId;
+}
+
+// El punto de venta activo (donde se registra la venta): para full/asesor/bodega es selectedStand, para "stand" es su propio stand
+function getActiveSaleStandId() {
+  const role = state.userInfo.role;
+  if (role==="full"||role==="asesor"||role==="bodega") return state.selectedStand;
+  return state.userInfo.stand;
+}
+
+// El inventario real que se lee/descuenta para la venta (Oficina -> bodega)
+function getActiveInvSourceId() {
+  return getInvSourceForStand(getActiveSaleStandId());
+}
+
 const CATS = [
   { id:"all",     label:"Todos"    },
   { id:"aceite",  label:"Aceite"   },
@@ -466,7 +489,7 @@ function renderFinanzas() {
   </div>
 
   <div class="store-selector">
-    ${[{id:"all",name:"Todos"},...STANDS].map(s=>`<button class="store-btn ${state.finStore===s.id?"active":""}" data-fin-store="${s.id}">${s.name}</button>`).join("")}
+    ${[{id:"all",name:"Todos"},...PUNTOS_VENTA].map(s=>`<button class="store-btn ${state.finStore===s.id?"active":""}" data-fin-store="${s.id}">${s.name}</button>`).join("")}
   </div>
 
   <div class="filter-bar">
@@ -484,7 +507,7 @@ function renderFinanzas() {
 function renderPYG(d) {
   return `
   <div class="card">
-    <div class="section-title">${d.periodLabel} ${state.finStore==="all"?"· Todos los locales":"· "+STANDS.find(s=>s.id===state.finStore)?.name}</div>
+    <div class="section-title">${d.periodLabel} ${state.finStore==="all"?"· Todos los locales":"· "+PUNTOS_VENTA.find(s=>s.id===state.finStore)?.name}</div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
       <span style="font-size:13px;font-weight:700;color:var(--purple);">Ventas (ingresos)</span>
@@ -596,7 +619,7 @@ function renderGastosForm(filteredGastos) {
     <div style="display:flex;flex-direction:column;gap:10px;">
       <input type="date" class="dispatch-input" id="gasto-fecha" value="${state.gastoFecha}">
       <select class="dispatch-select" id="gasto-stand">
-        ${STANDS.map(s=>`<option value="${s.id}" ${state.gastoStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+        ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.gastoStand===s.id?"selected":""}>${s.name}</option>`).join("")}
       </select>
       <select class="dispatch-select" id="gasto-cat">
         ${GASTO_CATS.map(c=>`<option value="${c.id}" ${state.gastoCat===c.id?"selected":""}>${c.icon} ${c.label}</option>`).join("")}
@@ -621,7 +644,7 @@ function renderGastosForm(filteredGastos) {
             <div style="display:flex;flex-direction:column;gap:10px;">
               <input type="date" class="dispatch-input" id="eg-edit-fecha" value="${state.egEditFecha}">
               <select class="dispatch-select" id="eg-edit-stand">
-                ${STANDS.map(s=>`<option value="${s.id}" ${state.egEditStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+                ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.egEditStand===s.id?"selected":""}>${s.name}</option>`).join("")}
               </select>
               <select class="dispatch-select" id="eg-edit-cat">
                 ${GASTO_CATS.map(c=>`<option value="${c.id}" ${state.egEditCat===c.id?"selected":""}>${c.icon} ${c.label}</option>`).join("")}
@@ -639,7 +662,7 @@ function renderGastosForm(filteredGastos) {
         return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--red);">
           <div style="display:flex;justify-content:space-between;">
             <div>
-              <div style="font-size:11px;color:var(--gray);">${fmtDate(g.fecha)} · ${STANDS.find(s=>s.id===g.stand)?.name||g.stand}</div>
+              <div style="font-size:11px;color:var(--gray);">${fmtDate(g.fecha)} · ${PUNTOS_VENTA.find(s=>s.id===g.stand)?.name||g.stand}</div>
               <div style="font-size:13px;font-weight:700;color:var(--purple);">${cat?.icon||"📎"} ${cat?.label||g.cat}</div>
               ${g.nota?`<div style="font-size:11px;color:var(--gray);">${g.nota}</div>`:""}
             </div>
@@ -730,21 +753,30 @@ function render() {
     bindStandSelector();
     return;
   }
+  if (state.userInfo.role === "bodega" && state.tab === "pos" && !state.selectedStand) {
+    app.innerHTML = renderStandSelector();
+    bindStandSelector();
+    return;
+  }
   app.innerHTML = renderApp();
   bindApp();
 }
 
 function renderStandSelector() {
+  const role = state.userInfo.role;
+  const options = role==="bodega"
+    ? PUNTOS_VENTA.filter(p=>p.id==="oficina")
+    : PUNTOS_VENTA;
   return `<div class="login-screen">
     <div class="login-logo">WORTHY</div>
     <div class="login-sub">Hola ${state.userInfo.name} 👋</div>
     <div class="login-card">
       <h2>¿En qué punto estás hoy?</h2>
-      ${STANDS.map(s => `<button class="btn-primary" data-select-stand="${s.id}" style="margin-bottom:12px;background:var(--purple);">
-        🏪 ${s.name}
+      ${options.map(s => `<button class="btn-primary" data-select-stand="${s.id}" style="margin-bottom:12px;background:var(--purple);">
+        ${s.id==="oficina"?"🏢":"🏪"} ${s.name}
       </button>`).join("")}
       <button id="logout-btn-select" style="width:100%;background:transparent;border:none;color:var(--gray);font-size:13px;cursor:pointer;margin-top:8px;font-family:inherit;">Cerrar sesión</button>
-      ${state.userInfo.role==="full"?`<button id="back-dashboard-btn" style="width:100%;background:transparent;border:none;color:var(--purple);font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;font-family:inherit;">← Volver al inicio</button>`:""}
+      ${state.userInfo.role==="full"||state.userInfo.role==="bodega"?`<button id="back-dashboard-btn" style="width:100%;background:transparent;border:none;color:var(--purple);font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;font-family:inherit;">← Volver al inicio</button>`:""}
     </div>
   </div>`;
 }
@@ -822,7 +854,7 @@ function renderApp() {
     <div class="header">
       <div class="header-brand">
         <div class="brand-name">WORTHY</div>
-        <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor")&&state.selectedStand?" · "+STANDS.find(s=>s.id===state.selectedStand)?.name:""}</div>
+        <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor"||u.role==="bodega")&&state.selectedStand?" · "+PUNTOS_VENTA.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
         ${u.role==="stand"?`<div><div class="today-total">${fmt(todayTotal)} hoy</div><div class="today-date">${fmtDate(today())}</div></div>`:""}
@@ -860,9 +892,11 @@ function getTabsForRole(role) {
   // Bodega - solo bodega central
   if (role === "bodega") return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
+    {id:"pos",icon:"🛒",label:"Vender"},
     {id:"inventario",icon:"📦",label:"Bodega"},
     {id:"despachar",icon:"🚚",label:"Despachar"},
     {id:"kardex",icon:"📒",label:"Kardex"},
+    {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
 
   // Full (gerardo, rosita) - todo
@@ -896,6 +930,12 @@ function renderTab() {
     return "";
   }
   if (state.tab === "cambiar" && role === "full") {
+    state.selectedStand = null;
+    state.tab = "dashboard";
+    render();
+    return "";
+  }
+  if (state.tab === "cambiar" && role === "bodega") {
     state.selectedStand = null;
     state.tab = "dashboard";
     render();
@@ -998,7 +1038,7 @@ function renderBodegaDashboard() {
 
 // ─── ADMIN DASHBOARD ─────────────────────────────────────────
 function renderAdminDashboard() {
-  const stores = [{id:"all",name:"Todos"},...STANDS];
+  const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
   const filteredSales = state.adminStoreFilter==="all"
     ? state.sales
     : state.sales.filter(s=>s.stand===state.adminStoreFilter);
@@ -1021,7 +1061,7 @@ function renderAdminDashboard() {
   const maxPay = Math.max(...byPay.map(p=>p.total),1);
 
   // Ventas por stand hoy
-  const standTotals = STANDS.map(st=>({
+  const standTotals = PUNTOS_VENTA.map(st=>({
     ...st,
     total: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).reduce((s,v)=>s+Number(v.total),0),
     count: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).length,
@@ -1094,7 +1134,7 @@ function renderAdminDashboard() {
     <div class="section-title">Ventas por local · hoy</div>
     ${standTotals.map(st=>`<div style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-        <div><span style="font-size:12px;font-weight:700;color:var(--purple);">🏪 ${st.name}</span>
+        <div><span style="font-size:12px;font-weight:700;color:var(--purple);">${st.id==="oficina"?"🏢":"🏪"} ${st.name}</span>
         <span style="font-size:10px;color:var(--gray);"> · ${st.count} tx</span></div>
         <span style="font-size:13px;font-weight:900;color:var(--purple);">${fmt(st.total)}</span>
       </div>
@@ -1169,7 +1209,7 @@ function renderPOS() {
     </div>`;
   }
 
-  const inv = state.inventory[(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand] || {};
+  const inv = state.inventory[getActiveInvSourceId()] || {};
   const visible = CATALOG.filter(p=>state.catFilter==="all"||p.cat===state.catFilter);
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
   const discAmt = subtotal*state.discount/100;
@@ -1538,7 +1578,7 @@ function renderVentas() {
     :filteredSales.map(sale=>`<div class="card sale-card" style="margin-bottom:8px;">
       <div class="sale-header">
         <div style="flex:1;min-width:0;">
-          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${STANDS.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}</div>
+          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}</div>
           <div class="sale-items">${sale.items?sale.items.map(i=>`${i.name} ×${i.qty}`).join(" · "):"—"}</div>
           ${sale.nota?`<div class="sale-note">📝 ${sale.nota}</div>`:""}
         </div>
@@ -2008,8 +2048,7 @@ function bindApp() {
       const rutina = RUTINAS.find(r=>r.id===rutinaId);
       const variante = rutina?.variantes.find(v=>v.id===varId);
       if(!rutina||!variante) return;
-      const stand = (state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand;
-      const invNow = state.inventory[stand]||{};
+      const invNow = state.inventory[getActiveInvSourceId()]||{};
       if(!varianteDisponible(variante, invNow)) { showToast("Sin stock suficiente para esta variante","err"); return; }
       const cartItem = {
         id: varId,
@@ -2074,7 +2113,7 @@ async function handleSell() {
     id: genId(),
     fecha: today(),
     timestamp: new Date().toISOString(),
-    stand: (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand,
+    stand: getActiveSaleStandId(),
     items: state.cart.map(i=>({id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null})),
     subtotal, descuento:state.discount, descuentoAmt:discAmt, total,
     pago: state.payment, nota: state.note
@@ -2084,9 +2123,9 @@ async function handleSell() {
     // Guardar venta
     await db.collection("ventas").doc(sale.id).set(sale);
 
-    // Actualizar inventario del stand
-    const standId = (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand;
-    const inv = {...(state.inventory[standId]||{})};
+    // Actualizar inventario (Oficina descuenta de Bodega Central)
+    const invSourceId = getInvSourceForStand(sale.stand);
+    const inv = {...(state.inventory[invSourceId]||{})};
     sale.items.forEach(item=>{
       if(item.isRutina && item.rutinaItems) {
         item.rutinaItems.forEach(ri=>{ inv[ri.id]=Math.max(0,(inv[ri.id]||0)-(ri.q*item.qty)); });
@@ -2094,9 +2133,9 @@ async function handleSell() {
         inv[item.id]=Math.max(0,(inv[item.id]||0)-item.qty);
       }
     });
-    await db.collection("inventarios").doc(standId).set(inv);
+    await db.collection("inventarios").doc(invSourceId).set(inv);
 
-    state.inventory[standId] = inv;
+    state.inventory[invSourceId] = inv;
     state.sales = [...state.sales, sale];
     state.cart = [];
     state.discount = 0;
