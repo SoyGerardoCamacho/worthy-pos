@@ -1038,6 +1038,7 @@ function renderInventario() {
   // Roles con vista multi-punto: full y bodega (Gerardo, Rosita, Bodega Central)
   if (role==="admin" || role==="full" || role==="bodega") {
     const view = state.stockView || "consolidado";
+    const canSeeCosts = (role==="full" || role==="bodega");
 
     if (view === "consolidado") {
       const totalGeneral = STOCK_POINTS.reduce((sum,pt)=>{
@@ -1057,13 +1058,13 @@ function renderInventario() {
 
       <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div>
-          <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor total al costo (todos los puntos)</div>
-          <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalGeneral)}</div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${canSeeCosts?"Valor total al costo (todos los puntos)":"Unidades totales (todos los puntos)"}</div>
+          ${canSeeCosts?`<div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalGeneral)}</div>`:`<div style="font-size:28px;font-weight:900;color:var(--lime);">${totalUnitsGeneral} uds</div>`}
         </div>
-        <div style="text-align:right;">
+        ${canSeeCosts?`<div style="text-align:right;">
           <div style="font-size:11px;color:var(--lavender);">${totalUnitsGeneral} uds</div>
           <div style="font-size:10px;color:var(--lavender);">en total</div>
-        </div>
+        </div>`:""}
       </div>
 
       <div class="section-title">Stock por SKU — todos los puntos</div>
@@ -1109,7 +1110,6 @@ function renderInventario() {
     const point = STOCK_POINTS.find(pt=>pt.id===view) || STOCK_POINTS[0];
     const inv = state.inventory[point.id] || {};
     const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
-    const canEditCost = (role==="full"||role==="bodega");
 
     return `
     <div class="filter-bar">
@@ -1119,44 +1119,39 @@ function renderInventario() {
 
     <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div>
-        <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${point.emoji} ${point.name} · valor al costo</div>
-        <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>
+        <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${point.emoji} ${point.name}${canSeeCosts?" · valor al costo":""}</div>
+        ${canSeeCosts?`<div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>`:`<div style="font-size:28px;font-weight:900;color:var(--lime);">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} uds</div>`}
       </div>
-      <div style="text-align:right;">
+      ${canSeeCosts?`<div style="text-align:right;">
         <div style="font-size:11px;color:var(--lavender);">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} uds</div>
         <div style="font-size:10px;color:var(--lavender);">en stock</div>
-      </div>
+      </div>`:""}
     </div>
 
-    <div class="section-title">Stock por SKU — toca ✏️ stock${canEditCost?" · 💲 costo":""}</div>
+    <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
     ${CATALOG.map(p=>{
       const stock = inv[p.id]||0;
       const level = stock>5?"green":stock>0?"amber":"red";
-      const cost = getCost(p.id);
       return `<div class="card" style="margin-bottom:8px;">
         <div class="inv-item">
           <span class="inv-emoji">${p.emoji}</span>
           <div class="inv-info">
             <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
-            <div class="inv-sub">${p.ref} · PVP ${fmt(p.price)} · Costo ${cost>0?fmt(cost):'<span style="color:var(--red);">sin definir</span>'}</div>
+            <div class="inv-sub">${p.ref} · ${fmt(p.price)}</div>
           </div>
           ${state.editingStock===p.id?`
             <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
             <button class="btn-lime btn-sm" id="inv-save" data-save="${p.id}">OK</button>
             <button class="btn-ghost btn-sm" id="inv-cancel">✕</button>
-          `:state.editingCost===p.id?`
-            <input type="number" class="inv-edit-input" id="cost-input" value="${state.editCostVal}" min="0" step="0.01" style="width:70px;">
-            <button class="btn-lime btn-sm" id="cost-save" data-cost-save="${p.id}">OK</button>
-            <button class="btn-ghost btn-sm" id="cost-cancel">✕</button>
           `:`
             <span class="badge badge-${level}">${stock} uds</span>
             <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>
-            ${canEditCost?`<button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-cost="${p.id}">💲</button>`:""}
           `}
         </div>
       </div>`;
     }).join("")}`;
   }
+
 
   // Asesor / stand: solo su propio punto, sin selector
   const standId = getInvStandId();
@@ -1305,12 +1300,14 @@ function renderDespachar() {
 
 // ─── ADMIN BODEGA ────────────────────────────────────────────
 function renderAdminBodega() {
+  const role = state.userInfo.role;
   const inv = state.inventory["bodega"] || {};
+  const canSeeCosts = (role==="full" || role==="bodega");
   return `
   <div class="card card-purple" style="margin-bottom:12px;padding:16px;">
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Bodega Central</div>
     <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0))}</div>
-    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} unidades totales</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} unidades totales${canSeeCosts?" · valor al costo":""}</div>
   </div>
 
   <div class="card">
@@ -1331,6 +1328,30 @@ function renderAdminBodega() {
       </div>`;
     }).join("")}
   </div>
+
+  ${canSeeCosts?`<div class="card" style="margin-top:12px;">
+    <div class="section-title">Costos · ${role==="full"?"toca 💲 para editar":"toca 💲 para editar"}</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Información privada — solo visible para Gerardo, Rosita y Bodega Central</div>
+    ${CATALOG.map(p=>{
+      const cost = getCost(p.id);
+      const margin = cost>0 ? ((p.price-cost)/p.price*100) : null;
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:20px;">${p.emoji}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
+          <div style="font-size:10px;color:var(--gray);">PVP ${fmt(p.price)}${margin!==null?` · margen ${margin.toFixed(0)}%`:""}</div>
+        </div>
+        ${state.editingCost===p.id?`
+          <input type="number" class="inv-edit-input" id="cost-input" value="${state.editCostVal}" min="0" step="0.01" style="width:70px;">
+          <button class="btn-lime btn-sm" data-cost-save="${p.id}">OK</button>
+          <button class="btn-ghost btn-sm" id="cost-cancel">✕</button>
+        `:`
+          <span class="badge badge-${cost>0?"purple":"red"}">${cost>0?fmt(cost):"sin definir"}</span>
+          <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-cost="${p.id}">💲</button>
+        `}
+      </div>`;
+    }).join("")}
+  </div>`:""}
 
   <div class="card" style="margin-top:12px;">
     <div class="section-title">Inventario por Stand</div>
