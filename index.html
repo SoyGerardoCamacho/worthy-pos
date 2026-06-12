@@ -301,13 +301,30 @@ function getActiveInvSourceId() {
 
 const CATS = [
   { id:"all",     label:"Todos"    },
-  { id:"aceite",  label:"Aceite"   },
+  { id:"aceite",  label:"Óleos"    },
   { id:"balm",    label:"Bálsamos" },
   { id:"deo",     label:"Desod."   },
   { id:"shampoo", label:"Shampoo"  },
   { id:"tonico",  label:"Tónico"   },
   { id:"rutinas", label:"Rutinas"  },
 ];
+
+// Colores por categoria para las tarjetas de producto en Vender
+const CAT_COLORS = {
+  aceite:  "#8e4585",
+  tonico:  "#FFDE21",
+  balm:    "#ffc067",
+  deo:     "#0047ab",
+  shampoo: "#0BDA51",
+};
+
+// Determina si un color de fondo es oscuro (para decidir el color de texto)
+function isDarkColor(hex) {
+  const c = hex.replace("#","");
+  const r = parseInt(c.substr(0,2),16), g = parseInt(c.substr(2,2),16), b = parseInt(c.substr(4,2),16);
+  const luminance = (0.299*r + 0.587*g + 0.114*b)/255;
+  return luminance < 0.55;
+}
 
 // ─── RUTINAS ─────────────────────────────────────────────────
 const RUTINAS = [
@@ -1266,13 +1283,18 @@ function renderPOS() {
     ${visible.map(p=>{
       const stock = inv[p.id]||0;
       const inCart = state.cart.find(i=>i.id===p.id);
-      return `<button class="product-card ${inCart?"in-cart":""} ${stock===0?"out-stock":""}" data-product="${p.id}" ${stock===0?"disabled":""}>
+      const catColor = CAT_COLORS[p.cat];
+      const useColor = catColor && !inCart;
+      const textColor = useColor ? (isDarkColor(catColor) ? "#FFFFFF" : "var(--purple)") : null;
+      const subColor = useColor ? (isDarkColor(catColor) ? "rgba(255,255,255,0.85)" : "var(--purple-mid)") : null;
+      const style = useColor ? `style="background:${catColor};border-color:${catColor};"` : "";
+      return `<button class="product-card ${inCart?"in-cart":""} ${stock===0?"out-stock":""}" ${style} data-product="${p.id}" ${stock===0?"disabled":""}>
         <div class="p-emoji">${p.emoji}</div>
-        <div class="p-ref">${p.ref}</div>
-        <div class="p-name">${p.name}</div>
-        <div class="p-sub">${p.sub}</div>
+        <div class="p-ref" ${textColor?`style="color:${subColor};"`:""}>${p.ref}</div>
+        <div class="p-name" ${textColor?`style="color:${textColor};"`:""}>${p.name}</div>
+        <div class="p-sub" ${subColor?`style="color:${subColor};"`:""}>${p.sub}</div>
         <div class="p-bottom">
-          <span class="p-price">${fmt(p.price)}</span>
+          <span class="p-price" ${textColor?`style="color:${textColor};"`:""}>${fmt(p.price)}</span>
           <span class="badge badge-${stock>5?"green":stock>0?"amber":"red"}">${stock}</span>
         </div>
         ${inCart?`<div class="p-cart-qty">× ${inCart.qty} en carrito</div>`:""}
