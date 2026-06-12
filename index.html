@@ -1923,7 +1923,8 @@ function renderInventario() {
 // ─── VENTAS ──────────────────────────────────────────────────
 function renderVentas() {
   const role = state.userInfo.role;
-  let filteredSales = role==="admin" && state.adminStoreFilter!=="all"
+  const canFilterStore = role==="admin" || role==="full";
+  let filteredSales = (canFilterStore && state.adminStoreFilter!=="all")
     ? state.sales.filter(s=>s.stand===state.adminStoreFilter)
     : state.sales;
 
@@ -1935,8 +1936,8 @@ function renderVentas() {
   const byPay = PAYMENTS.map(pt=>({...pt,total:filteredSales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
 
   return `
-  ${role==="admin"?`<div class="store-selector">
-    ${[{id:"all",name:"Todos"},...STANDS].map(s=>`<button class="store-btn ${state.adminStoreFilter===s.id?"active":""}" data-store="${s.id}">${s.name}</button>`).join("")}
+  ${canFilterStore?`<div class="store-selector">
+    ${[{id:"all",name:"Todos"},...PUNTOS_VENTA].map(s=>`<button class="store-btn ${state.adminStoreFilter===s.id?"active":""}" data-store="${s.id}">${s.id==="oficina"?"🏢 ":s.id!=="all"?"🏪 ":""}${s.name}</button>`).join("")}
   </div>`:""}
 
   <div class="period-filter">
