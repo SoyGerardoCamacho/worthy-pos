@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
   --purple: #2D1B69;
@@ -383,6 +384,17 @@ function rutinaDisponible(rutina, inv) {
   return rutina.variantes.some(v => varianteDisponible(v, inv));
 }
 
+// Determina el standId a usar en la vista de Stock/Inventario segun el rol
+function getInvStandId() {
+  const role = state.userInfo.role;
+  if (role === "admin" || role === "full" || role === "bodega") {
+    const view = state.stockView || "consolidado";
+    return view === "consolidado" ? "quicentro" : view;
+  }
+  if (role === "asesor") return state.selectedStand;
+  return state.userInfo.stand;
+}
+
 // ─── APP STATE ────────────────────────────────────────────────
 let state = {
   user: null,
@@ -398,6 +410,7 @@ let state = {
   catFilter: "all",
   periodFilter: "today",
   adminStoreFilter: "all",
+  stockView: "consolidado",
   editingStock: null,
   editStockVal: "",
   success: null,
@@ -626,8 +639,9 @@ function renderStandDashboard() {
   const todaySales = state.sales.filter(s=>s.fecha===today());
   const todayTotal = todaySales.reduce((s,v)=>s+Number(v.total),0);
   const byPay = PAYMENTS.map(pt=>({...pt,t:todaySales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
-  const last7 = getLast7(state.sales);
-  const maxDay = Math.max(...last7.map(d=>d.total),1);
+  const last14 = getLastN(state.sales, 14);
+  const chartLabels = JSON.stringify(last14.map(d=>d.label));
+  const chartData = JSON.stringify(last14.map(d=>Number(d.total.toFixed(2))));
   const topMap={};
   todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
   const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -650,13 +664,9 @@ function renderStandDashboard() {
   </div>
 
   <div class="card">
-    <div class="section-title">Últimos 7 días</div>
-    <div class="bar-chart">
-      ${last7.map(d=>`<div class="bar-col">
-        ${d.total>0?`<div class="bar-val">${fmt(d.total).replace("$","")}</div>`:"<div></div>"}
-        <div class="bar ${d.isToday?"bar-today":"bar-other"}" style="height:${Math.max(6,(d.total/maxDay)*52)}px;"></div>
-        <div class="bar-day" style="color:${d.isToday?"var(--purple)":"var(--gray)"};font-weight:${d.isToday?800:600};">${d.label}</div>
-      </div>`).join("")}
+    <div class="section-title">Tendencia · últimos 14 días</div>
+    <div style="position:relative;width:100%;height:160px;" data-trend-chart='${chartLabels}|||${chartData}'>
+      <canvas id="trendChart" role="img" aria-label="Gráfico de línea de ventas diarias de los últimos 14 días">Tendencia de ventas de los últimos 14 días.</canvas>
     </div>
   </div>
 
@@ -715,8 +725,20 @@ function renderAdminDashboard() {
 
   const todaySales = filteredSales.filter(s=>s.fecha===today());
   const todayTotal = todaySales.reduce((s,v)=>s+Number(v.total),0);
-  const last7 = getLast7(filteredSales);
-  const maxDay = Math.max(...last7.map(d=>d.total),1);
+  const last14 = getLastN(filteredSales, 14);
+  const last7Filtered = last14.slice(-7);
+  const weekTotal = last7Filtered.reduce((s,d)=>s+d.total,0);
+  const weekTx = filteredSales.filter(s=>last7Filtered.some(d=>d.iso===s.fecha)).length;
+  const avgTicket = todaySales.length>0 ? todayTotal/todaySales.length : 0;
+
+  // Comparacion ayer vs hoy
+  const yestIso = (()=>{ const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
+  const yestTotal = filteredSales.filter(s=>s.fecha===yestIso).reduce((s,v)=>s+Number(v.total),0);
+  const pctChange = yestTotal>0 ? ((todayTotal-yestTotal)/yestTotal*100) : (todayTotal>0?100:0);
+
+  // Metodo de pago - hoy
+  const byPay = PAYMENTS.map(pt=>({...pt,total:todaySales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
+  const maxPay = Math.max(...byPay.map(p=>p.total),1);
 
   // Ventas por stand hoy
   const standTotals = STANDS.map(st=>({
@@ -724,6 +746,15 @@ function renderAdminDashboard() {
     total: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).reduce((s,v)=>s+Number(v.total),0),
     count: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).length,
   }));
+  const maxStand = Math.max(...standTotals.map(s=>s.total),1);
+
+  // Top productos hoy
+  const topMap={};
+  todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
+  const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const chartLabels = JSON.stringify(last14.map(d=>d.label));
+  const chartData = JSON.stringify(last14.map(d=>Number(d.total.toFixed(2))));
 
   return `
   <div class="store-selector">
@@ -731,32 +762,121 @@ function renderAdminDashboard() {
   </div>
 
   <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
-    <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">
-      ${state.adminStoreFilter==="all"?"Ventas consolidadas hoy":STANDS.find(s=>s.id===state.adminStoreFilter)?.name+" · hoy"}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">
+          ${state.adminStoreFilter==="all"?"Ventas consolidadas hoy":STANDS.find(s=>s.id===state.adminStoreFilter)?.name+" · hoy"}
+        </div>
+        <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
+        <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones</div>
+      </div>
+      ${yestTotal>0||todayTotal>0?`<div style="text-align:right;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.12);">
+        <div style="font-size:18px;font-weight:900;color:${pctChange>=0?"var(--lime)":"var(--red)"};">${pctChange>=0?"▲":"▼"} ${Math.abs(pctChange).toFixed(0)}%</div>
+        <div style="font-size:9px;color:var(--lavender);">vs. ayer</div>
+      </div>`:""}
     </div>
-    <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
-    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones</div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
+      <div class="stat-label" style="color:var(--gray);">Esta semana</div>
+      <div class="stat-value" style="color:var(--purple);">${fmt(weekTotal)}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px;">${weekTx} transacciones</div>
+    </div>
+    <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
+      <div class="stat-label" style="color:var(--gray);">Ticket promedio</div>
+      <div class="stat-value" style="color:var(--purple);">${fmt(avgTicket)}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px;">hoy</div>
+    </div>
   </div>
 
   <div class="card">
-    <div class="section-title">Últimos 7 días</div>
-    <div class="bar-chart">
-      ${last7.map(d=>`<div class="bar-col">
-        ${d.total>0?`<div class="bar-val">${fmt(d.total).replace("$","")}</div>`:"<div></div>"}
-        <div class="bar ${d.isToday?"bar-today":"bar-other"}" style="height:${Math.max(6,(d.total/maxDay)*52)}px;"></div>
-        <div class="bar-day" style="color:${d.isToday?"var(--purple)":"var(--gray)"};font-weight:${d.isToday?800:600};">${d.label}</div>
-      </div>`).join("")}
+    <div class="section-title">Tendencia · últimos 14 días</div>
+    <div style="position:relative;width:100%;height:160px;" data-trend-chart='${chartLabels}|||${chartData}'>
+      <canvas id="trendChart" role="img" aria-label="Gráfico de línea de ventas diarias de los últimos 14 días">Tendencia de ventas de los últimos 14 días.</canvas>
     </div>
   </div>
 
-  ${state.adminStoreFilter==="all"?`<div class="card">
-    <div class="section-title">Ventas por local hoy</div>
-    ${standTotals.map(st=>`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div><div style="font-size:13px;font-weight:700;color:var(--purple);">🏪 ${st.name}</div>
-      <div style="font-size:11px;color:var(--gray);">${st.count} transacciones</div></div>
-      <div style="font-size:16px;font-weight:900;color:var(--purple);">${fmt(st.total)}</div>
+  <div class="card">
+    <div class="section-title">Métodos de pago · hoy</div>
+    ${byPay.map(pt=>`<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:700;color:var(--purple);">${pt.icon} ${pt.label}</span>
+        <span style="font-size:12px;font-weight:800;color:var(--purple);">${fmt(pt.total)}</span>
+      </div>
+      <div style="height:8px;border-radius:8px;background:var(--lavender-light);overflow:hidden;">
+        <div style="height:100%;width:${(pt.total/maxPay*100)}%;background:var(--lime);border-radius:8px;transition:width 0.3s;"></div>
+      </div>
     </div>`).join("")}
+  </div>
+
+  ${state.adminStoreFilter==="all"?`<div class="card">
+    <div class="section-title">Ventas por local · hoy</div>
+    ${standTotals.map(st=>`<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <div><span style="font-size:12px;font-weight:700;color:var(--purple);">🏪 ${st.name}</span>
+        <span style="font-size:10px;color:var(--gray);"> · ${st.count} tx</span></div>
+        <span style="font-size:13px;font-weight:900;color:var(--purple);">${fmt(st.total)}</span>
+      </div>
+      <div style="height:8px;border-radius:8px;background:var(--lavender-light);overflow:hidden;">
+        <div style="height:100%;width:${(st.total/maxStand*100)}%;background:var(--purple);border-radius:8px;transition:width 0.3s;"></div>
+      </div>
+    </div>`).join("")}
+  </div>`:""}
+
+  ${top.length>0?`<div class="card">
+    <div class="section-title">Más vendido hoy</div>
+    ${top.map(([id,qty],idx)=>{const p=CATALOG.find(c=>c.id===id);const maxQty=top[0][1];return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
+      <span style="font-size:18px;">${p?.emoji||"📦"}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);">${p?.name||id} ${p?.sub||""}</div>
+        <div style="height:5px;border-radius:5px;background:var(--lavender-light);overflow:hidden;margin-top:3px;">
+          <div style="height:100%;width:${(qty/maxQty*100)}%;background:var(--lime);border-radius:5px;"></div>
+        </div>
+      </div>
+      <span class="badge badge-lime">${qty} uds</span>
+    </div>`;}).join("")}
   </div>`:""}`;
+}
+
+function renderTrendChart() {
+  const ctx = document.getElementById('trendChart');
+  if(!ctx) return;
+  const wrapper = ctx.parentElement;
+  const raw = wrapper?.dataset?.trendChart || "";
+  const [labelsJson, dataJson] = raw.split("|||");
+  if(!labelsJson || !dataJson) return;
+  let labels, data;
+  try { labels = JSON.parse(labelsJson); data = JSON.parse(dataJson); } catch(e) { return; }
+
+  if(ctx._chartInstance) { ctx._chartInstance.destroy(); }
+  ctx._chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Ventas',
+        data: data,
+        borderColor: '#8DC63F',
+        backgroundColor: 'rgba(141,198,63,0.12)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 2,
+        pointBackgroundColor: '#2D1B69',
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return '$' + c.parsed.y.toFixed(2); } } } },
+      scales: {
+        y: { ticks: { callback: function(v){ return '$'+v; }, font:{size:9}, color:'#6B7280' }, grid:{ color:'rgba(108,114,128,0.08)'} },
+        x: { ticks: { font:{size:9}, color:'#6B7280', maxRotation:0 }, grid:{ display:false } }
+      }
+    }
+  });
 }
 
 // ─── POS ─────────────────────────────────────────────────────
@@ -896,17 +1016,138 @@ function renderPOS() {
 }
 
 // ─── INVENTARIO ──────────────────────────────────────────────
+const STOCK_POINTS = [
+  { id:"quicentro",    name:"Quicentro Norte", emoji:"🏪" },
+  { id:"sanfrancisco", name:"San Francisco",   emoji:"🏪" },
+  { id:"mercadito",    name:"El Mercadito",    emoji:"🏪" },
+  { id:"bodega",       name:"Bodega Central",  emoji:"🏭" },
+];
+
 function renderInventario() {
   const role = state.userInfo.role;
-  const standId = (role==="admin"||role==="full") ? (state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter) : (role==="asesor") ? state.selectedStand : state.userInfo.stand;
+
+  // Roles con vista multi-punto: full y bodega (Gerardo, Rosita, Bodega Central)
+  if (role==="admin" || role==="full" || role==="bodega") {
+    const view = state.stockView || "consolidado";
+
+    if (view === "consolidado") {
+      const totalGeneral = STOCK_POINTS.reduce((sum,pt)=>{
+        const inv = state.inventory[pt.id]||{};
+        return sum + CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+      },0);
+      const totalUnitsGeneral = STOCK_POINTS.reduce((sum,pt)=>{
+        const inv = state.inventory[pt.id]||{};
+        return sum + CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
+      },0);
+
+      return `
+      <div class="filter-bar">
+        <button class="filter-btn active" data-stock-view="consolidado">Consolidado</button>
+        ${STOCK_POINTS.map(pt=>`<button class="filter-btn" data-stock-view="${pt.id}">${pt.emoji} ${pt.name}</button>`).join("")}
+      </div>
+
+      <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor total (todos los puntos)</div>
+          <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalGeneral)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--lavender);">${totalUnitsGeneral} uds</div>
+          <div style="font-size:10px;color:var(--lavender);">en total</div>
+        </div>
+      </div>
+
+      <div class="section-title">Stock por SKU — todos los puntos</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:560px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--lavender);">
+              <th style="text-align:left;padding:6px 4px;color:var(--gray);font-weight:700;">Producto</th>
+              ${STOCK_POINTS.map(pt=>`<th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">${pt.emoji}<br>${pt.name}</th>`).join("")}
+              <th style="text-align:center;padding:6px 4px;color:var(--purple);font-weight:800;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${CATALOG.map(p=>{
+              const rowTotal = STOCK_POINTS.reduce((s,pt)=>s+((state.inventory[pt.id]||{})[p.id]||0),0);
+              return `<tr style="border-bottom:1px solid var(--lavender-light);">
+                <td style="padding:6px 4px;font-weight:700;color:var(--purple);">${p.emoji} ${p.name} <span style="color:var(--gray);font-weight:400;">${p.sub}</span></td>
+                ${STOCK_POINTS.map(pt=>{
+                  const stock = (state.inventory[pt.id]||{})[p.id]||0;
+                  const color = stock===0?"var(--red)":stock<=5?"var(--amber)":"var(--gray)";
+                  return `<td style="text-align:center;padding:6px 4px;font-weight:700;color:${color};">${stock}</td>`;
+                }).join("")}
+                <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--purple);">${rowTotal}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--purple);">
+              <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Total uds</td>
+              ${STOCK_POINTS.map(pt=>{
+                const inv = state.inventory[pt.id]||{};
+                const t = CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
+                return `<td style="text-align:center;padding:6px 4px;font-weight:800;color:var(--purple);">${t}</td>`;
+              }).join("")}
+              <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--lime);background:var(--purple);border-radius:6px;">${totalUnitsGeneral}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+    }
+
+    // Vista individual de un punto (stand o bodega)
+    const point = STOCK_POINTS.find(pt=>pt.id===view) || STOCK_POINTS[0];
+    const inv = state.inventory[point.id] || {};
+    const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+
+    return `
+    <div class="filter-bar">
+      <button class="filter-btn" data-stock-view="consolidado">Consolidado</button>
+      ${STOCK_POINTS.map(pt=>`<button class="filter-btn ${view===pt.id?"active":""}" data-stock-view="${pt.id}">${pt.emoji} ${pt.name}</button>`).join("")}
+    </div>
+
+    <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${point.emoji} ${point.name}</div>
+        <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:var(--lavender);">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} uds</div>
+        <div style="font-size:10px;color:var(--lavender);">en stock</div>
+      </div>
+    </div>
+
+    <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
+    ${CATALOG.map(p=>{
+      const stock = inv[p.id]||0;
+      const level = stock>5?"green":stock>0?"amber":"red";
+      return `<div class="card" style="margin-bottom:8px;">
+        <div class="inv-item">
+          <span class="inv-emoji">${p.emoji}</span>
+          <div class="inv-info">
+            <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
+            <div class="inv-sub">${p.ref} · ${fmt(p.price)}</div>
+          </div>
+          ${state.editingStock===p.id?`
+            <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
+            <button class="btn-lime btn-sm" id="inv-save" data-save="${p.id}">OK</button>
+            <button class="btn-ghost btn-sm" id="inv-cancel">✕</button>
+          `:`
+            <span class="badge badge-${level}">${stock} uds</span>
+            <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>
+          `}
+        </div>
+      </div>`;
+    }).join("")}`;
+  }
+
+  // Asesor / stand: solo su propio punto, sin selector
+  const standId = getInvStandId();
   const inv = state.inventory[standId] || {};
   const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
 
   return `
-  ${role==="admin"?`<div class="store-selector">
-    ${STANDS.map(s=>`<button class="store-btn ${(state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter)===s.id?"active":""}" data-inv-store="${s.id}">${s.name}</button>`).join("")}
-  </div>`:""}
-
   <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
     <div>
       <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor en stock</div>
@@ -918,7 +1159,7 @@ function renderInventario() {
     </div>
   </div>
 
-  <div class="section-title">Stock por SKU ${role!=="admin"?"— toca ✏️ para ajustar":""}</div>
+  <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
   ${CATALOG.map(p=>{
     const stock = inv[p.id]||0;
     const level = stock>5?"green":stock>0?"amber":"red";
@@ -935,7 +1176,7 @@ function renderInventario() {
           <button class="btn-ghost btn-sm" id="inv-cancel">✕</button>
         `:`
           <span class="badge badge-${level}">${stock} uds</span>
-          ${role!=="admin"?`<button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>`:""}
+          <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>
         `}
       </div>
     </div>`;
@@ -1249,10 +1490,15 @@ async function handleKardexEditDelete(id) {
 
 // ─── HELPERS ─────────────────────────────────────────────────
 function getLast7(sales) {
-  return Array.from({length:7},(_,i)=>{
-    const d=new Date(); d.setDate(d.getDate()-(6-i));
+  return getLastN(sales, 7);
+}
+
+function getLastN(sales, n) {
+  return Array.from({length:n},(_,i)=>{
+    const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-(n-1-i));
     const iso=d.toISOString().slice(0,10);
     return {
+      iso,
       label: d.toLocaleDateString("es-EC",{weekday:"short"}),
       total: sales.filter(s=>s.fecha===iso).reduce((s,v)=>s+Number(v.total),0),
       isToday: iso===today()
@@ -1265,6 +1511,9 @@ function bindApp() {
   // Logout
   document.getElementById("logout-btn")?.addEventListener("click", ()=>auth.signOut());
 
+  // Trend chart (dashboard)
+  renderTrendChart();
+
   // Nav tabs
   document.querySelectorAll("[data-tab]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.tab=btn.dataset.tab; render(); });
@@ -1275,9 +1524,14 @@ function bindApp() {
     btn.addEventListener("click",()=>{ state.adminStoreFilter=btn.dataset.store; render(); });
   });
 
-  // Inv store filter (admin inventory)
+  // Inv store filter (admin inventory) - legacy
   document.querySelectorAll("[data-inv-store]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.adminStoreFilter=btn.dataset.invStore; render(); });
+  });
+
+  // Stock view selector (consolidado / por punto)
+  document.querySelectorAll("[data-stock-view]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.stockView=btn.dataset.stockView; state.editingStock=null; render(); });
   });
 
   // Cat filter
@@ -1332,7 +1586,7 @@ function bindApp() {
 
   // Inventory edit
   document.querySelectorAll("[data-edit-stock]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand; const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=getInvStandId(); const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
   });
   document.querySelectorAll("[data-edit-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ const id=btn.dataset.editBodega; state.editingStock=id; const inv=state.inventory["bodega"]||{}; state.editStockVal=String(inv[id]||0); render(); });
@@ -1341,7 +1595,7 @@ function bindApp() {
   document.getElementById("inv-input")?.addEventListener("input",e=>{ state.editStockVal=e.target.value; });
 
   document.querySelectorAll("[data-save]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ const sId=(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand; handleUpdateStock(sId, btn.dataset.save, parseInt(state.editStockVal)||0); });
+    btn.addEventListener("click",()=>{ const sId=getInvStandId(); handleUpdateStock(sId, btn.dataset.save, parseInt(state.editStockVal)||0); });
   });
   document.querySelectorAll("[data-save-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ handleUpdateStock("bodega", btn.dataset.saveBodega, parseInt(state.editStockVal)||0); });
