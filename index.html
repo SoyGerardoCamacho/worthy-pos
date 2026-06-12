@@ -369,6 +369,16 @@ const fmtDate = iso => new Date(iso+"T12:00:00").toLocaleDateString("es-EC",{day
 const fmtTime = ts => new Date(ts).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"});
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
+// Verifica si una variante puede armarse completa con el inventario actual del stand
+function varianteDisponible(variante, inv) {
+  return variante.items.every(it => (inv[it.id]||0) >= it.q);
+}
+
+// Una rutina esta disponible si AL MENOS UNA de sus variantes tiene stock completo
+function rutinaDisponible(rutina, inv) {
+  return rutina.variantes.some(v => varianteDisponible(v, inv));
+}
+
 // ─── APP STATE ────────────────────────────────────────────────
 let state = {
   user: null,
@@ -400,6 +410,12 @@ let state = {
   kardexObs: "",
   kardexSaving: false,
   kardexFilter: "all",
+  editingKardex: null,
+  kxEditProduct: "",
+  kxEditQty: "",
+  kxEditLote: "",
+  kxEditObs: "",
+  kxEditSaving: false,
   unsubInventory: null,
   unsubSales: null,
 };
@@ -409,7 +425,12 @@ function render() {
   const app = document.getElementById("app");
   if (state.loading) { app.innerHTML = renderLoading(); return; }
   if (!state.user) { app.innerHTML = renderLogin(); bindLogin(); return; }
-  if ((state.userInfo.role === "full" || state.userInfo.role === "asesor") && !state.selectedStand) {
+  if (state.userInfo.role === "asesor" && !state.selectedStand) {
+    app.innerHTML = renderStandSelector();
+    bindStandSelector();
+    return;
+  }
+  if (state.userInfo.role === "full" && state.tab === "pos" && !state.selectedStand) {
     app.innerHTML = renderStandSelector();
     bindStandSelector();
     return;
@@ -428,6 +449,7 @@ function renderStandSelector() {
         🏪 ${s.name}
       </button>`).join("")}
       <button id="logout-btn-select" style="width:100%;background:transparent;border:none;color:var(--gray);font-size:13px;cursor:pointer;margin-top:8px;font-family:inherit;">Cerrar sesión</button>
+      ${state.userInfo.role==="full"?`<button id="back-dashboard-btn" style="width:100%;background:transparent;border:none;color:var(--purple);font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;font-family:inherit;">← Volver al inicio</button>`:""}
     </div>
   </div>`;
 }
@@ -442,6 +464,7 @@ function bindStandSelector() {
     });
   });
   document.getElementById("logout-btn-select")?.addEventListener("click", () => auth.signOut());
+  document.getElementById("back-dashboard-btn")?.addEventListener("click", () => { state.tab="dashboard"; render(); });
 }
 
 function renderLoading() {
@@ -570,9 +593,15 @@ function getTabsForRole(role) {
 
 function renderTab() {
   const role = state.userInfo.role;
-  if (state.tab === "cambiar" && (role === "full" || role === "asesor")) {
+  if (state.tab === "cambiar" && role === "asesor") {
     state.selectedStand = null;
     state.tab = "pos";
+    render();
+    return "";
+  }
+  if (state.tab === "cambiar" && role === "full") {
+    state.selectedStand = null;
+    state.tab = "dashboard";
     render();
     return "";
   }
@@ -761,18 +790,21 @@ function renderPOS() {
       <div style="font-size:12px;color:var(--gray);margin-bottom:4px;">Base: ${RUTINAS.find(r=>r.id===state.rutinaModal)?.desc}</div>
       ${RUTINAS.find(r=>r.id===state.rutinaModal)?.gifts?`<div style="font-size:12px;color:var(--lime);font-weight:700;margin-bottom:16px;">🎁 Obsequio: ${RUTINAS.find(r=>r.id===state.rutinaModal)?.gifts}</div>`:""}
       <div class="section-title">Elige la variante:</div>
-      ${(RUTINAS.find(r=>r.id===state.rutinaModal)?.variantes||[]).map(v=>`
-        <button data-add-rutina="${state.rutinaModal}" data-variante="${v.id}" style="width:100%;text-align:left;padding:12px;border-radius:12px;border:1.5px solid var(--lavender);background:white;margin-bottom:8px;cursor:pointer;font-family:inherit;">
-          <div style="font-size:13px;font-weight:700;color:var(--purple);">${v.label}</div>
-          <div style="font-size:11px;color:var(--gray);">${v.items.map(i=>{ const p=CATALOG.find(c=>c.id===i.id); return (p?.name||i.id)+" "+( p?.sub||"")+(i.q>1?" ×"+i.q:""); }).join(" + ")}</div>
-        </button>
-      `).join("")}
+      ${(RUTINAS.find(r=>r.id===state.rutinaModal)?.variantes||[]).map(v=>{
+        const disponible = varianteDisponible(v, inv);
+        return `
+        <button data-add-rutina="${state.rutinaModal}" data-variante="${v.id}" ${!disponible?"disabled":""} style="width:100%;text-align:left;padding:12px;border-radius:12px;border:1.5px solid var(--lavender);background:white;margin-bottom:8px;cursor:pointer;font-family:inherit;${!disponible?"opacity:0.4;cursor:not-allowed;":""}">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${v.label}${!disponible?` <span style="color:var(--red);font-size:11px;">(sin stock)</span>`:""}</div>
+          <div style="font-size:11px;color:var(--gray);">${v.items.map(i=>{ const p=CATALOG.find(c=>c.id===i.id); const ok=(inv[i.id]||0)>=i.q; return `<span style="${ok?"":"color:var(--red);font-weight:700;"}">${(p?.name||i.id)+" "+( p?.sub||"")+(i.q>1?" ×"+i.q:"")}</span>`; }).join(" + ")}</div>
+        </button>`;
+      }).join("")}
     </div>
   </div>` : ""}
   <div class="product-grid">
     ${RUTINAS.map(r=>{
       const inCart = state.cart.find(i=>i.id===r.id);
-      return `<button class="product-card ${inCart?"in-cart":""}" data-rutina-open="${r.id}">
+      const disponible = rutinaDisponible(r, inv);
+      return `<button class="product-card ${inCart?"in-cart":""} ${!disponible?"out-stock":""}" data-rutina-open="${r.id}" ${!disponible?"disabled":""}>
         <div class="p-emoji">${r.emoji}</div>
         <div class="p-name" style="font-size:13px;">${r.name}</div>
         <div class="p-sub">${r.desc}</div>
@@ -782,6 +814,7 @@ function renderPOS() {
           <span style="font-size:10px;color:var(--gray);">${r.variantes.length} var.</span>
         </div>
         ${inCart?`<div class="p-cart-qty">En carrito</div>`:""}
+        ${!disponible?`<div style="font-size:10px;color:var(--red);font-weight:700;margin-top:3px;">Sin stock</div>`:""}
       </button>`;
     }).join("")}
   </div>` :
@@ -1097,6 +1130,27 @@ function renderKardex() {
     : movs.map(m=>{
         const p = CATALOG.find(c=>c.id===m.product);
         const isE = m.type==="entrada";
+        const isEditing = state.editingKardex === m.id;
+        if (isEditing) {
+          return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--purple);">
+            <div class="section-title">Editar movimiento</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <select class="dispatch-select" id="kx-edit-product">
+                ${CATALOG.map(c=>`<option value="${c.id}" ${state.kxEditProduct===c.id?"selected":""}>${c.name} ${c.sub}</option>`).join("")}
+              </select>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <input type="number" class="dispatch-input" id="kx-edit-qty" min="1" placeholder="Cantidad" value="${state.kxEditQty}">
+                <input type="text" class="dispatch-input" id="kx-edit-lote" placeholder="Lote" value="${state.kxEditLote}">
+              </div>
+              <input type="text" class="dispatch-input" id="kx-edit-obs" placeholder="Observacion (opcional)" value="${state.kxEditObs}">
+              <div style="display:flex;gap:8px;">
+                <button class="btn-lime" style="flex:1;" id="kx-edit-save" data-id="${m.id}" ${state.kxEditSaving?"disabled":""}>${state.kxEditSaving?"Guardando...":"Guardar"}</button>
+                <button class="btn-ghost" style="flex:1;" id="kx-edit-cancel">Cancelar</button>
+              </div>
+              <button class="btn-ghost" style="color:var(--red);border-color:var(--red);" id="kx-edit-delete" data-id="${m.id}" ${state.kxEditSaving?"disabled":""}>🗑️ Eliminar movimiento</button>
+            </div>
+          </div>`;
+        }
         return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${isE?"var(--lime)":"var(--red)"};">
           <div style="display:flex;justify-content:space-between;">
             <div>
@@ -1110,6 +1164,9 @@ function renderKardex() {
               <div style="font-size:10px;color:var(--gray);">${isE?"ENTRADA":"SALIDA"}</div>
             </div>
           </div>
+          ${canAdd && isE ? `<div style="margin-top:8px;text-align:right;">
+            <button class="btn-ghost" data-kx-edit="${m.id}" style="font-size:11px;padding:4px 10px;">✏️ Editar</button>
+          </div>` : ""}
         </div>`;
       }).join("")}`;
 }
@@ -1131,6 +1188,78 @@ async function handleKardexEntrada() {
     showToast("Entrada registrada: "+qty+" uds");
     render();
   } catch(e) { state.kardexSaving=false; showToast("Error: "+e.message,"err"); render(); }
+}
+
+async function handleKardexEditSave(id) {
+  const movs = state.kardexMovements || [];
+  const original = movs.find(m=>m.id===id);
+  if(!original) { showToast("Movimiento no encontrado","err"); return; }
+
+  const newProduct = state.kxEditProduct;
+  const newQty = parseInt(state.kxEditQty)||0;
+  if(!newProduct||newQty<=0) { showToast("Completa producto y cantidad","err"); return; }
+
+  state.kxEditSaving = true; render();
+  try {
+    const bodegaInv = {...(state.inventory["bodega"]||{})};
+
+    // Revertir el efecto del movimiento original sobre el inventario de bodega
+    bodegaInv[original.product] = (bodegaInv[original.product]||0) - (original.qty||0);
+
+    // Aplicar el efecto del movimiento nuevo (corregido)
+    bodegaInv[newProduct] = (bodegaInv[newProduct]||0) + newQty;
+
+    await db.collection("inventarios").doc("bodega").set(bodegaInv);
+
+    const updatedMov = {
+      ...original,
+      product: newProduct,
+      qty: newQty,
+      lote: state.kxEditLote.trim(),
+      obs: state.kxEditObs,
+      editadoPor: state.user.email,
+      editadoEn: new Date().toISOString(),
+    };
+    await db.collection("kardex").doc(id).set(updatedMov);
+
+    state.inventory["bodega"] = bodegaInv;
+    state.kardexMovements = movs.map(m=>m.id===id?updatedMov:m);
+    state.editingKardex = null;
+    state.kxEditSaving = false;
+    showToast("✅ Movimiento actualizado");
+    render();
+  } catch(e) {
+    state.kxEditSaving = false;
+    showToast("Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleKardexEditDelete(id) {
+  const movs = state.kardexMovements || [];
+  const original = movs.find(m=>m.id===id);
+  if(!original) { showToast("Movimiento no encontrado","err"); return; }
+
+  state.kxEditSaving = true; render();
+  try {
+    const bodegaInv = {...(state.inventory["bodega"]||{})};
+    // Revertir el efecto del movimiento sobre bodega
+    bodegaInv[original.product] = (bodegaInv[original.product]||0) - (original.qty||0);
+    await db.collection("inventarios").doc("bodega").set(bodegaInv);
+
+    await db.collection("kardex").doc(id).delete();
+
+    state.inventory["bodega"] = bodegaInv;
+    state.kardexMovements = movs.filter(m=>m.id!==id);
+    state.editingKardex = null;
+    state.kxEditSaving = false;
+    showToast("✅ Movimiento eliminado");
+    render();
+  } catch(e) {
+    state.kxEditSaving = false;
+    showToast("Error: "+e.message,"err");
+    render();
+  }
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────
@@ -1251,6 +1380,9 @@ function bindApp() {
       const rutina = RUTINAS.find(r=>r.id===rutinaId);
       const variante = rutina?.variantes.find(v=>v.id===varId);
       if(!rutina||!variante) return;
+      const stand = (state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand;
+      const invNow = state.inventory[stand]||{};
+      if(!varianteDisponible(variante, invNow)) { showToast("Sin stock suficiente para esta variante","err"); return; }
       const cartItem = {
         id: varId,
         rutinaId,
@@ -1276,6 +1408,31 @@ function bindApp() {
   document.getElementById("kardex-obs")?.addEventListener("input",e=>{ state.kardexObs=e.target.value; });
   document.getElementById("kardex-save-btn")?.addEventListener("click", handleKardexEntrada);
   document.getElementById("kardex-filter")?.addEventListener("change",e=>{ state.kardexFilter=e.target.value; render(); });
+
+  document.querySelectorAll("[data-kx-edit]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.kxEdit;
+      const m = (state.kardexMovements||[]).find(x=>x.id===id);
+      if(!m) return;
+      state.editingKardex = id;
+      state.kxEditProduct = m.product;
+      state.kxEditQty = String(m.qty);
+      state.kxEditLote = m.lote||"";
+      state.kxEditObs = m.obs||"";
+      render();
+    });
+  });
+  document.getElementById("kx-edit-product")?.addEventListener("change",e=>{ state.kxEditProduct=e.target.value; });
+  document.getElementById("kx-edit-qty")?.addEventListener("input",e=>{ state.kxEditQty=e.target.value; });
+  document.getElementById("kx-edit-lote")?.addEventListener("input",e=>{ state.kxEditLote=e.target.value; });
+  document.getElementById("kx-edit-obs")?.addEventListener("input",e=>{ state.kxEditObs=e.target.value; });
+  document.getElementById("kx-edit-cancel")?.addEventListener("click",()=>{ state.editingKardex=null; render(); });
+  document.getElementById("kx-edit-save")?.addEventListener("click",e=>{ handleKardexEditSave(e.target.dataset.id); });
+  document.getElementById("kx-edit-delete")?.addEventListener("click",e=>{
+    if(confirm("¿Eliminar este movimiento? Esto ajustará el inventario de bodega.")) {
+      handleKardexEditDelete(e.target.dataset.id);
+    }
+  });
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────
@@ -1467,7 +1624,7 @@ auth.onAuthStateChanged(user=>{
     if(!userInfo) { auth.signOut(); state.loading=false; render(); return; }
     state.user = user;
     state.userInfo = userInfo;
-    state.tab = (userInfo.role==="full"||userInfo.role==="asesor")?"pos":"dashboard";
+    state.tab = (userInfo.role==="asesor")?"pos":(userInfo.role==="full")?"dashboard":"dashboard";
     state.loading = false;
     setupListeners(userInfo);
     render();
