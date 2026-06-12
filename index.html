@@ -395,6 +395,12 @@ function getInvStandId() {
   return state.userInfo.stand;
 }
 
+// Costo unitario de un producto (para valorizar inventario). Si no hay costo definido, retorna 0.
+function getCost(productId) {
+  const c = state.costs[productId];
+  return (typeof c === "number") ? c : 0;
+}
+
 // ─── APP STATE ────────────────────────────────────────────────
 let state = {
   user: null,
@@ -402,6 +408,9 @@ let state = {
   selectedStand: null,
   tab: "dashboard",
   inventory: {},
+  costs: {},
+  editingCost: null,
+  editCostVal: "",
   sales: [],
   cart: [],
   payment: "efectivo",
@@ -691,7 +700,7 @@ function renderStandDashboard() {
 function renderBodegaDashboard() {
   const inv = state.inventory["bodega"] || {};
   const totalUnits = CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
-  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
   const lowStock = CATALOG.filter(p=>(inv[p.id]||0)>0&&(inv[p.id]||0)<=5);
   const outStock = CATALOG.filter(p=>(inv[p.id]||0)===0);
 
@@ -1033,7 +1042,7 @@ function renderInventario() {
     if (view === "consolidado") {
       const totalGeneral = STOCK_POINTS.reduce((sum,pt)=>{
         const inv = state.inventory[pt.id]||{};
-        return sum + CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+        return sum + CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
       },0);
       const totalUnitsGeneral = STOCK_POINTS.reduce((sum,pt)=>{
         const inv = state.inventory[pt.id]||{};
@@ -1048,7 +1057,7 @@ function renderInventario() {
 
       <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div>
-          <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor total (todos los puntos)</div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor total al costo (todos los puntos)</div>
           <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalGeneral)}</div>
         </div>
         <div style="text-align:right;">
@@ -1099,7 +1108,8 @@ function renderInventario() {
     // Vista individual de un punto (stand o bodega)
     const point = STOCK_POINTS.find(pt=>pt.id===view) || STOCK_POINTS[0];
     const inv = state.inventory[point.id] || {};
-    const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+    const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
+    const canEditCost = (role==="full"||role==="bodega");
 
     return `
     <div class="filter-bar">
@@ -1109,7 +1119,7 @@ function renderInventario() {
 
     <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div>
-        <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${point.emoji} ${point.name}</div>
+        <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${point.emoji} ${point.name} · valor al costo</div>
         <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>
       </div>
       <div style="text-align:right;">
@@ -1118,24 +1128,30 @@ function renderInventario() {
       </div>
     </div>
 
-    <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
+    <div class="section-title">Stock por SKU — toca ✏️ stock${canEditCost?" · 💲 costo":""}</div>
     ${CATALOG.map(p=>{
       const stock = inv[p.id]||0;
       const level = stock>5?"green":stock>0?"amber":"red";
+      const cost = getCost(p.id);
       return `<div class="card" style="margin-bottom:8px;">
         <div class="inv-item">
           <span class="inv-emoji">${p.emoji}</span>
           <div class="inv-info">
             <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
-            <div class="inv-sub">${p.ref} · ${fmt(p.price)}</div>
+            <div class="inv-sub">${p.ref} · PVP ${fmt(p.price)} · Costo ${cost>0?fmt(cost):'<span style="color:var(--red);">sin definir</span>'}</div>
           </div>
           ${state.editingStock===p.id?`
             <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
             <button class="btn-lime btn-sm" id="inv-save" data-save="${p.id}">OK</button>
             <button class="btn-ghost btn-sm" id="inv-cancel">✕</button>
+          `:state.editingCost===p.id?`
+            <input type="number" class="inv-edit-input" id="cost-input" value="${state.editCostVal}" min="0" step="0.01" style="width:70px;">
+            <button class="btn-lime btn-sm" id="cost-save" data-cost-save="${p.id}">OK</button>
+            <button class="btn-ghost btn-sm" id="cost-cancel">✕</button>
           `:`
             <span class="badge badge-${level}">${stock} uds</span>
             <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>
+            ${canEditCost?`<button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-cost="${p.id}">💲</button>`:""}
           `}
         </div>
       </div>`;
@@ -1145,12 +1161,12 @@ function renderInventario() {
   // Asesor / stand: solo su propio punto, sin selector
   const standId = getInvStandId();
   const inv = state.inventory[standId] || {};
-  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
 
   return `
   <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
     <div>
-      <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor en stock</div>
+      <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor en stock (al costo)</div>
       <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>
     </div>
     <div style="text-align:right;">
@@ -1293,7 +1309,7 @@ function renderAdminBodega() {
   return `
   <div class="card card-purple" style="margin-bottom:12px;padding:16px;">
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Bodega Central</div>
-    <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0))}</div>
+    <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0))}</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} unidades totales</div>
   </div>
 
@@ -1320,7 +1336,7 @@ function renderAdminBodega() {
     <div class="section-title">Inventario por Stand</div>
     ${STANDS.map(st=>{
       const stInv = state.inventory[st.id]||{};
-      const total = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0)*p.price,0);
+      const total = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0)*getCost(p.id),0);
       const units = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0),0);
       return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px;background:var(--lavender-light);border-radius:12px;">
         <div><div style="font-size:13px;font-weight:700;color:var(--purple);">🏪 ${st.name}</div>
@@ -1601,6 +1617,16 @@ function bindApp() {
     btn.addEventListener("click",()=>{ handleUpdateStock("bodega", btn.dataset.saveBodega, parseInt(state.editStockVal)||0); });
   });
 
+  // Cost edit
+  document.querySelectorAll("[data-edit-cost]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editCost; state.editingCost=id; state.editCostVal=String(getCost(id)||""); render(); });
+  });
+  document.getElementById("cost-cancel")?.addEventListener("click",()=>{ state.editingCost=null; render(); });
+  document.getElementById("cost-input")?.addEventListener("input",e=>{ state.editCostVal=e.target.value; });
+  document.querySelectorAll("[data-cost-save]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ handleUpdateCost(btn.dataset.costSave, parseFloat(state.editCostVal)||0); });
+  });
+
   // Dispatch
   document.getElementById("dispatch-product")?.addEventListener("change",e=>{ state.dispatchProduct=e.target.value; });
   document.getElementById("dispatch-target")?.addEventListener("change",e=>{ state.dispatchTarget=e.target.value; });
@@ -1734,6 +1760,20 @@ async function handleUpdateStock(standId, productId, newStock) {
   }
 }
 
+async function handleUpdateCost(productId, newCost) {
+  try {
+    const costs = {...(state.costs||{})};
+    costs[productId] = newCost;
+    await db.collection("config").doc("costos").set(costs);
+    state.costs = costs;
+    state.editingCost = null;
+    showToast("✅ Costo actualizado");
+    render();
+  } catch(e) {
+    showToast("⚠️ Error: "+e.message, "err");
+  }
+}
+
 async function handleDispatch() {
   const product = state.dispatchProduct;
   const target = state.dispatchTarget;
@@ -1853,6 +1893,12 @@ function setupListeners(userInfo) {
   // Kardex listener
   db.collection("kardex").orderBy("timestamp","desc").limit(500).onSnapshot(snap=>{
     state.kardexMovements = snap.docs.map(d=>d.data());
+    render();
+  });
+
+  // Costos listener
+  db.collection("config").doc("costos").onSnapshot(doc=>{
+    state.costs = doc.exists ? (doc.data()||{}) : {};
     render();
   });
 }
