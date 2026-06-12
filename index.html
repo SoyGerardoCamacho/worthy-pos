@@ -238,12 +238,12 @@ const db = firebase.firestore();
 
 // ─── USUARIOS DEL SISTEMA ────────────────────────────────────
 const USERS = {
-  "admin@worthy.com":   { role:"admin",   name:"Administrador", emoji:"👑", canKardex:false, canSell:false, canBodega:false },
-  "bodega@worthy.com":  { role:"bodega",  name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:false, canBodega:true  },
-  "gerardo@worthy.com": { role:"full",    name:"Gerardo",       emoji:"👤", canKardex:true,  canSell:true,  canBodega:true  },
-  "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true  },
-  "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false },
-  "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false },
+  "admin@worthy.com":   { role:"admin",   name:"Administrador", emoji:"👑", canKardex:false, canSell:false, canBodega:false, canFinanzas:false },
+  "bodega@worthy.com":  { role:"bodega",  name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:false, canBodega:true,  canFinanzas:false },
+  "gerardo@worthy.com": { role:"full",    name:"Gerardo",       emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
+  "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
+  "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
+  "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
 };
 
 // ─── CATÁLOGO ────────────────────────────────────────────────
@@ -401,6 +401,257 @@ function getCost(productId) {
   return (typeof c === "number") ? c : 0;
 }
 
+// ─── FINANZAS: HELPERS ────────────────────────────────────────
+// Retorna {from, to} (ISO yyyy-mm-dd inclusive) segun el periodo seleccionado
+function getFinDateRange() {
+  const todayIso = today();
+  const d = new Date(Date.now()-5*60*60*1000);
+  if (state.finPeriod === "today") return { from: todayIso, to: todayIso };
+  if (state.finPeriod === "week") {
+    const d2 = new Date(d); d2.setDate(d2.getDate()-6);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
+  }
+  if (state.finPeriod === "month") {
+    const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
+  }
+  // "all"
+  return { from: "0000-01-01", to: "9999-12-31" };
+}
+
+function inFinRange(fecha) {
+  const { from, to } = getFinDateRange();
+  return fecha >= from && fecha <= to;
+}
+
+// COGS de una venta: suma de (cantidad * costo unitario) de cada item, expandiendo rutinas
+function ventaCOGS(sale) {
+  let cogs = 0;
+  (sale.items||[]).forEach(item=>{
+    if (item.isRutina && item.rutinaItems) {
+      item.rutinaItems.forEach(ri=>{ cogs += (getCost(ri.id)||0) * (ri.q||0) * (item.qty||0); });
+    } else {
+      cogs += (getCost(item.id)||0) * (item.qty||0);
+    }
+  });
+  return cogs;
+}
+
+// ─── FINANZAS: P&G ─────────────────────────────────────────────
+function renderFinanzas() {
+  const { from, to } = getFinDateRange();
+  const periodLabels = { today:"Hoy", week:"Últimos 7 días", month:"Este mes", all:"Todo el histórico" };
+
+  const filteredSales = state.sales.filter(s=>inFinRange(s.fecha) && (state.finStore==="all" || s.stand===state.finStore));
+  const filteredGastos = (state.gastos||[]).filter(g=>inFinRange(g.fecha) && (state.finStore==="all" || g.stand===state.finStore));
+
+  const ventas = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const cogs = filteredSales.reduce((s,v)=>s+ventaCOGS(v),0);
+  const margenBruto = ventas - cogs;
+  const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
+
+  const gastosByCat = GASTO_CATS.map(c=>({...c, total: filteredGastos.filter(g=>g.cat===c.id).reduce((s,g)=>s+Number(g.monto),0)}));
+  const totalGastos = gastosByCat.reduce((s,c)=>s+c.total,0);
+  const utilidadOperativa = margenBruto - totalGastos;
+  const utilidadPct = ventas>0 ? (utilidadOperativa/ventas*100) : 0;
+
+  return `
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Finanzas · Estado de Resultados</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Información privada — Gerardo y Rosita</div>
+  </div>
+
+  <div class="period-filter">
+    ${[["today","Hoy"],["week","7 días"],["month","Mes"],["all","Todo"]].map(([k,l])=>`<button class="period-btn ${state.finPeriod===k?"active":""}" data-fin-period="${k}">${l}</button>`).join("")}
+  </div>
+
+  <div class="store-selector">
+    ${[{id:"all",name:"Todos"},...STANDS].map(s=>`<button class="store-btn ${state.finStore===s.id?"active":""}" data-fin-store="${s.id}">${s.name}</button>`).join("")}
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn ${state.finTab==="pyg"?"active":""}" data-fin-tab="pyg">📊 P&amp;G</button>
+    <button class="filter-btn ${state.finTab==="sku"?"active":""}" data-fin-tab="sku">🏷️ Margen por SKU</button>
+    <button class="filter-btn ${state.finTab==="gastos"?"active":""}" data-fin-tab="gastos">💸 Gastos</button>
+  </div>
+
+  ${state.finTab==="pyg" ? renderPYG({ventas,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
+  ${state.finTab==="sku" ? renderMargenSKU(filteredSales) : ""}
+  ${state.finTab==="gastos" ? renderGastosForm(filteredGastos) : ""}
+  `;
+}
+
+function renderPYG(d) {
+  return `
+  <div class="card">
+    <div class="section-title">${d.periodLabel} ${state.finStore==="all"?"· Todos los locales":"· "+STANDS.find(s=>s.id===state.finStore)?.name}</div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
+      <span style="font-size:13px;font-weight:700;color:var(--purple);">Ventas (ingresos)</span>
+      <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.ventas)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
+      <span style="font-size:13px;font-weight:700;color:var(--gray);">(–) Costo de productos vendidos</span>
+      <span style="font-size:14px;font-weight:800;color:var(--red);">-${fmt(d.cogs)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:2px solid var(--purple);">
+      <span style="font-size:14px;font-weight:800;color:var(--purple);">= Margen bruto</span>
+      <div style="text-align:right;">
+        <div style="font-size:16px;font-weight:900;color:${d.margenBruto>=0?"var(--lime-dark)":"var(--red)"};">${fmt(d.margenBruto)}</div>
+        <div style="font-size:10px;color:var(--gray);">${d.margenPct.toFixed(1)}% sobre ventas</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;">Gastos operativos</div>
+    ${d.gastosByCat.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+      <span style="font-size:12px;color:var(--purple);">${c.icon} ${c.label}</span>
+      <span style="font-size:13px;font-weight:700;color:${c.total>0?"var(--red)":"var(--gray)"};">${c.total>0?"-"+fmt(c.total):fmt(0)}</span>
+    </div>`).join("")}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--lavender-light);margin-top:4px;">
+      <span style="font-size:13px;font-weight:700;color:var(--purple);">(–) Total gastos operativos</span>
+      <span style="font-size:14px;font-weight:800;color:var(--red);">-${fmt(d.totalGastos)}</span>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:6px;border-top:2px solid var(--purple);background:${d.utilidadOperativa>=0?"var(--lavender-light)":"#FEE2E2"};border-radius:10px;padding-left:10px;padding-right:10px;">
+      <span style="font-size:15px;font-weight:900;color:var(--purple);">= Utilidad operativa</span>
+      <div style="text-align:right;">
+        <div style="font-size:20px;font-weight:900;color:${d.utilidadOperativa>=0?"var(--lime-dark)":"var(--red)"};">${fmt(d.utilidadOperativa)}</div>
+        <div style="font-size:10px;color:var(--gray);">${d.utilidadPct.toFixed(1)}% sobre ventas</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderMargenSKU(filteredSales) {
+  // Acumular ventas/COGS por producto (expandiendo rutinas a sus componentes para COGS,
+  // pero el margen de la rutina se reporta sobre la fila de la rutina misma)
+  const bySku = {};
+  filteredSales.forEach(sale=>{
+    (sale.items||[]).forEach(item=>{
+      const key = item.isRutina ? ("RUTINA:"+(item.ref||item.name)) : item.id;
+      if(!bySku[key]) bySku[key] = { name:item.name, qty:0, ventas:0, cogs:0, isRutina:!!item.isRutina };
+      bySku[key].qty += item.qty;
+      bySku[key].ventas += item.subtotal;
+      if (item.isRutina && item.rutinaItems) {
+        item.rutinaItems.forEach(ri=>{ bySku[key].cogs += (getCost(ri.id)||0)*(ri.q||0)*(item.qty||0); });
+      } else {
+        bySku[key].cogs += (getCost(item.id)||0)*item.qty;
+      }
+    });
+  });
+  const rows = Object.values(bySku).map(r=>({...r, margen:r.ventas-r.cogs, margenPct: r.ventas>0?((r.ventas-r.cogs)/r.ventas*100):0}))
+    .sort((a,b)=>b.ventas-a.ventas);
+
+  const totalVentas = rows.reduce((s,r)=>s+r.ventas,0);
+  const totalCogs = rows.reduce((s,r)=>s+r.cogs,0);
+  const totalMargen = totalVentas-totalCogs;
+
+  if(rows.length===0) return `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`;
+
+  return `
+  <div class="card">
+    <div class="section-title">Margen por SKU/Rutina</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:480px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:6px 4px;color:var(--gray);font-weight:700;">Producto</th>
+            <th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">Uds</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Ventas</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Costo</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--purple);font-weight:800;">Margen</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--purple);font-weight:800;">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>`<tr style="border-bottom:1px solid var(--lavender-light);">
+            <td style="padding:6px 4px;font-weight:700;color:var(--purple);">${r.isRutina?"⭐ ":""}${r.name}</td>
+            <td style="text-align:center;padding:6px 4px;color:var(--gray);">${r.qty}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.ventas)}</td>
+            <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.cogs)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:${r.margen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(r.margen)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:700;color:${r.margenPct>=0?"var(--gray)":"var(--red)"};">${r.margenPct.toFixed(0)}%</td>
+          </tr>`).join("")}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--purple);">
+            <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Total</td>
+            <td></td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalVentas)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalCogs)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:${totalMargen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(totalMargen)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${totalVentas>0?(totalMargen/totalVentas*100).toFixed(0):0}%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderGastosForm(filteredGastos) {
+  const sorted = [...filteredGastos].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
+  return `
+  <div class="card card-lavender" style="margin-bottom:12px;">
+    <div class="section-title">Registrar Gasto</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input type="date" class="dispatch-input" id="gasto-fecha" value="${state.gastoFecha}">
+      <select class="dispatch-select" id="gasto-stand">
+        ${STANDS.map(s=>`<option value="${s.id}" ${state.gastoStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+      </select>
+      <select class="dispatch-select" id="gasto-cat">
+        ${GASTO_CATS.map(c=>`<option value="${c.id}" ${state.gastoCat===c.id?"selected":""}>${c.icon} ${c.label}</option>`).join("")}
+      </select>
+      <input type="number" class="dispatch-input" id="gasto-monto" min="0" step="0.01" placeholder="Monto $" value="${state.gastoMonto}">
+      <input type="text" class="dispatch-input" id="gasto-nota" placeholder="Nota (opcional)" value="${state.gastoNota}">
+      <button class="btn-lime btn-lime-full" id="gasto-save-btn" ${state.gastoSaving?"disabled":""}>
+        ${state.gastoSaving?"Guardando...":"Registrar Gasto"}
+      </button>
+    </div>
+  </div>
+
+  <div class="section-title">Gastos del período (${sorted.length})</div>
+  ${sorted.length===0
+    ? `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin gastos registrados</div>`
+    : sorted.map(g=>{
+        const cat = GASTO_CATS.find(c=>c.id===g.cat);
+        const isEditing = state.editingGasto===g.id;
+        if(isEditing) {
+          return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--purple);">
+            <div class="section-title">Editar gasto</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <input type="date" class="dispatch-input" id="eg-edit-fecha" value="${state.egEditFecha}">
+              <select class="dispatch-select" id="eg-edit-stand">
+                ${STANDS.map(s=>`<option value="${s.id}" ${state.egEditStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+              </select>
+              <select class="dispatch-select" id="eg-edit-cat">
+                ${GASTO_CATS.map(c=>`<option value="${c.id}" ${state.egEditCat===c.id?"selected":""}>${c.icon} ${c.label}</option>`).join("")}
+              </select>
+              <input type="number" class="dispatch-input" id="eg-edit-monto" min="0" step="0.01" value="${state.egEditMonto}">
+              <input type="text" class="dispatch-input" id="eg-edit-nota" value="${state.egEditNota}">
+              <div style="display:flex;gap:8px;">
+                <button class="btn-lime" style="flex:1;" id="eg-edit-save" data-id="${g.id}" ${state.egEditSaving?"disabled":""}>${state.egEditSaving?"Guardando...":"Guardar"}</button>
+                <button class="btn-ghost" style="flex:1;" id="eg-edit-cancel">Cancelar</button>
+              </div>
+              <button class="btn-ghost" style="color:var(--red);border-color:var(--red);" id="eg-edit-delete" data-id="${g.id}" ${state.egEditSaving?"disabled":""}>🗑️ Eliminar gasto</button>
+            </div>
+          </div>`;
+        }
+        return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--red);">
+          <div style="display:flex;justify-content:space-between;">
+            <div>
+              <div style="font-size:11px;color:var(--gray);">${fmtDate(g.fecha)} · ${STANDS.find(s=>s.id===g.stand)?.name||g.stand}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--purple);">${cat?.icon||"📎"} ${cat?.label||g.cat}</div>
+              ${g.nota?`<div style="font-size:11px;color:var(--gray);">${g.nota}</div>`:""}
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:900;color:var(--red);">-${fmt(g.monto)}</div>
+              <button class="btn-ghost" data-eg-edit="${g.id}" style="font-size:11px;padding:4px 10px;margin-top:4px;">✏️ Editar</button>
+            </div>
+          </div>
+        </div>`;
+      }).join("")}`;
+}
+
 // ─── APP STATE ────────────────────────────────────────────────
 let state = {
   user: null,
@@ -442,6 +693,24 @@ let state = {
   kxEditLote: "",
   kxEditObs: "",
   kxEditSaving: false,
+  // Finanzas
+  gastos: [],
+  finPeriod: "today",
+  finStore: "quicentro",
+  finTab: "pyg",
+  gastoFecha: today(),
+  gastoStand: "quicentro",
+  gastoCat: "arriendo",
+  gastoMonto: "",
+  gastoNota: "",
+  gastoSaving: false,
+  editingGasto: null,
+  egEditCat: "",
+  egEditMonto: "",
+  egEditNota: "",
+  egEditFecha: "",
+  egEditStand: "",
+  egEditSaving: false,
   unsubInventory: null,
   unsubSales: null,
 };
@@ -604,6 +873,7 @@ function getTabsForRole(role) {
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"bodega",icon:"🏭",label:"Bodega"},
     {id:"kardex",icon:"📒",label:"Kardex"},
+    ...(u.canFinanzas?[{id:"finanzas",icon:"💰",label:"Finanzas"}]:[]),
     {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
 
@@ -639,6 +909,7 @@ function renderTab() {
     case "despachar":  return renderDespachar();
     case "bodega":     return renderAdminBodega();
     case "kardex":     return renderKardex();
+    case "finanzas":   return state.userInfo?.canFinanzas ? renderFinanzas() : "<p>No autorizado</p>";
     default:           return "<p>Tab no encontrado</p>";
   }
 }
@@ -1025,6 +1296,15 @@ function renderPOS() {
 }
 
 // ─── INVENTARIO ──────────────────────────────────────────────
+const GASTO_CATS = [
+  { id:"arriendo",     label:"Arriendo",      icon:"🏢" },
+  { id:"personal",     label:"Personal",      icon:"👥" },
+  { id:"almuerzo",     label:"Almuerzo",      icon:"🍱" },
+  { id:"transporte",   label:"Transporte",    icon:"🚗" },
+  { id:"servicios",    label:"Servicios",     icon:"💡" },
+  { id:"otro",         label:"Otro",          icon:"📎" },
+];
+
 const STOCK_POINTS = [
   { id:"quicentro",    name:"Quicentro Norte", emoji:"🏪" },
   { id:"sanfrancisco", name:"San Francisco",   emoji:"🏪" },
@@ -1075,11 +1355,15 @@ function renderInventario() {
               <th style="text-align:left;padding:6px 4px;color:var(--gray);font-weight:700;">Producto</th>
               ${STOCK_POINTS.map(pt=>`<th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">${pt.emoji}<br>${pt.name}</th>`).join("")}
               <th style="text-align:center;padding:6px 4px;color:var(--purple);font-weight:800;">Total</th>
+              ${canSeeCosts?`<th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">Costo<br>unit.</th>
+              <th style="text-align:center;padding:6px 4px;color:var(--purple);font-weight:800;">Subtotal</th>`:""}
             </tr>
           </thead>
           <tbody>
             ${CATALOG.map(p=>{
               const rowTotal = STOCK_POINTS.reduce((s,pt)=>s+((state.inventory[pt.id]||{})[p.id]||0),0);
+              const cost = getCost(p.id);
+              const subtotal = rowTotal*cost;
               return `<tr style="border-bottom:1px solid var(--lavender-light);">
                 <td style="padding:6px 4px;font-weight:700;color:var(--purple);">${p.emoji} ${p.name} <span style="color:var(--gray);font-weight:400;">${p.sub}</span></td>
                 ${STOCK_POINTS.map(pt=>{
@@ -1088,6 +1372,8 @@ function renderInventario() {
                   return `<td style="text-align:center;padding:6px 4px;font-weight:700;color:${color};">${stock}</td>`;
                 }).join("")}
                 <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--purple);">${rowTotal}</td>
+                ${canSeeCosts?`<td style="text-align:center;padding:6px 4px;font-weight:700;color:${cost>0?"var(--gray)":"var(--red)"};">${cost>0?fmt(cost):"—"}</td>
+                <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(subtotal)}</td>`:""}
               </tr>`;
             }).join("")}
           </tbody>
@@ -1100,7 +1386,18 @@ function renderInventario() {
                 return `<td style="text-align:center;padding:6px 4px;font-weight:800;color:var(--purple);">${t}</td>`;
               }).join("")}
               <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--lime);background:var(--purple);border-radius:6px;">${totalUnitsGeneral}</td>
+              ${canSeeCosts?`<td colspan="2"></td>`:""}
             </tr>
+            ${canSeeCosts?`<tr style="border-top:1px solid var(--lavender);">
+              <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Valor al costo</td>
+              ${STOCK_POINTS.map(pt=>{
+                const inv = state.inventory[pt.id]||{};
+                const v = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
+                return `<td style="text-align:center;padding:6px 4px;font-weight:800;color:var(--purple);">${fmt(v)}</td>`;
+              }).join("")}
+              <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--lime);background:var(--purple);border-radius:6px;">${fmt(totalGeneral)}</td>
+              <td colspan="2"></td>
+            </tr>`:""}
           </tfoot>
         </table>
       </div>`;
@@ -1648,6 +1945,51 @@ function bindApp() {
     btn.addEventListener("click",()=>{ handleUpdateCost(btn.dataset.costSave, parseFloat(state.editCostVal)||0); });
   });
 
+  // Finanzas: filtros
+  document.querySelectorAll("[data-fin-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.finPeriod=btn.dataset.finPeriod; render(); });
+  });
+  document.querySelectorAll("[data-fin-store]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.finStore=btn.dataset.finStore; render(); });
+  });
+  document.querySelectorAll("[data-fin-tab]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.finTab=btn.dataset.finTab; render(); });
+  });
+
+  // Finanzas: form gasto
+  document.getElementById("gasto-fecha")?.addEventListener("change",e=>{ state.gastoFecha=e.target.value; });
+  document.getElementById("gasto-stand")?.addEventListener("change",e=>{ state.gastoStand=e.target.value; });
+  document.getElementById("gasto-cat")?.addEventListener("change",e=>{ state.gastoCat=e.target.value; });
+  document.getElementById("gasto-monto")?.addEventListener("input",e=>{ state.gastoMonto=e.target.value; });
+  document.getElementById("gasto-nota")?.addEventListener("input",e=>{ state.gastoNota=e.target.value; });
+  document.getElementById("gasto-save-btn")?.addEventListener("click", handleGastoSave);
+
+  // Finanzas: editar gasto
+  document.querySelectorAll("[data-eg-edit]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.egEdit;
+      const g = (state.gastos||[]).find(x=>x.id===id);
+      if(!g) return;
+      state.editingGasto = id;
+      state.egEditFecha = g.fecha;
+      state.egEditStand = g.stand;
+      state.egEditCat = g.cat;
+      state.egEditMonto = String(g.monto);
+      state.egEditNota = g.nota||"";
+      render();
+    });
+  });
+  document.getElementById("eg-edit-fecha")?.addEventListener("change",e=>{ state.egEditFecha=e.target.value; });
+  document.getElementById("eg-edit-stand")?.addEventListener("change",e=>{ state.egEditStand=e.target.value; });
+  document.getElementById("eg-edit-cat")?.addEventListener("change",e=>{ state.egEditCat=e.target.value; });
+  document.getElementById("eg-edit-monto")?.addEventListener("input",e=>{ state.egEditMonto=e.target.value; });
+  document.getElementById("eg-edit-nota")?.addEventListener("input",e=>{ state.egEditNota=e.target.value; });
+  document.getElementById("eg-edit-cancel")?.addEventListener("click",()=>{ state.editingGasto=null; render(); });
+  document.getElementById("eg-edit-save")?.addEventListener("click",e=>{ handleGastoEditSave(e.target.dataset.id); });
+  document.getElementById("eg-edit-delete")?.addEventListener("click",e=>{
+    if(confirm("¿Eliminar este gasto?")) { handleGastoEditDelete(e.target.dataset.id); }
+  });
+
   // Dispatch
   document.getElementById("dispatch-product")?.addEventListener("change",e=>{ state.dispatchProduct=e.target.value; });
   document.getElementById("dispatch-target")?.addEventListener("change",e=>{ state.dispatchTarget=e.target.value; });
@@ -1795,6 +2137,88 @@ async function handleUpdateCost(productId, newCost) {
   }
 }
 
+// ─── GASTOS ──────────────────────────────────────────────────
+async function handleGastoSave() {
+  if (state.gastoSaving) return;
+  const monto = parseFloat(state.gastoMonto)||0;
+  if (!state.gastoFecha || !state.gastoStand || !state.gastoCat || monto<=0) {
+    showToast("Completa fecha, local, categoría y monto","err"); return;
+  }
+  state.gastoSaving = true; render();
+  try {
+    const gasto = {
+      id: genId(),
+      fecha: state.gastoFecha,
+      timestamp: new Date().toISOString(),
+      stand: state.gastoStand,
+      cat: state.gastoCat,
+      monto,
+      nota: state.gastoNota.trim(),
+      registradoPor: state.user.email,
+    };
+    await db.collection("gastos").doc(gasto.id).set(gasto);
+    state.gastos = [gasto, ...(state.gastos||[])];
+    state.gastoMonto=""; state.gastoNota="";
+    state.gastoSaving=false;
+    showToast("✅ Gasto registrado");
+    render();
+  } catch(e) {
+    state.gastoSaving=false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleGastoEditSave(id) {
+  const gastos = state.gastos||[];
+  const original = gastos.find(g=>g.id===id);
+  if(!original) { showToast("Gasto no encontrado","err"); return; }
+  const monto = parseFloat(state.egEditMonto)||0;
+  if (!state.egEditFecha || !state.egEditStand || !state.egEditCat || monto<=0) {
+    showToast("Completa todos los campos","err"); return;
+  }
+  state.egEditSaving = true; render();
+  try {
+    const updated = {
+      ...original,
+      fecha: state.egEditFecha,
+      stand: state.egEditStand,
+      cat: state.egEditCat,
+      monto,
+      nota: state.egEditNota.trim(),
+      editadoPor: state.user.email,
+      editadoEn: new Date().toISOString(),
+    };
+    await db.collection("gastos").doc(id).set(updated);
+    state.gastos = gastos.map(g=>g.id===id?updated:g);
+    state.editingGasto = null;
+    state.egEditSaving = false;
+    showToast("✅ Gasto actualizado");
+    render();
+  } catch(e) {
+    state.egEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleGastoEditDelete(id) {
+  const gastos = state.gastos||[];
+  state.egEditSaving = true; render();
+  try {
+    await db.collection("gastos").doc(id).delete();
+    state.gastos = gastos.filter(g=>g.id!==id);
+    state.editingGasto = null;
+    state.egEditSaving = false;
+    showToast("✅ Gasto eliminado");
+    render();
+  } catch(e) {
+    state.egEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
 async function handleDispatch() {
   const product = state.dispatchProduct;
   const target = state.dispatchTarget;
@@ -1922,6 +2346,14 @@ function setupListeners(userInfo) {
     state.costs = doc.exists ? (doc.data()||{}) : {};
     render();
   });
+
+  // Gastos operativos listener
+  if (userInfo.canFinanzas) {
+    db.collection("gastos").orderBy("timestamp","desc").limit(1000).onSnapshot(snap=>{
+      state.gastos = snap.docs.map(d=>d.data());
+      render();
+    });
+  }
 }
 
 // ─── AUTH LISTENER ────────────────────────────────────────────
