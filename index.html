@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>WORTHY POS</title>
-<!-- v2026-06-12-edicion-ventas -->
-<meta name="app-version" content="2026-06-12-01">
+<!-- v2026-06-12-inicio-rediseno -->
+<meta name="app-version" content="2026-06-12-02">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
@@ -31,6 +31,8 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 /* LOGIN */
 .login-screen { min-height:100vh; background: var(--purple); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
 .login-logo { font-size:40px; font-weight:900; color:var(--lime); letter-spacing:-1px; }
+.login-logo-img { height:42px; width:auto; display:block; margin:0 auto; }
+.brand-logo-img { height:24px; width:auto; display:block; }
 .login-sub { font-size:13px; color:var(--lavender); font-weight:600; letter-spacing:2px; text-transform:uppercase; margin-top:4px; margin-bottom:40px; }
 .login-card { background:white; border-radius:20px; padding:28px; width:100%; max-width:380px; }
 .login-card h2 { font-size:18px; color:var(--purple); font-weight:800; margin-bottom:20px; }
@@ -109,8 +111,8 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 .cart-subtotal { font-size:13px; font-weight:800; color:var(--purple); min-width:46px; text-align:right; }
 
 /* PAYMENT */
-.payment-methods { display:flex; gap:8px; }
-.payment-btn { flex:1; padding:10px 4px; border-radius:12px; border:2px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:11px; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.15s; }
+.payment-methods { display:flex; gap:8px; flex-wrap:wrap; }
+.payment-btn { flex:1 1 30%; min-width:90px; padding:10px 4px; border-radius:12px; border:2px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:11px; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.15s; }
 .payment-btn.active { border-color:var(--purple); background:var(--purple); color:white; }
 .payment-btn .pay-icon { font-size:18px; }
 
@@ -223,6 +225,9 @@ textarea { width:100%; border-radius:12px; border:1.5px solid var(--lavender); p
 <div id="app"></div>
 
 <script>
+// ─── LOGO ────────────────────────────────────────────────────
+const LOGO_WORTHY = "data:image/png;base64,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";
+
 // ─── FIREBASE CONFIG ─────────────────────────────────────────
 // IMPORTANTE: Reemplaza estos valores con los de tu proyecto Firebase
 const firebaseConfig = {
@@ -267,10 +272,36 @@ const CATALOG = [
 ];
 
 const PAYMENTS = [
-  { id:"efectivo",      label:"Efectivo",  icon:"💵" },
-  { id:"tarjeta",       label:"Tarjeta",   icon:"💳" },
-  { id:"transferencia", label:"Transfer.", icon:"📲" },
+  { id:"efectivo",     label:"Efectivo",       icon:"💵", group:"efectivo" },
+  { id:"td",           label:"T. Débito",      icon:"💳", group:"bendo", comision:0.02 },
+  { id:"tc",           label:"T. Crédito",     icon:"💳", group:"bendo", comision:0.04 },
+  { id:"deuna",        label:"De Una",         icon:"📲", group:"transferencia" },
+  { id:"produbanco",   label:"Transf. Produbanco", icon:"🏦", group:"transferencia" },
+  { id:"pichincha",    label:"Transf. Pichincha",  icon:"🏦", group:"transferencia" },
 ];
+
+// Grupos de conciliacion para Caja
+const PAYMENT_GROUPS = [
+  { id:"efectivo",     label:"Efectivo" },
+  { id:"transferencia",label:"Transferencias" },
+  { id:"bendo",        label:"Bendo" },
+];
+
+// Comision de venta segun metodo de pago (0 si no aplica)
+function getComisionRate(pagoId) {
+  const pt = PAYMENTS.find(p=>p.id===pagoId);
+  return (pt && pt.comision) ? pt.comision : 0;
+}
+
+// Arriendo mensual Quicentro (sin IVA) prorrateado por dias reales del mes
+const ARRIENDO_QUICENTRO_MES = 800;
+function diasEnMes(fecha) {
+  const d = new Date(fecha+"T12:00:00");
+  return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+}
+function arriendoQuicentroDiario(fecha) {
+  return ARRIENDO_QUICENTRO_MES / diasEnMes(fecha);
+}
 
 const STANDS = [
   { id:"quicentro",    name:"Quicentro Norte" },
@@ -451,6 +482,64 @@ function getPrice(productId) {
   return p ? p.price : 0;
 }
 
+// ─── INICIO: HELPERS DE FILTRO ────────────────────────────────
+// Periodo activo de Inicio: "hoy" | "todo" | "fecha" (con state.inicioFecha)
+// Retorna {from,to} ISO inclusive
+function getInicioDateRange() {
+  const todayIso = today();
+  if (state.inicioPeriod === "hoy") return { from: todayIso, to: todayIso };
+  if (state.inicioPeriod === "fecha") {
+    const f = state.inicioFecha || todayIso;
+    return { from: f, to: f };
+  }
+  // "todo"
+  return { from: "0000-01-01", to: "9999-12-31" };
+}
+
+// Filtra ventas segun el filtro de periodo + punto de venta de Inicio
+function getInicioFilteredSales() {
+  const { from, to } = getInicioDateRange();
+  return state.sales.filter(s =>
+    s.fecha >= from && s.fecha <= to &&
+    (state.inicioStand === "all" || s.stand === state.inicioStand)
+  );
+}
+
+// Construye datos de tendencia en barras: ultimos 14 dias, o agrupado por semana si periodo = "todo"
+function getInicioTrend() {
+  const salesForStand = state.inicioStand === "all"
+    ? state.sales
+    : state.sales.filter(s=>s.stand===state.inicioStand);
+
+  if (state.inicioPeriod !== "todo") {
+    return getLastN(salesForStand, 14).map(d=>({ label:d.label, total:d.total }));
+  }
+
+  // Agrupar por semana (lunes-domingo) desde la venta mas antigua hasta hoy
+  if (salesForStand.length===0) return [];
+  const fechas = salesForStand.map(s=>s.fecha).sort();
+  const minFecha = fechas[0];
+  const start = new Date(minFecha+"T12:00:00");
+  // retroceder al lunes de esa semana
+  const dow = (start.getDay()+6)%7; // 0=lunes
+  start.setDate(start.getDate()-dow);
+  const end = new Date(Date.now()-5*60*60*1000);
+
+  const weeks = [];
+  let cursor = new Date(start);
+  while (cursor <= end) {
+    const wStart = new Date(cursor);
+    const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
+    const fromIso = wStart.toISOString().slice(0,10);
+    const toIso = wEnd.toISOString().slice(0,10);
+    const total = salesForStand.filter(s=>s.fecha>=fromIso && s.fecha<=toIso).reduce((s,v)=>s+Number(v.total),0);
+    const label = `${wStart.getDate()}/${wStart.getMonth()+1}`;
+    weeks.push({ label, total });
+    cursor.setDate(cursor.getDate()+7);
+  }
+  return weeks;
+}
+
 // ─── FINANZAS: HELPERS ────────────────────────────────────────
 // Retorna {from, to} (ISO yyyy-mm-dd inclusive) segun el periodo seleccionado
 function getFinDateRange() {
@@ -474,8 +563,27 @@ function inFinRange(fecha) {
   return fecha >= from && fecha <= to;
 }
 
+// Suma el arriendo prorrateado de Quicentro entre dos fechas ISO inclusive (limita "all" al historico real)
+function arriendoQuicentroEnRango(from, to) {
+  const todayIso = today();
+  let f = from, t = to;
+  if (f < "2025-01-01") f = "2025-01-01"; // limite razonable para periodo "all"
+  if (t > todayIso) t = todayIso;
+  if (f > t) return 0;
+  let total = 0;
+  let cursor = new Date(f+"T12:00:00");
+  const end = new Date(t+"T12:00:00");
+  while (cursor <= end) {
+    const iso = cursor.toISOString().slice(0,10);
+    total += arriendoQuicentroDiario(iso);
+    cursor.setDate(cursor.getDate()+1);
+  }
+  return total;
+}
+
 // COGS de una venta: suma de (cantidad * costo unitario) de cada item, expandiendo rutinas
 function ventaCOGS(sale) {
+  if (sale.obsequio) return 0;
   let cogs = 0;
   (sale.items||[]).forEach(item=>{
     if (item.isRutina && item.rutinaItems) {
@@ -490,7 +598,7 @@ function ventaCOGS(sale) {
 // ─── FINANZAS: P&G ─────────────────────────────────────────────
 function renderFinanzas() {
   const { from, to } = getFinDateRange();
-  const periodLabels = { today:"Hoy", week:"Últimos 7 días", month:"Este mes", all:"Todo el histórico" };
+  const periodLabels = { today:"Hoy", week:"Últimos 7 días", month:"Este mes (P&G mensual)", all:"Todo el histórico" };
 
   const filteredSales = state.sales.filter(s=>inFinRange(s.fecha) && (state.finStore==="all" || s.stand===state.finStore));
   const filteredGastos = (state.gastos||[]).filter(g=>inFinRange(g.fecha) && (state.finStore==="all" || g.stand===state.finStore));
@@ -501,6 +609,14 @@ function renderFinanzas() {
   const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
 
   const gastosByCat = GASTO_CATS.map(c=>({...c, total: filteredGastos.filter(g=>g.cat===c.id).reduce((s,g)=>s+Number(g.monto),0)}));
+
+  // Arriendo automatico de Quicentro ($800/mes prorrateado por dias reales), aplica si el filtro incluye Quicentro
+  if (state.finStore==="all" || state.finStore==="quicentro") {
+    const arriendoAuto = arriendoQuicentroEnRango(from, to);
+    const arriendoCat = gastosByCat.find(c=>c.id==="arriendo");
+    if (arriendoCat) arriendoCat.total += arriendoAuto;
+  }
+
   const totalGastos = gastosByCat.reduce((s,c)=>s+c.total,0);
   const utilidadOperativa = margenBruto - totalGastos;
   const utilidadPct = ventas>0 ? (utilidadOperativa/ventas*100) : 0;
@@ -555,6 +671,7 @@ function renderPYG(d) {
     </div>
 
     <div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;">Gastos operativos</div>
+    ${(state.finStore==="all"||state.finStore==="quicentro")?`<div style="font-size:10px;color:var(--gray);margin-bottom:4px;">Incluye arriendo Quicentro prorrateado automáticamente ($800/mes ÷ días del mes)</div>`:""}
     ${d.gastosByCat.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
       <span style="font-size:12px;color:var(--purple);">${c.icon} ${c.label}</span>
       <span style="font-size:13px;font-weight:700;color:${c.total>0?"var(--red)":"var(--gray)"};">${c.total>0?"-"+fmt(c.total):fmt(0)}</span>
@@ -578,7 +695,7 @@ function renderMargenSKU(filteredSales) {
   // Acumular ventas/COGS por producto (expandiendo rutinas a sus componentes para COGS,
   // pero el margen de la rutina se reporta sobre la fila de la rutina misma)
   const bySku = {};
-  filteredSales.forEach(sale=>{
+  filteredSales.filter(sale=>!sale.obsequio).forEach(sale=>{
     (sale.items||[]).forEach(item=>{
       const key = item.isRutina ? ("RUTINA:"+(item.ref||item.name)) : item.id;
       if(!bySku[key]) bySku[key] = { name:item.name, qty:0, ventas:0, cogs:0, isRutina:!!item.isRutina };
@@ -714,12 +831,23 @@ function getCajaEsperado(standId, fecha) {
   const ventasDia = state.sales.filter(s=>s.fecha===fecha && s.stand===standId);
   const gastosDia = (state.gastos||[]).filter(g=>g.fecha===fecha && g.stand===standId);
 
-  const efectivoVentas = ventasDia.filter(s=>s.pago==="efectivo").reduce((s,v)=>s+Number(v.total),0);
-  const tarjetaVentas = ventasDia.filter(s=>s.pago==="tarjeta").reduce((s,v)=>s+Number(v.total),0);
-  const transferVentas = ventasDia.filter(s=>s.pago==="transferencia").reduce((s,v)=>s+Number(v.total),0);
-  const gastosEfectivo = gastosDia.reduce((s,g)=>s+Number(g.monto),0); // se asume todos los gastos se pagan en efectivo
+  const efectivoVentas = ventasDia.filter(s=>{const pt=PAYMENTS.find(p=>p.id===s.pago);return pt&&pt.group==="efectivo";}).reduce((s,v)=>s+Number(v.total),0);
+  const transferVentas = ventasDia.filter(s=>{const pt=PAYMENTS.find(p=>p.id===s.pago);return pt&&pt.group==="transferencia";}).reduce((s,v)=>s+Number(v.total),0);
 
-  return { efectivoVentas, tarjetaVentas, transferVentas, gastosEfectivo, totalVentas: efectivoVentas+tarjetaVentas+transferVentas, txCount: ventasDia.length };
+  // Bendo: ventas brutas con tarjeta (debito/credito), y neto = bruto - comision
+  const bendoVentas = ventasDia.filter(s=>{const pt=PAYMENTS.find(p=>p.id===s.pago);return pt&&pt.group==="bendo";});
+  const bendoBruto = bendoVentas.reduce((s,v)=>s+Number(v.total),0);
+  const bendoComision = bendoVentas.reduce((s,v)=>s+Number(v.total)*getComisionRate(v.pago),0);
+  const bendoNeto = bendoBruto - bendoComision;
+
+  const gastosEfectivo = gastosDia.filter(g=>g.cat!=="comisiones").reduce((s,g)=>s+Number(g.monto),0); // se asume gastos operativos pagados en efectivo (excluye comisiones bancarias, que son descuentos automaticos en Bendo)
+
+  return {
+    efectivoVentas, transferVentas, bendoBruto, bendoComision, bendoNeto,
+    gastosEfectivo,
+    totalVentas: efectivoVentas+transferVentas+bendoBruto,
+    txCount: ventasDia.length
+  };
 }
 
 function renderCaja() {
@@ -731,12 +859,12 @@ function renderCaja() {
 
   const efIni = cierre ? cierre.efectivoInicial : (state.cajaEfectivoInicial!==""?parseFloat(state.cajaEfectivoInicial)||0:null);
   const efFin = cierre ? cierre.efectivoFinal : (state.cajaEfectivoFinal!==""?parseFloat(state.cajaEfectivoFinal)||0:null);
-  const tarjBanco = cierre ? cierre.tarjetaBanco : (state.cajaTarjetaBanco!==""?parseFloat(state.cajaTarjetaBanco)||0:null);
+  const bendoBanco = cierre ? cierre.bendoBanco : (state.cajaBendoBanco!==""?parseFloat(state.cajaBendoBanco)||0:null);
   const transBanco = cierre ? cierre.transferBanco : (state.cajaTransferBanco!==""?parseFloat(state.cajaTransferBanco)||0:null);
 
   const efectivoEsperadoFinal = (efIni!==null) ? (efIni + esp.efectivoVentas - esp.gastosEfectivo) : null;
   const difEfectivo = (efFin!==null && efectivoEsperadoFinal!==null) ? (efFin - efectivoEsperadoFinal) : null;
-  const difTarjeta = (tarjBanco!==null) ? (tarjBanco - esp.tarjetaVentas) : null;
+  const difBendo = (bendoBanco!==null) ? (bendoBanco - esp.bendoNeto) : null;
   const difTransfer = (transBanco!==null) ? (transBanco - esp.transferVentas) : null;
 
   const isLocked = !!cierre;
@@ -762,15 +890,16 @@ function renderCaja() {
         <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.efectivoVentas)}</div>
       </div>
       <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
-        <div style="font-size:10px;color:var(--lavender);">💳 Tarjeta</div>
-        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.tarjetaVentas)}</div>
-      </div>
-      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
         <div style="font-size:10px;color:var(--lavender);">📲 Transfer.</div>
         <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.transferVentas)}</div>
       </div>
+      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);">💳 Bendo (bruto)</div>
+        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.bendoBruto)}</div>
+      </div>
     </div>
-    ${esp.gastosEfectivo>0?`<div style="margin-top:10px;font-size:11px;color:var(--lavender);">Gastos en efectivo del día: -${fmt(esp.gastosEfectivo)}</div>`:""}
+    ${esp.bendoBruto>0?`<div style="margin-top:10px;font-size:11px;color:var(--lavender);">Comisión bancaria estimada: -${fmt(esp.bendoComision)} → Bendo neto esperado: ${fmt(esp.bendoNeto)}</div>`:""}
+    ${esp.gastosEfectivo>0?`<div style="margin-top:6px;font-size:11px;color:var(--lavender);">Gastos en efectivo del día: -${fmt(esp.gastosEfectivo)}</div>`:""}
   </div>
 
   <div class="card" style="margin-top:12px;">
@@ -796,24 +925,24 @@ function renderCaja() {
   </div>
 
   <div class="card" style="margin-top:12px;">
-    <div class="section-title">💳 Conciliación medios electrónicos</div>
+    <div class="section-title">📲💳 Conciliación medios electrónicos</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div>
-        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Tarjeta — según datáfono/banco</label>
-        <input type="number" class="dispatch-input" id="caja-tarj-banco" min="0" step="0.01" placeholder="${fmt(esp.tarjetaVentas)} (sistema)" value="${tarjBanco!==null?tarjBanco:""}" ${isLocked?"disabled":""}>
-      </div>
-      ${difTarjeta!==null?`<div style="display:flex;justify-content:space-between;padding:6px 0;">
-        <span style="font-size:12px;color:var(--gray);">Diferencia tarjeta</span>
-        <span style="font-size:13px;font-weight:800;color:${Math.abs(difTarjeta)<0.01?"var(--gray)":"var(--red)"};">${difTarjeta>=0?"+":""}${fmt(difTarjeta)}</span>
-      </div>`:""}
-
-      <div>
-        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Transferencia — según banco</label>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Transferencias (De Una + Pichincha + Produbanco) — según banco</label>
         <input type="number" class="dispatch-input" id="caja-trans-banco" min="0" step="0.01" placeholder="${fmt(esp.transferVentas)} (sistema)" value="${transBanco!==null?transBanco:""}" ${isLocked?"disabled":""}>
       </div>
       ${difTransfer!==null?`<div style="display:flex;justify-content:space-between;padding:6px 0;">
-        <span style="font-size:12px;color:var(--gray);">Diferencia transferencia</span>
+        <span style="font-size:12px;color:var(--gray);">Diferencia transferencias</span>
         <span style="font-size:13px;font-weight:800;color:${Math.abs(difTransfer)<0.01?"var(--gray)":"var(--red)"};">${difTransfer>=0?"+":""}${fmt(difTransfer)}</span>
+      </div>`:""}
+
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Bendo (TC/TD, neto de comisión) — según banco</label>
+        <input type="number" class="dispatch-input" id="caja-bendo-banco" min="0" step="0.01" placeholder="${fmt(esp.bendoNeto)} (sistema, neto)" value="${bendoBanco!==null?bendoBanco:""}" ${isLocked?"disabled":""}>
+      </div>
+      ${difBendo!==null?`<div style="display:flex;justify-content:space-between;padding:6px 0;">
+        <span style="font-size:12px;color:var(--gray);">Diferencia Bendo</span>
+        <span style="font-size:13px;font-weight:800;color:${Math.abs(difBendo)<0.01?"var(--gray)":"var(--red)"};">${difBendo>=0?"+":""}${fmt(difBendo)}</span>
       </div>`:""}
     </div>
   </div>
@@ -855,10 +984,14 @@ let state = {
   cart: [],
   payment: "efectivo",
   discount: 0,
+  obsequio: false,
   note: "",
   catFilter: "all",
   periodFilter: "today",
   adminStoreFilter: "all",
+  inicioPeriod: "todo",
+  inicioStand: "all",
+  inicioFecha: today(),
   stockView: "consolidado",
   editingStock: null,
   editStockVal: "",
@@ -906,7 +1039,7 @@ let state = {
   cierres: {},
   cajaEfectivoInicial: "",
   cajaEfectivoFinal: "",
-  cajaTarjetaBanco: "",
+  cajaBendoBanco: "",
   cajaTransferBanco: "",
   cajaNota: "",
   cajaSaving: false,
@@ -951,7 +1084,7 @@ function renderStandSelector() {
     ? PUNTOS_VENTA.filter(p=>p.id==="oficina")
     : PUNTOS_VENTA;
   return `<div class="login-screen">
-    <div class="login-logo">WORTHY</div>
+    <img src="${LOGO_WORTHY}" alt="WORTHY" class="login-logo-img">
     <div class="login-sub">Hola ${state.userInfo.name} 👋</div>
     <div class="login-card">
       <h2>¿En qué punto estás hoy?</h2>
@@ -988,7 +1121,7 @@ function renderLoading() {
 // ─── LOGIN ────────────────────────────────────────────────────
 function renderLogin() {
   return `<div class="login-screen">
-    <div class="login-logo">WORTHY</div>
+    <img src="${LOGO_WORTHY}" alt="WORTHY" class="login-logo-img">
     <div class="login-sub">Sistema de Gestión</div>
     <div class="login-card">
       <h2>Iniciar Sesión</h2>
@@ -1036,7 +1169,7 @@ function renderApp() {
   <div class="app">
     <div class="header">
       <div class="header-brand">
-        <div class="brand-name">WORTHY</div>
+        <img src="${LOGO_WORTHY}" alt="WORTHY" class="brand-logo-img">
         <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor"||u.role==="bodega")&&state.selectedStand?" · "+PUNTOS_VENTA.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
@@ -1158,10 +1291,10 @@ function renderStandDashboard() {
     <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Ventas hoy</div>
     <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones · IVA incluido</div>
-    <div style="display:flex;gap:8px;margin-top:14px;">
-      ${byPay.map(pt=>`<div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
-        <div style="font-size:11px;color:var(--lavender);font-weight:600;">${pt.icon} ${pt.label}</div>
-        <div style="font-size:14px;font-weight:800;color:white;margin-top:3px;">${fmt(pt.t)}</div>
+    <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
+      ${byPay.filter(pt=>pt.t>0).map(pt=>`<div style="flex:1;min-width:70px;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);font-weight:600;">${pt.icon} ${pt.label}</div>
+        <div style="font-size:13px;font-weight:800;color:white;margin-top:3px;">${fmt(pt.t)}</div>
       </div>`).join("")}
     </div>
   </div>
@@ -1222,58 +1355,74 @@ function renderBodegaDashboard() {
 // ─── ADMIN DASHBOARD ─────────────────────────────────────────
 function renderAdminDashboard() {
   const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
-  const filteredSales = state.adminStoreFilter==="all"
-    ? state.sales
-    : state.sales.filter(s=>s.stand===state.adminStoreFilter);
 
-  const todaySales = filteredSales.filter(s=>s.fecha===today());
-  const todayTotal = todaySales.reduce((s,v)=>s+Number(v.total),0);
-  const last14 = getLastN(filteredSales, 14);
-  const last7Filtered = last14.slice(-7);
-  const weekTotal = last7Filtered.reduce((s,d)=>s+d.total,0);
-  const weekTx = filteredSales.filter(s=>last7Filtered.some(d=>d.iso===s.fecha)).length;
-  const avgTicket = todaySales.length>0 ? todayTotal/todaySales.length : 0;
+  // ── Filtro combinado: periodo (hoy/todo/fecha) x punto de venta ──
+  const filteredSales = getInicioFilteredSales();
+  const { from, to } = getInicioDateRange();
+  const periodLabel = state.inicioPeriod==="hoy" ? "Hoy"
+    : state.inicioPeriod==="fecha" ? fmtDate(state.inicioFecha)
+    : "Todo el histórico";
 
-  // Comparacion ayer vs hoy
+  const periodTotal = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const periodTx = filteredSales.length;
+  const avgTicket = periodTx>0 ? periodTotal/periodTx : 0;
+
+  // Comparacion vs ayer (solo tiene sentido si periodo = hoy)
   const yestIso = (()=>{ const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
-  const yestTotal = filteredSales.filter(s=>s.fecha===yestIso).reduce((s,v)=>s+Number(v.total),0);
-  const pctChange = yestTotal>0 ? ((todayTotal-yestTotal)/yestTotal*100) : (todayTotal>0?100:0);
+  const salesForStand = state.inicioStand==="all" ? state.sales : state.sales.filter(s=>s.stand===state.inicioStand);
+  const yestTotal = salesForStand.filter(s=>s.fecha===yestIso).reduce((s,v)=>s+Number(v.total),0);
+  const pctChange = yestTotal>0 ? ((periodTotal-yestTotal)/yestTotal*100) : (periodTotal>0?100:0);
 
-  // Metodo de pago - hoy
-  const byPay = PAYMENTS.map(pt=>({...pt,total:todaySales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
+  // Metodo de pago - segun filtro
+  const byPay = PAYMENTS.map(pt=>({...pt,total:filteredSales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
   const maxPay = Math.max(...byPay.map(p=>p.total),1);
 
-  // Ventas por stand hoy
-  const standTotals = PUNTOS_VENTA.map(st=>({
-    ...st,
-    total: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).reduce((s,v)=>s+Number(v.total),0),
-    count: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).length,
-  }));
+  // Ventas por stand - segun filtro de periodo (todos los stands, independiente del filtro de stand)
+  const standTotals = PUNTOS_VENTA.map(st=>{
+    const stSales = state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id);
+    return { ...st, total: stSales.reduce((s,v)=>s+Number(v.total),0), count: stSales.length };
+  });
   const maxStand = Math.max(...standTotals.map(s=>s.total),1);
 
-  // Top productos hoy
-  const topMap={};
-  todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
-  const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  // Ranking de productos (USD y unidades) - segun filtro
+  const rankMap = {};
+  filteredSales.forEach(s=>s.items&&s.items.forEach(i=>{
+    if(!rankMap[i.id]) rankMap[i.id] = { id:i.id, name:i.name, qty:0, total:0 };
+    rankMap[i.id].qty += i.qty;
+    rankMap[i.id].total += i.subtotal;
+  }));
+  const topByUsd = Object.values(rankMap).sort((a,b)=>b.total-a.total).slice(0,5);
+  const topByUnits = Object.values(rankMap).sort((a,b)=>b.qty-a.qty).slice(0,5);
 
-  const chartLabels = JSON.stringify(last14.map(d=>d.label));
-  const chartData = JSON.stringify(last14.map(d=>Number(d.total.toFixed(2))));
+  // Tendencia (siempre visible, independiente del filtro de periodo, respeta filtro de stand)
+  const trend = getInicioTrend();
+  const trendLabels = JSON.stringify(trend.map(d=>d.label));
+  const trendData = JSON.stringify(trend.map(d=>Number(d.total.toFixed(2))));
 
   return `
   <div class="store-selector">
-    ${stores.map(s=>`<button class="store-btn ${state.adminStoreFilter===s.id?"active":""}" data-store="${s.id}">${s.name}</button>`).join("")}
+    ${stores.map(s=>`<button class="store-btn ${state.inicioStand===s.id?"active":""}" data-inicio-stand="${s.id}">${s.id==="oficina"?"🏢 ":s.id!=="all"?"🏪 ":""}${s.name}</button>`).join("")}
   </div>
+
+  <div class="period-filter">
+    <button class="period-btn ${state.inicioPeriod==="hoy"?"active":""}" data-inicio-period="hoy">Hoy</button>
+    <button class="period-btn ${state.inicioPeriod==="todo"?"active":""}" data-inicio-period="todo">Todo</button>
+    <button class="period-btn ${state.inicioPeriod==="fecha"?"active":""}" data-inicio-period="fecha">📅 Fecha</button>
+  </div>
+  ${state.inicioPeriod==="fecha"?`<div class="card" style="margin-bottom:12px;padding:10px;">
+    <input type="date" class="dispatch-input" id="inicio-fecha" value="${state.inicioFecha}">
+  </div>`:""}
 
   <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div>
         <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">
-          ${state.adminStoreFilter==="all"?"Ventas consolidadas hoy":STANDS.find(s=>s.id===state.adminStoreFilter)?.name+" · hoy"}
+          ${state.inicioStand==="all"?"Ventas consolidadas":PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name} · ${periodLabel}
         </div>
-        <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
-        <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones</div>
+        <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(periodTotal)}</div>
+        <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${periodTx} transacciones · IVA incluido</div>
       </div>
-      ${yestTotal>0||todayTotal>0?`<div style="text-align:right;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.12);">
+      ${state.inicioPeriod==="hoy"&&(yestTotal>0||periodTotal>0)?`<div style="text-align:right;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.12);">
         <div style="font-size:18px;font-weight:900;color:${pctChange>=0?"var(--lime)":"var(--red)"};">${pctChange>=0?"▲":"▼"} ${Math.abs(pctChange).toFixed(0)}%</div>
         <div style="font-size:9px;color:var(--lavender);">vs. ayer</div>
       </div>`:""}
@@ -1282,26 +1431,26 @@ function renderAdminDashboard() {
 
   <div class="stats-grid">
     <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
-      <div class="stat-label" style="color:var(--gray);">Esta semana</div>
-      <div class="stat-value" style="color:var(--purple);">${fmt(weekTotal)}</div>
-      <div style="font-size:10px;color:var(--gray);margin-top:2px;">${weekTx} transacciones</div>
-    </div>
-    <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
       <div class="stat-label" style="color:var(--gray);">Ticket promedio</div>
       <div class="stat-value" style="color:var(--purple);">${fmt(avgTicket)}</div>
-      <div style="font-size:10px;color:var(--gray);margin-top:2px;">hoy</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px;">${periodLabel}</div>
+    </div>
+    <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
+      <div class="stat-label" style="color:var(--gray);">Transacciones</div>
+      <div class="stat-value" style="color:var(--purple);">${periodTx}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px;">${periodLabel}</div>
     </div>
   </div>
 
   <div class="card">
-    <div class="section-title">Tendencia · últimos 14 días</div>
-    <div style="position:relative;width:100%;height:160px;" data-trend-chart='${chartLabels}|||${chartData}'>
-      <canvas id="trendChart" role="img" aria-label="Gráfico de línea de ventas diarias de los últimos 14 días">Tendencia de ventas de los últimos 14 días.</canvas>
+    <div class="section-title">Tendencia · ${state.inicioPeriod==="todo"?"por semana":"últimos 14 días"}${state.inicioStand!=="all"?" · "+PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name:""}</div>
+    <div style="position:relative;width:100%;height:200px;" data-trend-chart='${trendLabels}|||${trendData}'>
+      <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas">Tendencia de ventas.</canvas>
     </div>
   </div>
 
   <div class="card">
-    <div class="section-title">Métodos de pago · hoy</div>
+    <div class="section-title">Métodos de pago · ${periodLabel}</div>
     ${byPay.map(pt=>`<div style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <span style="font-size:12px;font-weight:700;color:var(--purple);">${pt.icon} ${pt.label}</span>
@@ -1313,8 +1462,8 @@ function renderAdminDashboard() {
     </div>`).join("")}
   </div>
 
-  ${state.adminStoreFilter==="all"?`<div class="card">
-    <div class="section-title">Ventas por local · hoy</div>
+  <div class="card">
+    <div class="section-title">Ventas por local · ${periodLabel}</div>
     ${standTotals.map(st=>`<div style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <div><span style="font-size:12px;font-weight:700;color:var(--purple);">${st.id==="oficina"?"🏢":"🏪"} ${st.name}</span>
@@ -1325,22 +1474,38 @@ function renderAdminDashboard() {
         <div style="height:100%;width:${(st.total/maxStand*100)}%;background:var(--purple);border-radius:8px;transition:width 0.3s;"></div>
       </div>
     </div>`).join("")}
-  </div>`:""}
+  </div>
 
-  ${top.length>0?`<div class="card">
-    <div class="section-title">Más vendido hoy</div>
-    ${top.map(([id,qty],idx)=>{const p=CATALOG.find(c=>c.id===id);const maxQty=top[0][1];return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+  ${topByUsd.length>0?`<div class="card">
+    <div class="section-title">Ranking productos · ${periodLabel} · USD</div>
+    ${topByUsd.map((r,idx)=>{const p=CATALOG.find(c=>c.id===r.id);const maxUsd=topByUsd[0].total;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
       <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
       <span style="font-size:18px;">${p?.emoji||"📦"}</span>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;font-weight:700;color:var(--purple);">${p?.name||id} ${p?.sub||""}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--purple);">${r.name}</div>
         <div style="height:5px;border-radius:5px;background:var(--lavender-light);overflow:hidden;margin-top:3px;">
-          <div style="height:100%;width:${(qty/maxQty*100)}%;background:var(--lime);border-radius:5px;"></div>
+          <div style="height:100%;width:${(r.total/maxUsd*100)}%;background:var(--lime);border-radius:5px;"></div>
         </div>
       </div>
-      <span class="badge badge-lime">${qty} uds</span>
+      <span class="badge badge-purple">${fmt(r.total)}</span>
     </div>`;}).join("")}
-  </div>`:""}`;
+  </div>` : ""}
+
+  ${topByUnits.length>0?`<div class="card">
+    <div class="section-title">Ranking productos · ${periodLabel} · Unidades</div>
+    ${topByUnits.map((r,idx)=>{const p=CATALOG.find(c=>c.id===r.id);const maxQty=topByUnits[0].qty;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
+      <span style="font-size:18px;">${p?.emoji||"📦"}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);">${r.name}</div>
+        <div style="height:5px;border-radius:5px;background:var(--lavender-light);overflow:hidden;margin-top:3px;">
+          <div style="height:100%;width:${(r.qty/maxQty*100)}%;background:var(--lime);border-radius:5px;"></div>
+        </div>
+      </div>
+      <span class="badge badge-lime">${r.qty} uds</span>
+    </div>`;}).join("")}
+  </div>` : ""}
+  `;
 }
 
 function renderTrendChart() {
@@ -1355,30 +1520,50 @@ function renderTrendChart() {
 
   if(ctx._chartInstance) { ctx._chartInstance.destroy(); }
   ctx._chartInstance = new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: {
       labels: labels,
       datasets: [{
         label: 'Ventas',
         data: data,
-        borderColor: '#8DC63F',
-        backgroundColor: 'rgba(141,198,63,0.12)',
-        fill: true,
-        tension: 0.35,
-        pointRadius: 2,
-        pointBackgroundColor: '#2D1B69',
-        borderWidth: 2,
+        backgroundColor: '#8DC63F',
+        borderRadius: 6,
+        maxBarThickness: 40,
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return '$' + c.parsed.y.toFixed(2); } } } },
+      layout: { padding: { top: 24 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(c){ return '$' + c.parsed.y.toFixed(2); } } },
+        datalabels: undefined
+      },
       scales: {
         y: { ticks: { callback: function(v){ return '$'+v; }, font:{size:9}, color:'#6B7280' }, grid:{ color:'rgba(108,114,128,0.08)'} },
         x: { ticks: { font:{size:9}, color:'#6B7280', maxRotation:0 }, grid:{ display:false } }
       }
-    }
+    },
+    plugins: [{
+      id: 'valueLabels',
+      afterDatasetsDraw(chart) {
+        const {ctx} = chart;
+        chart.data.datasets.forEach((dataset, i) => {
+          const meta = chart.getDatasetMeta(i);
+          meta.data.forEach((bar, idx) => {
+            const val = dataset.data[idx];
+            if (val === null || val === undefined) return;
+            ctx.save();
+            ctx.fillStyle = '#2D1B69';
+            ctx.font = '700 9px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('$'+Number(val).toFixed(0), bar.x, bar.y - 4);
+            ctx.restore();
+          });
+        });
+      }
+    }]
   });
 }
 
@@ -1397,6 +1582,10 @@ function renderPOS() {
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
   const discAmt = subtotal*state.discount/100;
   const total = subtotal - discAmt;
+  const cartCost = state.cart.reduce((s,i)=>{
+    if(i.isRutina && i.items) return s + i.items.reduce((s2,ri)=>s2+(getCost(ri.id)||0)*(ri.q||0)*(i.qty||0),0);
+    return s + (getCost(i.id)||0)*i.qty;
+  },0);
 
   return `
   <div class="filter-bar">
@@ -1498,14 +1687,24 @@ function renderPOS() {
       <div class="total-row">
         <span class="total-label">TOTAL</span>
         <div style="text-align:right;">
-          <div class="total-amount">${fmt(total)}</div>
+          <div class="total-amount">${state.obsequio?fmt(0):fmt(total)}</div>
           <div class="total-iva">IVA 15% incluido</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div style="margin-top:12px;">
+  <div class="card" style="margin-top:12px;border:2px solid var(--lime);">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="checkbox" id="obsequio-toggle" ${state.obsequio?"checked":""} style="width:20px;height:20px;accent-color:var(--lime);">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--purple);">🎁 Registrar como obsequio</div>
+        <div style="font-size:11px;color:var(--gray);">Sale del inventario a costo (${fmt(cartCost)}), se registra como gasto de marketing. No genera ingreso.</div>
+      </div>
+    </label>
+  </div>
+
+  ${!state.obsequio?`<div style="margin-top:12px;">
     <div class="section-title">Método de pago</div>
     <div class="payment-methods">
       ${PAYMENTS.map(pt=>`<button class="payment-btn ${state.payment===pt.id?"active":""}" data-payment="${pt.id}">
@@ -1513,13 +1712,13 @@ function renderPOS() {
         <div>${pt.label}</div>
       </button>`).join("")}
     </div>
-  </div>
+  </div>`:""}
 
   <textarea placeholder="Nota opcional..." id="sale-note">${state.note}</textarea>
   `:""}
 
   <button class="btn-lime btn-lime-full" id="sell-btn" ${state.cart.length===0?"disabled":""}>
-    ${state.cart.length>0?`Registrar Venta · ${fmt(total)}`:"Selecciona productos"}
+    ${state.cart.length>0?(state.obsequio?`Registrar Obsequio · costo ${fmt(cartCost)}`:`Registrar Venta · ${fmt(total)}`):"Selecciona productos"}
   </button>`;
 }
 
@@ -1530,6 +1729,8 @@ const GASTO_CATS = [
   { id:"almuerzo",     label:"Almuerzo",      icon:"🍱" },
   { id:"transporte",   label:"Transporte",    icon:"🚗" },
   { id:"servicios",    label:"Servicios",     icon:"💡" },
+  { id:"marketing",    label:"Marketing/Obsequios", icon:"🎁" },
+  { id:"comisiones",   label:"Comisiones bancarias", icon:"💳" },
   { id:"otro",         label:"Otro",          icon:"📎" },
 ];
 
@@ -1826,8 +2027,8 @@ function renderVentas() {
         </div>
         <div style="text-align:right;margin-left:8px;">
           <div class="sale-amount">${fmt(sale.total)}</div>
-          <span class="badge badge-${sale.pago==="efectivo"?"green":sale.pago==="tarjeta"?"purple":"amber"}">
-            ${PAYMENTS.find(p=>p.id===sale.pago)?.icon} ${PAYMENTS.find(p=>p.id===sale.pago)?.label}
+          <span class="badge badge-${sale.obsequio?"lime":sale.pago==="efectivo"?"green":PAYMENTS.find(p=>p.id===sale.pago)?.group==="bendo"?"purple":"amber"}">
+            ${sale.obsequio?"🎁 Obsequio":`${PAYMENTS.find(p=>p.id===sale.pago)?.icon||""} ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago}`}
           </span>
         </div>
       </div>
@@ -2170,6 +2371,15 @@ function bindApp() {
     btn.addEventListener("click",()=>{ state.adminStoreFilter=btn.dataset.store; render(); });
   });
 
+  // Inicio: filtros de periodo y punto de venta
+  document.querySelectorAll("[data-inicio-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.inicioPeriod=btn.dataset.inicioPeriod; render(); });
+  });
+  document.querySelectorAll("[data-inicio-stand]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.inicioStand=btn.dataset.inicioStand; render(); });
+  });
+  document.getElementById("inicio-fecha")?.addEventListener("change",e=>{ state.inicioFecha=e.target.value; render(); });
+
   // Inv store filter (admin inventory) - legacy
   document.querySelectorAll("[data-inv-store]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.adminStoreFilter=btn.dataset.invStore; render(); });
@@ -2223,6 +2433,9 @@ function bindApp() {
   document.querySelectorAll("[data-payment]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.payment=btn.dataset.payment; render(); });
   });
+
+  // Obsequio toggle
+  document.getElementById("obsequio-toggle")?.addEventListener("change",e=>{ state.obsequio=e.target.checked; render(); });
 
   // Note
   document.getElementById("sale-note")?.addEventListener("input",e=>{ state.note=e.target.value; });
@@ -2361,7 +2574,7 @@ function bindApp() {
   document.getElementById("caja-fecha")?.addEventListener("change",e=>{ state.cajaFecha=e.target.value; render(); });
   document.getElementById("caja-ef-ini")?.addEventListener("input",e=>{ state.cajaEfectivoInicial=e.target.value; });
   document.getElementById("caja-ef-fin")?.addEventListener("input",e=>{ state.cajaEfectivoFinal=e.target.value; });
-  document.getElementById("caja-tarj-banco")?.addEventListener("input",e=>{ state.cajaTarjetaBanco=e.target.value; });
+  document.getElementById("caja-bendo-banco")?.addEventListener("input",e=>{ state.cajaBendoBanco=e.target.value; });
   document.getElementById("caja-trans-banco")?.addEventListener("input",e=>{ state.cajaTransferBanco=e.target.value; });
   document.getElementById("caja-nota")?.addEventListener("input",e=>{ state.cajaNota=e.target.value; });
   document.getElementById("caja-calcular-btn")?.addEventListener("click",()=>{ render(); });
@@ -2540,7 +2753,11 @@ async function handleSell() {
   if (!state.cart.length) return;
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
   const discAmt = subtotal*state.discount/100;
-  const total = subtotal-discAmt;
+  const total = state.obsequio ? 0 : (subtotal-discAmt);
+  const cartCost = state.cart.reduce((s,i)=>{
+    if(i.isRutina && i.items) return s + i.items.reduce((s2,ri)=>s2+(getCost(ri.id)||0)*(ri.q||0)*(i.qty||0),0);
+    return s + (getCost(i.id)||0)*i.qty;
+  },0);
 
   const sale = {
     id: genId(),
@@ -2548,8 +2765,9 @@ async function handleSell() {
     timestamp: new Date().toISOString(),
     stand: getActiveSaleStandId(),
     items: state.cart.map(i=>({id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null})),
-    subtotal, descuento:state.discount, descuentoAmt:discAmt, total,
-    pago: state.payment, nota: state.note
+    subtotal: state.obsequio?0:subtotal, descuento:state.discount, descuentoAmt:state.obsequio?0:discAmt, total,
+    pago: state.obsequio?"obsequio":state.payment, nota: state.note,
+    obsequio: !!state.obsequio
   };
 
   try {
@@ -2568,11 +2786,46 @@ async function handleSell() {
     });
     await db.collection("inventarios").doc(invSourceId).set(inv);
 
+    // Si es obsequio: registrar gasto de marketing por el costo
+    if (state.obsequio && cartCost > 0) {
+      const gasto = {
+        id: genId(),
+        fecha: sale.fecha,
+        timestamp: new Date().toISOString(),
+        stand: sale.stand,
+        cat: "marketing",
+        monto: Number(cartCost.toFixed(2)),
+        nota: `Obsequio · venta ${sale.id}`,
+      };
+      await db.collection("gastos").doc(gasto.id).set(gasto);
+      state.gastos = [...(state.gastos||[]), gasto];
+    }
+
+    // Si es tarjeta (debito/credito): registrar comision bancaria automatica
+    if (!state.obsequio) {
+      const comisionRate = getComisionRate(sale.pago);
+      if (comisionRate > 0) {
+        const comisionMonto = total * comisionRate;
+        const gastoCom = {
+          id: genId(),
+          fecha: sale.fecha,
+          timestamp: new Date().toISOString(),
+          stand: sale.stand,
+          cat: "comisiones",
+          monto: Number(comisionMonto.toFixed(2)),
+          nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta ${sale.id}`,
+        };
+        await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
+        state.gastos = [...(state.gastos||[]), gastoCom];
+      }
+    }
+
     state.inventory[invSourceId] = inv;
     state.sales = [...state.sales, sale];
     state.cart = [];
     state.discount = 0;
     state.note = "";
+    state.obsequio = false;
     state.success = total;
     render();
     setTimeout(()=>{ state.success=null; render(); }, 2200);
@@ -2724,7 +2977,7 @@ async function handleCajaCerrar() {
       fecha,
       efectivoInicial: efIni,
       efectivoFinal: efFin,
-      tarjetaBanco: state.cajaTarjetaBanco!==""? (parseFloat(state.cajaTarjetaBanco)||0) : null,
+      bendoBanco: state.cajaBendoBanco!==""? (parseFloat(state.cajaBendoBanco)||0) : null,
       transferBanco: state.cajaTransferBanco!==""? (parseFloat(state.cajaTransferBanco)||0) : null,
       nota: state.cajaNota.trim(),
       cerradoPor: state.user.email,
@@ -2732,7 +2985,7 @@ async function handleCajaCerrar() {
     };
     await db.collection("cierres_caja").doc(docId).set(cierre);
     state.cierres = {...(state.cierres||{}), [docId]: cierre};
-    state.cajaEfectivoInicial=""; state.cajaEfectivoFinal=""; state.cajaTarjetaBanco=""; state.cajaTransferBanco=""; state.cajaNota="";
+    state.cajaEfectivoInicial=""; state.cajaEfectivoFinal=""; state.cajaBendoBanco=""; state.cajaTransferBanco=""; state.cajaNota="";
     state.cajaSaving = false;
     showToast("✅ Caja cerrada");
     render();
