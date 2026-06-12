@@ -521,11 +521,13 @@ function renderFinanzas() {
     <button class="filter-btn ${state.finTab==="pyg"?"active":""}" data-fin-tab="pyg">📊 P&amp;G</button>
     <button class="filter-btn ${state.finTab==="sku"?"active":""}" data-fin-tab="sku">🏷️ Margen por SKU</button>
     <button class="filter-btn ${state.finTab==="gastos"?"active":""}" data-fin-tab="gastos">💸 Gastos</button>
+    <button class="filter-btn ${state.finTab==="caja"?"active":""}" data-fin-tab="caja">💼 Caja</button>
   </div>
 
   ${state.finTab==="pyg" ? renderPYG({ventas,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
   ${state.finTab==="sku" ? renderMargenSKU(filteredSales) : ""}
   ${state.finTab==="gastos" ? renderGastosForm(filteredGastos) : ""}
+  ${state.finTab==="caja" ? renderCaja() : ""}
   `;
 }
 
@@ -700,6 +702,140 @@ function renderGastosForm(filteredGastos) {
       }).join("")}`;
 }
 
+// ─── CAJA / CONCILIACION ───────────────────────────────────────
+function cierreDocId(standId, fecha) {
+  return `${standId}_${fecha}`;
+}
+
+// Calcula totales esperados de un dia para un punto de venta
+function getCajaEsperado(standId, fecha) {
+  const ventasDia = state.sales.filter(s=>s.fecha===fecha && s.stand===standId);
+  const gastosDia = (state.gastos||[]).filter(g=>g.fecha===fecha && g.stand===standId);
+
+  const efectivoVentas = ventasDia.filter(s=>s.pago==="efectivo").reduce((s,v)=>s+Number(v.total),0);
+  const tarjetaVentas = ventasDia.filter(s=>s.pago==="tarjeta").reduce((s,v)=>s+Number(v.total),0);
+  const transferVentas = ventasDia.filter(s=>s.pago==="transferencia").reduce((s,v)=>s+Number(v.total),0);
+  const gastosEfectivo = gastosDia.reduce((s,g)=>s+Number(g.monto),0); // se asume todos los gastos se pagan en efectivo
+
+  return { efectivoVentas, tarjetaVentas, transferVentas, gastosEfectivo, totalVentas: efectivoVentas+tarjetaVentas+transferVentas, txCount: ventasDia.length };
+}
+
+function renderCaja() {
+  const fecha = state.cajaFecha;
+  const standId = state.cajaStand;
+  const docId = cierreDocId(standId, fecha);
+  const cierre = (state.cierres||{})[docId];
+  const esp = getCajaEsperado(standId, fecha);
+
+  const efIni = cierre ? cierre.efectivoInicial : (state.cajaEfectivoInicial!==""?parseFloat(state.cajaEfectivoInicial)||0:null);
+  const efFin = cierre ? cierre.efectivoFinal : (state.cajaEfectivoFinal!==""?parseFloat(state.cajaEfectivoFinal)||0:null);
+  const tarjBanco = cierre ? cierre.tarjetaBanco : (state.cajaTarjetaBanco!==""?parseFloat(state.cajaTarjetaBanco)||0:null);
+  const transBanco = cierre ? cierre.transferBanco : (state.cajaTransferBanco!==""?parseFloat(state.cajaTransferBanco)||0:null);
+
+  const efectivoEsperadoFinal = (efIni!==null) ? (efIni + esp.efectivoVentas - esp.gastosEfectivo) : null;
+  const difEfectivo = (efFin!==null && efectivoEsperadoFinal!==null) ? (efFin - efectivoEsperadoFinal) : null;
+  const difTarjeta = (tarjBanco!==null) ? (tarjBanco - esp.tarjetaVentas) : null;
+  const difTransfer = (transBanco!==null) ? (transBanco - esp.transferVentas) : null;
+
+  const isLocked = !!cierre;
+
+  return `
+  <div class="card">
+    <div class="section-title">Punto de venta y fecha</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <select class="dispatch-select" id="caja-stand">
+        ${STANDS.map(s=>`<option value="${s.id}" ${standId===s.id?"selected":""}>${s.name}</option>`).join("")}
+      </select>
+      <input type="date" class="dispatch-input" id="caja-fecha" value="${fecha}">
+    </div>
+  </div>
+
+  <div class="card card-purple" style="margin-top:12px;padding:16px;">
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Ventas del sistema · ${fmtDate(fecha)}</div>
+    <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(esp.totalVentas)}</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${esp.txCount} transacciones</div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);">💵 Efectivo</div>
+        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.efectivoVentas)}</div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);">💳 Tarjeta</div>
+        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.tarjetaVentas)}</div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);">📲 Transfer.</div>
+        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.transferVentas)}</div>
+      </div>
+    </div>
+    ${esp.gastosEfectivo>0?`<div style="margin-top:10px;font-size:11px;color:var(--lavender);">Gastos en efectivo del día: -${fmt(esp.gastosEfectivo)}</div>`:""}
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="section-title">💵 Efectivo</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Efectivo inicial (apertura)</label>
+        <input type="number" class="dispatch-input" id="caja-ef-ini" min="0" step="0.01" placeholder="$0.00" value="${efIni!==null?efIni:""}" ${isLocked?"disabled":""}>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Efectivo final (conteo de cierre)</label>
+        <input type="number" class="dispatch-input" id="caja-ef-fin" min="0" step="0.01" placeholder="$0.00" value="${efFin!==null?efFin:""}" ${isLocked?"disabled":""}>
+      </div>
+      ${efectivoEsperadoFinal!==null?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--lavender-light);">
+        <span style="font-size:12px;color:var(--gray);">Esperado en caja (inicial + ventas efvo − gastos)</span>
+        <span style="font-size:13px;font-weight:800;color:var(--purple);">${fmt(efectivoEsperadoFinal)}</span>
+      </div>`:""}
+      ${difEfectivo!==null?`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:10px;background:${Math.abs(difEfectivo)<0.01?"var(--lavender-light)":difEfectivo>0?"#D1FAE5":"#FEE2E2"};">
+        <span style="font-size:13px;font-weight:800;color:var(--purple);">${Math.abs(difEfectivo)<0.01?"✅ Caja exacta":difEfectivo>0?"⬆️ Sobrante":"⬇️ Faltante"}</span>
+        <span style="font-size:16px;font-weight:900;color:${Math.abs(difEfectivo)<0.01?"var(--purple)":difEfectivo>0?"#065F46":"var(--red)"};">${fmt(Math.abs(difEfectivo))}</span>
+      </div>`:""}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="section-title">💳 Conciliación medios electrónicos</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Tarjeta — según datáfono/banco</label>
+        <input type="number" class="dispatch-input" id="caja-tarj-banco" min="0" step="0.01" placeholder="${fmt(esp.tarjetaVentas)} (sistema)" value="${tarjBanco!==null?tarjBanco:""}" ${isLocked?"disabled":""}>
+      </div>
+      ${difTarjeta!==null?`<div style="display:flex;justify-content:space-between;padding:6px 0;">
+        <span style="font-size:12px;color:var(--gray);">Diferencia tarjeta</span>
+        <span style="font-size:13px;font-weight:800;color:${Math.abs(difTarjeta)<0.01?"var(--gray)":"var(--red)"};">${difTarjeta>=0?"+":""}${fmt(difTarjeta)}</span>
+      </div>`:""}
+
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Transferencia — según banco</label>
+        <input type="number" class="dispatch-input" id="caja-trans-banco" min="0" step="0.01" placeholder="${fmt(esp.transferVentas)} (sistema)" value="${transBanco!==null?transBanco:""}" ${isLocked?"disabled":""}>
+      </div>
+      ${difTransfer!==null?`<div style="display:flex;justify-content:space-between;padding:6px 0;">
+        <span style="font-size:12px;color:var(--gray);">Diferencia transferencia</span>
+        <span style="font-size:13px;font-weight:800;color:${Math.abs(difTransfer)<0.01?"var(--gray)":"var(--red)"};">${difTransfer>=0?"+":""}${fmt(difTransfer)}</span>
+      </div>`:""}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="section-title">Nota de cierre</div>
+    <textarea id="caja-nota" placeholder="Observaciones del cierre (opcional)" ${isLocked?"disabled":""}>${cierre?(cierre.nota||""):state.cajaNota}</textarea>
+  </div>
+
+  ${isLocked?`
+  <div class="card card-lavender" style="margin-top:12px;text-align:center;">
+    <div style="font-size:13px;font-weight:700;color:var(--purple);">🔒 Caja cerrada</div>
+    <div style="font-size:11px;color:var(--gray);margin-top:2px;">Cerrada por ${cierre.cerradoPor||"—"} el ${cierre.cerradoEn?new Date(cierre.cerradoEn).toLocaleString("es-EC"):"—"}</div>
+    <button class="btn-ghost" id="caja-reabrir-btn" style="margin-top:10px;">🔓 Reabrir para editar</button>
+  </div>`:`
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <button class="btn-ghost" style="flex:1;" id="caja-calcular-btn">🔄 Calcular diferencias</button>
+    <button class="btn-lime" style="flex:1;" id="caja-cerrar-btn" ${state.cajaSaving?"disabled":""}>
+      ${state.cajaSaving?"Guardando...":"🔒 Cerrar Caja"}
+    </button>
+  </div>`}
+  `;
+}
+
 // ─── APP STATE ────────────────────────────────────────────────
 let state = {
   user: null,
@@ -762,6 +898,16 @@ let state = {
   egEditFecha: "",
   egEditStand: "",
   egEditSaving: false,
+  // Caja
+  cajaFecha: today(),
+  cajaStand: "quicentro",
+  cierres: {},
+  cajaEfectivoInicial: "",
+  cajaEfectivoFinal: "",
+  cajaTarjetaBanco: "",
+  cajaTransferBanco: "",
+  cajaNota: "",
+  cajaSaving: false,
   unsubInventory: null,
   unsubSales: null,
 };
@@ -2099,6 +2245,20 @@ function bindApp() {
     if(confirm("¿Eliminar este gasto?")) { handleGastoEditDelete(e.target.dataset.id); }
   });
 
+  // Caja
+  document.getElementById("caja-stand")?.addEventListener("change",e=>{ state.cajaStand=e.target.value; render(); });
+  document.getElementById("caja-fecha")?.addEventListener("change",e=>{ state.cajaFecha=e.target.value; render(); });
+  document.getElementById("caja-ef-ini")?.addEventListener("input",e=>{ state.cajaEfectivoInicial=e.target.value; });
+  document.getElementById("caja-ef-fin")?.addEventListener("input",e=>{ state.cajaEfectivoFinal=e.target.value; });
+  document.getElementById("caja-tarj-banco")?.addEventListener("input",e=>{ state.cajaTarjetaBanco=e.target.value; });
+  document.getElementById("caja-trans-banco")?.addEventListener("input",e=>{ state.cajaTransferBanco=e.target.value; });
+  document.getElementById("caja-nota")?.addEventListener("input",e=>{ state.cajaNota=e.target.value; });
+  document.getElementById("caja-calcular-btn")?.addEventListener("click",()=>{ render(); });
+  document.getElementById("caja-cerrar-btn")?.addEventListener("click", handleCajaCerrar);
+  document.getElementById("caja-reabrir-btn")?.addEventListener("click",()=>{
+    if(confirm("¿Reabrir la caja de este día para editar?")) { handleCajaReabrir(); }
+  });
+
   // Dispatch
   document.getElementById("dispatch-product")?.addEventListener("change",e=>{ state.dispatchProduct=e.target.value; });
   document.getElementById("dispatch-target")?.addEventListener("change",e=>{ state.dispatchTarget=e.target.value; });
@@ -2341,6 +2501,61 @@ async function handleGastoEditDelete(id) {
   }
 }
 
+// ─── CAJA ────────────────────────────────────────────────────
+async function handleCajaCerrar() {
+  if (state.cajaSaving) return;
+  const efIni = parseFloat(state.cajaEfectivoInicial);
+  const efFin = parseFloat(state.cajaEfectivoFinal);
+  if (isNaN(efIni) || isNaN(efFin)) {
+    showToast("Ingresa efectivo inicial y final","err"); return;
+  }
+  state.cajaSaving = true; render();
+  try {
+    const standId = state.cajaStand;
+    const fecha = state.cajaFecha;
+    const docId = cierreDocId(standId, fecha);
+    const cierre = {
+      id: docId,
+      stand: standId,
+      fecha,
+      efectivoInicial: efIni,
+      efectivoFinal: efFin,
+      tarjetaBanco: state.cajaTarjetaBanco!==""? (parseFloat(state.cajaTarjetaBanco)||0) : null,
+      transferBanco: state.cajaTransferBanco!==""? (parseFloat(state.cajaTransferBanco)||0) : null,
+      nota: state.cajaNota.trim(),
+      cerradoPor: state.user.email,
+      cerradoEn: new Date().toISOString(),
+    };
+    await db.collection("cierres_caja").doc(docId).set(cierre);
+    state.cierres = {...(state.cierres||{}), [docId]: cierre};
+    state.cajaEfectivoInicial=""; state.cajaEfectivoFinal=""; state.cajaTarjetaBanco=""; state.cajaTransferBanco=""; state.cajaNota="";
+    state.cajaSaving = false;
+    showToast("✅ Caja cerrada");
+    render();
+  } catch(e) {
+    state.cajaSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleCajaReabrir() {
+  const standId = state.cajaStand;
+  const fecha = state.cajaFecha;
+  const docId = cierreDocId(standId, fecha);
+  try {
+    await db.collection("cierres_caja").doc(docId).delete();
+    const updated = {...(state.cierres||{})};
+    delete updated[docId];
+    state.cierres = updated;
+    showToast("🔓 Caja reabierta");
+    render();
+  } catch(e) {
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
 async function handleDispatch() {
   const product = state.dispatchProduct;
   const target = state.dispatchTarget;
@@ -2479,6 +2694,14 @@ function setupListeners(userInfo) {
   if (userInfo.canFinanzas) {
     db.collection("gastos").orderBy("timestamp","desc").limit(1000).onSnapshot(snap=>{
       state.gastos = snap.docs.map(d=>d.data());
+      render();
+    });
+
+    // Cierres de caja listener
+    db.collection("cierres_caja").onSnapshot(snap=>{
+      const map = {};
+      snap.forEach(doc=>{ map[doc.id] = doc.data(); });
+      state.cierres = map;
       render();
     });
   }
