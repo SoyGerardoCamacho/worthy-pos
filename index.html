@@ -908,6 +908,13 @@ let state = {
   cajaTransferBanco: "",
   cajaNota: "",
   cajaSaving: false,
+  // Edicion de ventas
+  editingSale: null,
+  evEditPago: "",
+  evEditDescuento: 0,
+  evEditNota: "",
+  evEditItems: [],
+  evEditSaving: false,
   unsubInventory: null,
   unsubSales: null,
 };
@@ -1754,7 +1761,61 @@ function renderVentas() {
 
   ${filteredSales.length===0
     ?`<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`
-    :filteredSales.map(sale=>`<div class="card sale-card" style="margin-bottom:8px;">
+    :filteredSales.map(sale=>{
+      const isEditing = state.editingSale===sale.id;
+      const canEdit = role==="full";
+      if (isEditing) {
+        const evSubtotal = (state.evEditItems||[]).reduce((s,it)=>s+it.price*it.qty,0);
+        const evDescAmt = evSubtotal*(state.evEditDescuento||0)/100;
+        const evTotal = evSubtotal - evDescAmt;
+        return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--purple);">
+          <div class="section-title">Editar venta · ${fmtDate(sale.fecha)} ${fmtTime(sale.timestamp)}</div>
+          ${(state.evEditItems||[]).map((it,idx)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:700;color:var(--purple);">${it.name}</div>
+              <div style="font-size:11px;color:var(--gray);">${fmt(it.price)} c/u</div>
+            </div>
+            <div class="qty-controls">
+              <button class="qty-btn" data-ev-qty-minus="${idx}">−</button>
+              <span class="cart-qty">${it.qty}</span>
+              <button class="qty-btn" data-ev-qty-plus="${idx}">+</button>
+            </div>
+            <span class="cart-subtotal">${fmt(it.price*it.qty)}</span>
+          </div>`).join("")}
+
+          <div class="discount-bar">
+            <span class="discount-label">Descuento</span>
+            ${[0,5,10,15,20].map(d=>`<button class="discount-btn ${state.evEditDescuento===d?"active":""}" data-ev-discount="${d}">${d}%</button>`).join("")}
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="section-title">Método de pago</div>
+            <div class="payment-methods">
+              ${PAYMENTS.map(pt=>`<button class="payment-btn ${state.evEditPago===pt.id?"active":""}" data-ev-payment="${pt.id}">
+                <div class="pay-icon">${pt.icon}</div>
+                <div>${pt.label}</div>
+              </button>`).join("")}
+            </div>
+          </div>
+
+          <textarea id="ev-edit-nota" placeholder="Nota opcional..." style="margin-top:10px;">${state.evEditNota}</textarea>
+
+          <div class="total-row" style="margin-top:10px;">
+            <span class="total-label">TOTAL</span>
+            <div style="text-align:right;">
+              <div class="total-amount">${fmt(evTotal)}</div>
+              ${state.evEditDescuento>0?`<div class="total-iva">Descuento ${state.evEditDescuento}% incluido</div>`:""}
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn-lime" style="flex:1;" id="ev-edit-save" data-id="${sale.id}" ${state.evEditSaving?"disabled":""}>${state.evEditSaving?"Guardando...":"Guardar"}</button>
+            <button class="btn-ghost" style="flex:1;" id="ev-edit-cancel">Cancelar</button>
+          </div>
+          <button class="btn-ghost" style="color:var(--red);border-color:var(--red);width:100%;margin-top:8px;" id="ev-edit-delete" data-id="${sale.id}" ${state.evEditSaving?"disabled":""}>🗑️ Eliminar venta completa</button>
+        </div>`;
+      }
+      return `<div class="card sale-card" style="margin-bottom:8px;">
       <div class="sale-header">
         <div style="flex:1;min-width:0;">
           <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}</div>
@@ -1768,7 +1829,11 @@ function renderVentas() {
           </span>
         </div>
       </div>
-    </div>`).join("")}`;
+      ${canEdit?`<div style="margin-top:8px;text-align:right;">
+        <button class="btn-ghost" data-ev-edit="${sale.id}" style="font-size:11px;padding:4px 10px;">✏️ Editar</button>
+      </div>`:""}
+    </div>`;
+    }).join("")}`;
 }
 
 // ─── DESPACHAR ───────────────────────────────────────────────
@@ -2163,6 +2228,50 @@ function bindApp() {
   // Sell button
   document.getElementById("sell-btn")?.addEventListener("click", handleSell);
 
+  // Edicion de ventas
+  document.querySelectorAll("[data-ev-edit]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.evEdit;
+      const sale = state.sales.find(s=>s.id===id);
+      if(!sale) return;
+      state.editingSale = id;
+      state.evEditPago = sale.pago;
+      state.evEditDescuento = sale.descuento||0;
+      state.evEditNota = sale.nota||"";
+      state.evEditItems = (sale.items||[]).map(it=>({...it}));
+      render();
+    });
+  });
+  document.getElementById("ev-edit-cancel")?.addEventListener("click",()=>{ state.editingSale=null; render(); });
+  document.getElementById("ev-edit-nota")?.addEventListener("input",e=>{ state.evEditNota=e.target.value; });
+  document.querySelectorAll("[data-ev-payment]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.evEditPago=btn.dataset.evPayment; render(); });
+  });
+  document.querySelectorAll("[data-ev-discount]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.evEditDescuento=parseInt(btn.dataset.evDiscount); render(); });
+  });
+  document.querySelectorAll("[data-ev-qty-minus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const idx=parseInt(btn.dataset.evQtyMinus);
+      state.evEditItems = state.evEditItems.map((it,i)=>i===idx?{...it,qty:Math.max(1,it.qty-1)}:it);
+      render();
+    });
+  });
+  document.querySelectorAll("[data-ev-qty-plus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const idx=parseInt(btn.dataset.evQtyPlus);
+      state.evEditItems = state.evEditItems.map((it,i)=>i===idx?{...it,qty:it.qty+1}:it);
+      render();
+    });
+  });
+  document.getElementById("ev-edit-save")?.addEventListener("click",e=>{ handleSaleEditSave(e.target.dataset.id||e.target.closest("[data-id]").dataset.id); });
+  document.getElementById("ev-edit-delete")?.addEventListener("click",e=>{
+    const id = e.target.dataset.id||e.target.closest("[data-id]").dataset.id;
+    if(confirm("¿Eliminar esta venta completa? Esto devolverá el stock al inventario.")) {
+      handleSaleDelete(id);
+    }
+  });
+
   // Inventory edit
   document.querySelectorAll("[data-edit-stock]").forEach(btn=>{
     btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=getInvStandId(); const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
@@ -2332,6 +2441,99 @@ function bindApp() {
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────
+// ─── EDICION DE VENTAS ─────────────────────────────────────────
+// Aplica el delta de unidades (positivo=devuelve stock, negativo=descuenta) de una venta al inventario
+function applySaleInventoryDelta(invSourceId, items, sign) {
+  const inv = {...(state.inventory[invSourceId]||{})};
+  items.forEach(item=>{
+    if (item.isRutina && item.rutinaItems) {
+      item.rutinaItems.forEach(ri=>{
+        inv[ri.id] = Math.max(0, (inv[ri.id]||0) + sign*(ri.q||0)*(item.qty||0));
+      });
+    } else {
+      inv[item.id] = Math.max(0, (inv[item.id]||0) + sign*(item.qty||0));
+    }
+  });
+  return inv;
+}
+
+async function handleSaleEditSave(id) {
+  const sale = state.sales.find(s=>s.id===id);
+  if(!sale) { showToast("Venta no encontrada","err"); return; }
+
+  const newItems = state.evEditItems||[];
+  const subtotal = newItems.reduce((s,it)=>s+it.price*it.qty,0);
+  const discAmt = subtotal*(state.evEditDescuento||0)/100;
+  const total = subtotal - discAmt;
+
+  state.evEditSaving = true; render();
+  try {
+    const invSourceId = getInvSourceForStand(sale.stand);
+
+    // Revertir el efecto del inventario original (devolver stock segun cantidades viejas)
+    let inv = applySaleInventoryDelta(invSourceId, sale.items||[], +1);
+    // Aplicar el efecto del inventario nuevo (descontar segun cantidades nuevas)
+    newItems.forEach(item=>{
+      if (item.isRutina && item.rutinaItems) {
+        item.rutinaItems.forEach(ri=>{
+          inv[ri.id] = Math.max(0, (inv[ri.id]||0) - (ri.q||0)*(item.qty||0));
+        });
+      } else {
+        inv[item.id] = Math.max(0, (inv[item.id]||0) - (item.qty||0));
+      }
+    });
+
+    await db.collection("inventarios").doc(invSourceId).set(inv);
+
+    const updatedSale = {
+      ...sale,
+      items: newItems.map(it=>({...it, subtotal: it.price*it.qty})),
+      subtotal, descuento: state.evEditDescuento||0, descuentoAmt: discAmt, total,
+      pago: state.evEditPago, nota: state.evEditNota.trim(),
+      editadoPor: state.user.email,
+      editadoEn: new Date().toISOString(),
+    };
+    await db.collection("ventas").doc(id).set(updatedSale);
+
+    state.inventory[invSourceId] = inv;
+    state.sales = state.sales.map(s=>s.id===id?updatedSale:s);
+    state.editingSale = null;
+    state.evEditSaving = false;
+    showToast("✅ Venta actualizada");
+    render();
+  } catch(e) {
+    state.evEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleSaleDelete(id) {
+  const sale = state.sales.find(s=>s.id===id);
+  if(!sale) { showToast("Venta no encontrada","err"); return; }
+
+  state.evEditSaving = true; render();
+  try {
+    const invSourceId = getInvSourceForStand(sale.stand);
+    // Revertir inventario (devolver stock de todos los items)
+    const inv = applySaleInventoryDelta(invSourceId, sale.items||[], +1);
+    await db.collection("inventarios").doc(invSourceId).set(inv);
+
+    await db.collection("ventas").doc(id).delete();
+
+    state.inventory[invSourceId] = inv;
+    state.sales = state.sales.filter(s=>s.id!==id);
+    state.editingSale = null;
+    state.evEditSaving = false;
+    showToast("✅ Venta eliminada");
+    render();
+  } catch(e) {
+    state.evEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
 async function handleSell() {
   if (!state.cart.length) return;
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
