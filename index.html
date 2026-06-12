@@ -441,6 +441,14 @@ function getCost(productId) {
   return (typeof c === "number") ? c : 0;
 }
 
+// Precio de venta de un producto. Si hay override en config/precios lo usa, si no usa CATALOG.price
+function getPrice(productId) {
+  const override = state.prices ? state.prices[productId] : undefined;
+  if (typeof override === "number") return override;
+  const p = CATALOG.find(c=>c.id===productId);
+  return p ? p.price : 0;
+}
+
 // ─── FINANZAS: HELPERS ────────────────────────────────────────
 // Retorna {from, to} (ISO yyyy-mm-dd inclusive) segun el periodo seleccionado
 function getFinDateRange() {
@@ -700,8 +708,11 @@ let state = {
   tab: "dashboard",
   inventory: {},
   costs: {},
+  prices: {},
   editingCost: null,
   editCostVal: "",
+  editingPrice: null,
+  editPriceVal: "",
   sales: [],
   cart: [],
   payment: "efectivo",
@@ -1013,7 +1024,7 @@ function renderStandDashboard() {
       <span style="font-size:18px;">${p?.emoji}</span>
       <div style="flex:1;"><div style="font-size:12px;font-weight:700;color:var(--purple);">${p?.name} ${p?.sub}</div></div>
       <span class="badge badge-lime">${qty} uds</span>
-      <span style="font-size:13px;font-weight:800;color:var(--purple);">${fmt((p?.price||0)*qty)}</span>
+      <span style="font-size:13px;font-weight:800;color:var(--purple);">${fmt((p?getPrice(p.id):0)*qty)}</span>
     </div>`;}).join("")}
   </div>`:""}
 
@@ -1294,7 +1305,7 @@ function renderPOS() {
         <div class="p-name" ${textColor?`style="color:${textColor};"`:""}>${p.name}</div>
         <div class="p-sub" ${subColor?`style="color:${subColor};"`:""}>${p.sub}</div>
         <div class="p-bottom">
-          <span class="p-price" ${textColor?`style="color:${textColor};"`:""}>${fmt(p.price)}</span>
+          <span class="p-price" ${textColor?`style="color:${textColor};"`:""}>${fmt(getPrice(p.id))}</span>
           <span class="badge badge-${stock>5?"green":stock>0?"amber":"red"}">${stock}</span>
         </div>
         ${inCart?`<div class="p-cart-qty">× ${inCart.qty} en carrito</div>`:""}
@@ -1496,7 +1507,7 @@ function renderInventario() {
           <span class="inv-emoji">${p.emoji}</span>
           <div class="inv-info">
             <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
-            <div class="inv-sub">${p.ref} · ${fmt(p.price)}</div>
+            <div class="inv-sub">${p.ref} · ${fmt(getPrice(p.id))}</div>
           </div>
           ${state.editingStock===p.id?`
             <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
@@ -1538,7 +1549,7 @@ function renderInventario() {
         <span class="inv-emoji">${p.emoji}</span>
         <div class="inv-info">
           <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
-          <div class="inv-sub">${p.ref} · ${fmt(p.price)}</div>
+          <div class="inv-sub">${p.ref} · ${fmt(getPrice(p.id))}</div>
         </div>
         ${state.editingStock===p.id?`
           <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
@@ -1662,6 +1673,7 @@ function renderAdminBodega() {
   const role = state.userInfo.role;
   const inv = state.inventory["bodega"] || {};
   const canSeeCosts = (role==="full" || role==="bodega");
+  const canEditPrices = (role==="full");
   return `
   <div class="card card-purple" style="margin-bottom:12px;padding:16px;">
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Bodega Central</div>
@@ -1688,17 +1700,42 @@ function renderAdminBodega() {
     }).join("")}
   </div>
 
-  ${canSeeCosts?`<div class="card" style="margin-top:12px;">
-    <div class="section-title">Costos · ${role==="full"?"toca 💲 para editar":"toca 💲 para editar"}</div>
-    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Información privada — solo visible para Gerardo, Rosita y Bodega Central</div>
+  ${canEditPrices?`<div class="card" style="margin-top:12px;">
+    <div class="section-title">Precios (PVP) · toca 🏷️ para editar</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Precio de venta al público, IVA 15% incluido. Solo editable por Gerardo y Rosita.</div>
     ${CATALOG.map(p=>{
-      const cost = getCost(p.id);
-      const margin = cost>0 ? ((p.price-cost)/p.price*100) : null;
+      const price = getPrice(p.id);
+      const isOverride = typeof (state.prices||{})[p.id] === "number";
       return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <span style="font-size:20px;">${p.emoji}</span>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
-          <div style="font-size:10px;color:var(--gray);">PVP ${fmt(p.price)}${margin!==null?` · margen ${margin.toFixed(0)}%`:""}</div>
+          <div style="font-size:10px;color:var(--gray);">${isOverride?"Actualizado":"Precio de catálogo"}</div>
+        </div>
+        ${state.editingPrice===p.id?`
+          <input type="number" class="inv-edit-input" id="price-input" value="${state.editPriceVal}" min="0" step="0.01" style="width:70px;">
+          <button class="btn-lime btn-sm" data-price-save="${p.id}">OK</button>
+          <button class="btn-ghost btn-sm" id="price-cancel">✕</button>
+        `:`
+          <span class="badge badge-purple">${fmt(price)}</span>
+          <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-price="${p.id}">🏷️</button>
+        `}
+      </div>`;
+    }).join("")}
+  </div>`:""}
+
+  ${canSeeCosts?`<div class="card" style="margin-top:12px;">
+    <div class="section-title">Costos · toca 💲 para editar</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Información privada — solo visible para Gerardo, Rosita y Bodega Central</div>
+    ${CATALOG.map(p=>{
+      const cost = getCost(p.id);
+      const price = getPrice(p.id);
+      const margin = cost>0 ? ((price-cost)/price*100) : null;
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:20px;">${p.emoji}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
+          <div style="font-size:10px;color:var(--gray);">PVP ${fmt(price)}${margin!==null?` · margen ${margin.toFixed(0)}%`:""}</div>
         </div>
         ${state.editingCost===p.id?`
           <input type="number" class="inv-edit-input" id="cost-input" value="${state.editCostVal}" min="0" step="0.01" style="width:70px;">
@@ -1948,7 +1985,7 @@ function bindApp() {
       if(!p) return;
       const ex=state.cart.find(i=>i.id===id);
       if(ex) state.cart=state.cart.map(i=>i.id===id?{...i,qty:i.qty+1}:i);
-      else state.cart=[...state.cart,{...p,qty:1}];
+      else state.cart=[...state.cart,{...p,price:getPrice(p.id),qty:1}];
       render();
     });
   });
@@ -2005,6 +2042,16 @@ function bindApp() {
   document.getElementById("cost-input")?.addEventListener("input",e=>{ state.editCostVal=e.target.value; });
   document.querySelectorAll("[data-cost-save]").forEach(btn=>{
     btn.addEventListener("click",()=>{ handleUpdateCost(btn.dataset.costSave, parseFloat(state.editCostVal)||0); });
+  });
+
+  // Price edit
+  document.querySelectorAll("[data-edit-price]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editPrice; state.editingPrice=id; state.editPriceVal=String(getPrice(id)||""); render(); });
+  });
+  document.getElementById("price-cancel")?.addEventListener("click",()=>{ state.editingPrice=null; render(); });
+  document.getElementById("price-input")?.addEventListener("input",e=>{ state.editPriceVal=e.target.value; });
+  document.querySelectorAll("[data-price-save]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ handleUpdatePrice(btn.dataset.priceSave, parseFloat(state.editPriceVal)||0); });
   });
 
   // Finanzas: filtros
@@ -2192,6 +2239,20 @@ async function handleUpdateCost(productId, newCost) {
     state.costs = costs;
     state.editingCost = null;
     showToast("✅ Costo actualizado");
+    render();
+  } catch(e) {
+    showToast("⚠️ Error: "+e.message, "err");
+  }
+}
+
+async function handleUpdatePrice(productId, newPrice) {
+  try {
+    const prices = {...(state.prices||{})};
+    prices[productId] = newPrice;
+    await db.collection("config").doc("precios").set(prices);
+    state.prices = prices;
+    state.editingPrice = null;
+    showToast("✅ Precio actualizado");
     render();
   } catch(e) {
     showToast("⚠️ Error: "+e.message, "err");
@@ -2405,6 +2466,12 @@ function setupListeners(userInfo) {
   // Costos listener
   db.collection("config").doc("costos").onSnapshot(doc=>{
     state.costs = doc.exists ? (doc.data()||{}) : {};
+    render();
+  });
+
+  // Precios listener
+  db.collection("config").doc("precios").onSnapshot(doc=>{
+    state.prices = doc.exists ? (doc.data()||{}) : {};
     render();
   });
 
