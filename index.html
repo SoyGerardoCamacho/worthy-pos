@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>WORTHY POS</title>
-<!-- v2026-06-12-filtros-periodo -->
-<meta name="app-version" content="2026-06-12-04">
+<!-- v2026-06-12-ventas-resumen -->
+<meta name="app-version" content="2026-06-12-06">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
@@ -472,27 +472,27 @@ function getPrice(productId) {
   return p ? p.price : 0;
 }
 
-// ─── INICIO: HELPERS DE FILTRO ────────────────────────────────
-// Periodo activo de Inicio: "hoy" | "semana" | "mes" | "mesEspecifico" (con state.inicioMesAno "YYYY-MM") | "rango" (con state.inicioRangoDesde/Hasta)
+// ─── HELPERS GENERICOS DE PERIODO ──────────────────────────────
+// period: "hoy" | "semana" | "mes" | "mesEspecifico" (con mesAno "YYYY-MM") | "rango" (con rangoDesde/rangoHasta)
 // Retorna {from,to} ISO inclusive
-function getInicioDateRange() {
+function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
   const todayIso = today();
   const d = new Date(Date.now()-5*60*60*1000);
 
-  if (state.inicioPeriod === "hoy") return { from: todayIso, to: todayIso };
+  if (period === "hoy") return { from: todayIso, to: todayIso };
 
-  if (state.inicioPeriod === "semana") {
+  if (period === "semana") {
     const d2 = new Date(d); d2.setDate(d2.getDate()-6);
     return { from: d2.toISOString().slice(0,10), to: todayIso };
   }
 
-  if (state.inicioPeriod === "mes") {
+  if (period === "mes") {
     const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
     return { from: d2.toISOString().slice(0,10), to: todayIso };
   }
 
-  if (state.inicioPeriod === "mesEspecifico") {
-    const my = state.inicioMesAno || todayIso.slice(0,7); // "YYYY-MM"
+  if (period === "mesEspecifico") {
+    const my = mesAno || todayIso.slice(0,7); // "YYYY-MM"
     const [y,m] = my.split("-").map(Number);
     const from = `${my}-01`;
     const lastDay = new Date(y, m, 0).getDate();
@@ -500,14 +500,59 @@ function getInicioDateRange() {
     return { from, to };
   }
 
-  if (state.inicioPeriod === "rango") {
-    const from = state.inicioRangoDesde || todayIso;
-    const to = state.inicioRangoHasta || todayIso;
+  if (period === "rango") {
+    const from = rangoDesde || todayIso;
+    const to = rangoHasta || todayIso;
     return from <= to ? { from, to } : { from: to, to: from };
   }
 
   // fallback
   return { from: todayIso, to: todayIso };
+}
+
+// Genera el desglose diario (o semanal si supera ~31 dias) de ventas entre from y to (inclusive)
+// salesForStand: array de ventas ya filtradas por punto de venta
+function getDailyBreakdown(salesForStand, from, to) {
+  const start = new Date(from+"T12:00:00");
+  const end = new Date(to+"T12:00:00");
+  const totalDays = Math.round((end-start)/86400000)+1;
+
+  if (totalDays > 31) {
+    // Agrupar por semana (lunes-domingo)
+    const dow = (start.getDay()+6)%7; // 0=lunes
+    const weekStart = new Date(start); weekStart.setDate(weekStart.getDate()-dow);
+    const weeks = [];
+    let cursor = new Date(weekStart);
+    while (cursor <= end) {
+      const wStart = new Date(cursor);
+      const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
+      const fromIso = wStart.toISOString().slice(0,10);
+      const toIso = wEnd.toISOString().slice(0,10);
+      const total = salesForStand.filter(s=>s.fecha>=fromIso && s.fecha<=toIso && s.fecha>=from && s.fecha<=to).reduce((s,v)=>s+Number(v.total),0);
+      const label = `${wStart.getDate()}/${wStart.getMonth()+1}`;
+      weeks.push({ label, total });
+      cursor.setDate(cursor.getDate()+7);
+    }
+    return weeks;
+  }
+
+  // Una barra por dia
+  const days = [];
+  let cursor = new Date(start);
+  while (cursor <= end) {
+    const iso = cursor.toISOString().slice(0,10);
+    const total = salesForStand.filter(s=>s.fecha===iso).reduce((s,v)=>s+Number(v.total),0);
+    const label = cursor.toLocaleDateString("es-EC",{day:"2-digit",month:"2-digit"});
+    days.push({ label, total, iso });
+    cursor.setDate(cursor.getDate()+1);
+  }
+  return days;
+}
+
+// ─── INICIO: HELPERS DE FILTRO ────────────────────────────────
+// Retorna {from,to} ISO inclusive segun los filtros de Inicio
+function getInicioDateRange() {
+  return getPeriodRange(state.inicioPeriod, state.inicioMesAno, state.inicioRangoDesde, state.inicioRangoHasta);
 }
 
 // Filtra ventas segun el filtro de periodo + punto de venta de Inicio
@@ -822,9 +867,46 @@ function renderHistoricoManual(visible, subtotal, discAmt, total) {
   </div>
 
   <div class="filter-bar">
-    ${CATS.filter(c=>c.id!=="rutinas").map(c=>`<button class="filter-btn ${state.histCatFilter===c.id?"active":""}" data-hist-cat="${c.id}">${c.label}</button>`).join("")}
+    ${CATS.map(c=>`<button class="filter-btn ${state.histCatFilter===c.id?"active":""}" data-hist-cat="${c.id}">${c.label}</button>`).join("")}
   </div>
 
+  ${state.histCatFilter === "rutinas" ? `
+  ${state.histRutinaModal ? `
+  <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:flex-end;">
+    <div style="background:white;width:100%;border-radius:20px 20px 0 0;padding:20px;max-height:80vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--purple);">${RUTINAS.find(r=>r.id===state.histRutinaModal)?.name}</div>
+          <div style="font-size:22px;font-weight:900;color:var(--lime);">${fmt(RUTINAS.find(r=>r.id===state.histRutinaModal)?.price||0)}</div>
+        </div>
+        <button id="close-hist-rutina-modal" style="background:var(--lavender-light);border:none;border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--gray);margin-bottom:4px;">Base: ${RUTINAS.find(r=>r.id===state.histRutinaModal)?.desc}</div>
+      ${RUTINAS.find(r=>r.id===state.histRutinaModal)?.gifts?`<div style="font-size:12px;color:var(--lime);font-weight:700;margin-bottom:16px;">🎁 Obsequio: ${RUTINAS.find(r=>r.id===state.histRutinaModal)?.gifts}</div>`:""}
+      <div class="section-title">Elige la variante:</div>
+      ${(RUTINAS.find(r=>r.id===state.histRutinaModal)?.variantes||[]).map(v=>`
+        <button data-hist-add-rutina="${state.histRutinaModal}" data-variante="${v.id}" style="width:100%;text-align:left;padding:12px;border-radius:12px;border:1.5px solid var(--lavender);background:white;margin-bottom:8px;cursor:pointer;font-family:inherit;">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${v.label}</div>
+          <div style="font-size:11px;color:var(--gray);">${v.items.map(i=>{ const p=CATALOG.find(c=>c.id===i.id); return `${(p?.name||i.id)+" "+(p?.sub||"")+(i.q>1?" ×"+i.q:"")}`; }).join(" + ")}</div>
+        </button>`).join("")}
+    </div>
+  </div>` : ""}
+  <div class="product-grid">
+    ${RUTINAS.map(r=>{
+      const inCart = state.histCart.find(i=>i.rutinaId===r.id);
+      return `<button class="product-card ${inCart?"in-cart":""}" data-hist-rutina-open="${r.id}">
+        <div class="p-emoji">${r.emoji}</div>
+        <div class="p-name" style="font-size:13px;">${r.name}</div>
+        <div class="p-sub">${r.desc}</div>
+        ${r.gifts?`<div style="font-size:10px;color:var(--lime);margin-top:3px;">🎁 ${r.gifts}</div>`:""}
+        <div class="p-bottom" style="margin-top:8px;">
+          <span class="p-price">${fmt(r.price)}</span>
+          <span style="font-size:10px;color:var(--gray);">${r.variantes.length} var.</span>
+        </div>
+        ${inCart?`<div class="p-cart-qty">En carrito</div>`:""}
+      </button>`;
+    }).join("")}
+  </div>` : `
   <div class="product-grid">
     ${visible.map(p=>{
       const inCart = state.histCart.find(i=>i.id===p.id);
@@ -839,7 +921,7 @@ function renderHistoricoManual(visible, subtotal, discAmt, total) {
         ${inCart?`<div class="p-cart-qty">× ${inCart.qty} en carrito</div>`:""}
       </button>`;
     }).join("")}
-  </div>
+  </div>`}
 
   ${state.histCart.length>0?`
   <div class="card card-lavender" style="margin-top:12px;">
@@ -1122,6 +1204,10 @@ let state = {
   note: "",
   catFilter: "all",
   periodFilter: "today",
+  ventasPeriod: "hoy",
+  ventasMesAno: today().slice(0,7),
+  ventasRangoDesde: today(),
+  ventasRangoHasta: today(),
   adminStoreFilter: "all",
   inicioPeriod: "hoy",
   inicioStand: "all",
@@ -1198,6 +1284,7 @@ let state = {
   histSaving: false,
   histCatFilter: "all",
   histBulkMode: false,
+  histRutinaModal: null,
   histFileRows: null,
   histFileErrors: [],
   histFileSaving: false,
@@ -1678,8 +1765,8 @@ function renderAdminDashboard() {
   `;
 }
 
-function renderTrendChart() {
-  const ctx = document.getElementById('trendChart');
+function renderBarChart(canvasId) {
+  const ctx = document.getElementById(canvasId);
   if(!ctx) return;
   const wrapper = ctx.parentElement;
   const raw = wrapper?.dataset?.trendChart || "";
@@ -1736,6 +1823,12 @@ function renderTrendChart() {
     }]
   });
 }
+
+function renderTrendChart() {
+  renderBarChart('trendChart');
+  renderBarChart('ventasTrendChart');
+}
+
 
 // ─── POS ─────────────────────────────────────────────────────
 function renderPOS() {
@@ -2094,34 +2187,74 @@ function renderInventario() {
 function renderVentas() {
   const role = state.userInfo.role;
   const canFilterStore = role==="admin" || role==="full";
-  let filteredSales = (canFilterStore && state.adminStoreFilter!=="all")
+  const baseSales = (canFilterStore && state.adminStoreFilter!=="all")
     ? state.sales.filter(s=>s.stand===state.adminStoreFilter)
     : state.sales;
 
-  if (state.periodFilter==="today") filteredSales = filteredSales.filter(s=>s.fecha===today());
-  else if (state.periodFilter==="week") { const d=new Date(); d.setDate(d.getDate()-7); filteredSales=filteredSales.filter(s=>new Date(s.fecha)>=d); }
+  const { from, to } = getPeriodRange(state.ventasPeriod, state.ventasMesAno, state.ventasRangoDesde, state.ventasRangoHasta);
+  let filteredSales = baseSales.filter(s=>s.fecha>=from && s.fecha<=to);
 
   filteredSales = [...filteredSales].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
   const totalRev = filteredSales.reduce((s,v)=>s+Number(v.total),0);
   const byPay = PAYMENTS.map(pt=>({...pt,total:filteredSales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
+
+  const mesEspecificoLabel = (() => {
+    const [y,m] = (state.ventasMesAno||"").split("-").map(Number);
+    if(!y||!m) return "";
+    return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
+  })();
+  const periodLabel = state.ventasPeriod==="hoy" ? "Hoy"
+    : state.ventasPeriod==="semana" ? "Últimos 7 días"
+    : state.ventasPeriod==="mes" ? "Este mes"
+    : state.ventasPeriod==="mesEspecifico" ? mesEspecificoLabel
+    : state.ventasPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
+    : "Hoy";
+
+  const breakdown = getDailyBreakdown(filteredSales, from, to);
+  const breakdownLabels = JSON.stringify(breakdown.map(d=>d.label));
+  const breakdownData = JSON.stringify(breakdown.map(d=>Number(d.total.toFixed(2))));
 
   return `
   ${canFilterStore?`<div class="store-selector">
     ${[{id:"all",name:"Todos"},...PUNTOS_VENTA].map(s=>`<button class="store-btn ${state.adminStoreFilter===s.id?"active":""}" data-store="${s.id}">${s.id==="oficina"?"🏢 ":s.id!=="all"?"🏪 ":""}${s.name}</button>`).join("")}
   </div>`:""}
 
-  <div class="period-filter">
-    ${[["today","Hoy"],["week","7 días"],["all","Todo"]].map(([k,l])=>`<button class="period-btn ${state.periodFilter===k?"active":""}" data-period="${k}">${l}</button>`).join("")}
+  <div class="period-filter" style="flex-wrap:wrap;">
+    <button class="period-btn ${state.ventasPeriod==="hoy"?"active":""}" data-ventas-period="hoy">Hoy</button>
+    <button class="period-btn ${state.ventasPeriod==="semana"?"active":""}" data-ventas-period="semana">Semana</button>
+    <button class="period-btn ${state.ventasPeriod==="mes"?"active":""}" data-ventas-period="mes">Mes actual</button>
+    <button class="period-btn ${state.ventasPeriod==="mesEspecifico"?"active":""}" data-ventas-period="mesEspecifico">📅 Mes</button>
+    <button class="period-btn ${state.ventasPeriod==="rango"?"active":""}" data-ventas-period="rango">📅 Rango</button>
   </div>
+  ${state.ventasPeriod==="mesEspecifico"?`<div class="card" style="margin-bottom:12px;padding:10px;">
+    <input type="month" class="dispatch-input" id="ventas-mes" value="${state.ventasMesAno}" max="${today().slice(0,7)}">
+  </div>`:""}
+  ${state.ventasPeriod==="rango"?`<div class="card" style="margin-bottom:12px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Desde</label>
+      <input type="date" class="dispatch-input" id="ventas-rango-desde" value="${state.ventasRangoDesde}" max="${today()}">
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Hasta</label>
+      <input type="date" class="dispatch-input" id="ventas-rango-hasta" value="${state.ventasRangoHasta}" max="${today()}">
+    </div>
+  </div>`:""}
 
   <div class="stats-grid">
     <div class="stat-card card-purple" style="border-radius:14px;">
-      <div class="stat-label" style="color:var(--lavender);">Ingresos</div>
+      <div class="stat-label" style="color:var(--lavender);">Ingresos · ${periodLabel}</div>
       <div class="stat-value" style="color:var(--lime);">${fmt(totalRev)}</div>
     </div>
     <div class="stat-card card-lavender" style="border-radius:14px;">
       <div class="stat-label" style="color:var(--purple);">Transacciones</div>
       <div class="stat-value" style="color:var(--purple);">${filteredSales.length}</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Ventas por ${breakdown.length>0&&breakdown[0].iso?"día":"semana"} · ${periodLabel}</div>
+    <div style="position:relative;width:100%;height:200px;" data-trend-chart='${breakdownLabels}|||${breakdownData}'>
+      <canvas id="ventasTrendChart" role="img" aria-label="Gráfico de barras de ventas por periodo">Ventas por periodo.</canvas>
     </div>
   </div>
 
@@ -2568,10 +2701,13 @@ function bindApp() {
     btn.addEventListener("click",()=>{ state.catFilter=btn.dataset.cat; render(); });
   });
 
-  // Period filter
-  document.querySelectorAll("[data-period]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ state.periodFilter=btn.dataset.period; render(); });
+  // Ventas: filtros de periodo
+  document.querySelectorAll("[data-ventas-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.ventasPeriod=btn.dataset.ventasPeriod; render(); });
   });
+  document.getElementById("ventas-mes")?.addEventListener("change",e=>{ state.ventasMesAno=e.target.value; render(); });
+  document.getElementById("ventas-rango-desde")?.addEventListener("change",e=>{ state.ventasRangoDesde=e.target.value; render(); });
+  document.getElementById("ventas-rango-hasta")?.addEventListener("change",e=>{ state.ventasRangoHasta=e.target.value; render(); });
 
   // Product cards
   document.querySelectorAll("[data-product]").forEach(btn=>{
@@ -2738,6 +2874,37 @@ function bindApp() {
       render();
     });
   });
+  // Historico: rutinas
+  document.querySelectorAll("[data-hist-rutina-open]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histRutinaModal=btn.dataset.histRutinaOpen; render(); });
+  });
+  document.getElementById("close-hist-rutina-modal")?.addEventListener("click",()=>{ state.histRutinaModal=null; render(); });
+  document.querySelectorAll("[data-hist-add-rutina]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const rutinaId = btn.dataset.histAddRutina;
+      const varId = btn.dataset.variante;
+      const rutina = RUTINAS.find(r=>r.id===rutinaId);
+      const variante = rutina?.variantes.find(v=>v.id===varId);
+      if(!rutina||!variante) return;
+      const cartItem = {
+        id: varId,
+        rutinaId,
+        ref: rutina.id,
+        name: rutina.name,
+        sub: variante.label,
+        price: rutina.price,
+        qty: 1,
+        isRutina: true,
+        items: variante.items,
+      };
+      const ex = state.histCart.find(i=>i.id===varId);
+      if(ex) state.histCart = state.histCart.map(i=>i.id===varId?{...i,qty:i.qty+1}:i);
+      else state.histCart = [...state.histCart, cartItem];
+      state.histRutinaModal = null;
+      render();
+    });
+  });
+
   document.querySelectorAll("[data-hist-qty-minus]").forEach(btn=>{
     btn.addEventListener("click",()=>{ const id=btn.dataset.histQtyMinus; state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:Math.max(1,i.qty-1)}:i); render(); });
   });
@@ -3069,7 +3236,7 @@ async function handleHistSell() {
     fecha: state.histFecha,
     timestamp: new Date(state.histFecha+"T12:00:00").toISOString(),
     stand: state.histStand,
-    items: state.histCart.map(i=>({id:i.id,ref:i.ref,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:false,rutinaItems:null})),
+    items: state.histCart.map(i=>({id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null})),
     subtotal, descuento:state.histDiscount, descuentoAmt:discAmt, total,
     pago: state.histPayment, nota: state.histNote,
     historica: true
