@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>WORTHY POS</title>
-<!-- v2026-06-12-inicio-rediseno -->
-<meta name="app-version" content="2026-06-12-02">
+<!-- v2026-06-12-filtros-periodo -->
+<meta name="app-version" content="2026-06-12-04">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
@@ -130,7 +130,7 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 
 /* PERIOD FILTER */
 .period-filter { display:flex; gap:8px; margin-bottom:12px; }
-.period-btn { flex:1; padding:8px; border-radius:10px; border:1.5px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; }
+.period-btn { flex:1 1 30%; min-width:80px; padding:8px; border-radius:10px; border:1.5px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; }
 .period-btn.active { border-color:var(--purple); background:var(--purple); color:white; }
 
 /* STATS */
@@ -473,17 +473,41 @@ function getPrice(productId) {
 }
 
 // ─── INICIO: HELPERS DE FILTRO ────────────────────────────────
-// Periodo activo de Inicio: "hoy" | "todo" | "fecha" (con state.inicioFecha)
+// Periodo activo de Inicio: "hoy" | "semana" | "mes" | "mesEspecifico" (con state.inicioMesAno "YYYY-MM") | "rango" (con state.inicioRangoDesde/Hasta)
 // Retorna {from,to} ISO inclusive
 function getInicioDateRange() {
   const todayIso = today();
+  const d = new Date(Date.now()-5*60*60*1000);
+
   if (state.inicioPeriod === "hoy") return { from: todayIso, to: todayIso };
-  if (state.inicioPeriod === "fecha") {
-    const f = state.inicioFecha || todayIso;
-    return { from: f, to: f };
+
+  if (state.inicioPeriod === "semana") {
+    const d2 = new Date(d); d2.setDate(d2.getDate()-6);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
   }
-  // "todo"
-  return { from: "0000-01-01", to: "9999-12-31" };
+
+  if (state.inicioPeriod === "mes") {
+    const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
+  }
+
+  if (state.inicioPeriod === "mesEspecifico") {
+    const my = state.inicioMesAno || todayIso.slice(0,7); // "YYYY-MM"
+    const [y,m] = my.split("-").map(Number);
+    const from = `${my}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${my}-${String(lastDay).padStart(2,"0")}`;
+    return { from, to };
+  }
+
+  if (state.inicioPeriod === "rango") {
+    const from = state.inicioRangoDesde || todayIso;
+    const to = state.inicioRangoHasta || todayIso;
+    return from <= to ? { from, to } : { from: to, to: from };
+  }
+
+  // fallback
+  return { from: todayIso, to: todayIso };
 }
 
 // Filtra ventas segun el filtro de periodo + punto de venta de Inicio
@@ -495,39 +519,13 @@ function getInicioFilteredSales() {
   );
 }
 
-// Construye datos de tendencia en barras: ultimos 14 dias, o agrupado por semana si periodo = "todo"
+// Construye datos de tendencia en barras: siempre ultimos 14 dias (independiente del filtro de periodo)
 function getInicioTrend() {
   const salesForStand = state.inicioStand === "all"
     ? state.sales
     : state.sales.filter(s=>s.stand===state.inicioStand);
 
-  if (state.inicioPeriod !== "todo") {
-    return getLastN(salesForStand, 14).map(d=>({ label:d.label, total:d.total }));
-  }
-
-  // Agrupar por semana (lunes-domingo) desde la venta mas antigua hasta hoy
-  if (salesForStand.length===0) return [];
-  const fechas = salesForStand.map(s=>s.fecha).sort();
-  const minFecha = fechas[0];
-  const start = new Date(minFecha+"T12:00:00");
-  // retroceder al lunes de esa semana
-  const dow = (start.getDay()+6)%7; // 0=lunes
-  start.setDate(start.getDate()-dow);
-  const end = new Date(Date.now()-5*60*60*1000);
-
-  const weeks = [];
-  let cursor = new Date(start);
-  while (cursor <= end) {
-    const wStart = new Date(cursor);
-    const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
-    const fromIso = wStart.toISOString().slice(0,10);
-    const toIso = wEnd.toISOString().slice(0,10);
-    const total = salesForStand.filter(s=>s.fecha>=fromIso && s.fecha<=toIso).reduce((s,v)=>s+Number(v.total),0);
-    const label = `${wStart.getDate()}/${wStart.getMonth()+1}`;
-    weeks.push({ label, total });
-    cursor.setDate(cursor.getDate()+7);
-  }
-  return weeks;
+  return getLastN(salesForStand, 14).map(d=>({ label:d.label, total:d.total }));
 }
 
 // ─── FINANZAS: HELPERS ────────────────────────────────────────
@@ -604,12 +602,14 @@ function renderFinanzas() {
     <button class="filter-btn ${state.finTab==="sku"?"active":""}" data-fin-tab="sku">🏷️ Margen por SKU</button>
     <button class="filter-btn ${state.finTab==="gastos"?"active":""}" data-fin-tab="gastos">💸 Gastos</button>
     <button class="filter-btn ${state.finTab==="caja"?"active":""}" data-fin-tab="caja">💼 Caja</button>
+    <button class="filter-btn ${state.finTab==="historico"?"active":""}" data-fin-tab="historico">📜 Histórico</button>
   </div>
 
   ${state.finTab==="pyg" ? renderPYG({ventas,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
   ${state.finTab==="sku" ? renderMargenSKU(filteredSales) : ""}
   ${state.finTab==="gastos" ? renderGastosForm(filteredGastos) : ""}
   ${state.finTab==="caja" ? renderCaja() : ""}
+  ${state.finTab==="historico" ? renderHistorico() : ""}
   `;
 }
 
@@ -784,7 +784,178 @@ function renderGastosForm(filteredGastos) {
       }).join("")}`;
 }
 
-// ─── CAJA / CONCILIACION ───────────────────────────────────────
+// ─── HISTORICO DE VENTAS (carga manual y por archivo) ──────────
+function renderHistorico() {
+  const visible = CATALOG.filter(p=>state.histCatFilter==="all"||p.cat===state.histCatFilter);
+  const subtotal = state.histCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const discAmt = subtotal*state.histDiscount/100;
+  const total = subtotal - discAmt;
+
+  return `
+  <div class="card card-lavender" style="margin-bottom:12px;">
+    <div class="section-title">📜 Cargar ventas históricas</div>
+    <div style="font-size:12px;color:var(--gray);line-height:1.5;">
+      Registra ventas anteriores al sistema. Afectan ventas, costo de ventas, P&amp;G, margen por SKU, caja y ranking de productos —
+      <strong>no descuentan inventario</strong> (ese stock ya salió antes). Se guardan en la fecha que elijas.
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn ${!state.histBulkMode?"active":""}" data-hist-mode="manual">✍️ Manual</button>
+    <button class="filter-btn ${state.histBulkMode?"active":""}" data-hist-mode="archivo">📄 Archivo CSV</button>
+  </div>
+
+  ${state.histBulkMode ? renderHistoricoArchivo() : renderHistoricoManual(visible, subtotal, discAmt, total)}
+  `;
+}
+
+function renderHistoricoManual(visible, subtotal, discAmt, total) {
+  return `
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Fecha y punto de venta</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input type="date" class="dispatch-input" id="hist-fecha" value="${state.histFecha}" max="${today()}">
+      <select class="dispatch-select" id="hist-stand">
+        ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.histStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+      </select>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    ${CATS.filter(c=>c.id!=="rutinas").map(c=>`<button class="filter-btn ${state.histCatFilter===c.id?"active":""}" data-hist-cat="${c.id}">${c.label}</button>`).join("")}
+  </div>
+
+  <div class="product-grid">
+    ${visible.map(p=>{
+      const inCart = state.histCart.find(i=>i.id===p.id);
+      return `<button class="product-card ${inCart?"in-cart":""}" data-hist-product="${p.id}">
+        <div class="p-emoji">${p.emoji}</div>
+        <div class="p-ref">${p.ref}</div>
+        <div class="p-name">${p.name}</div>
+        <div class="p-sub">${p.sub}</div>
+        <div class="p-bottom">
+          <span class="p-price">${fmt(getPrice(p.id))}</span>
+        </div>
+        ${inCart?`<div class="p-cart-qty">× ${inCart.qty} en carrito</div>`:""}
+      </button>`;
+    }).join("")}
+  </div>
+
+  ${state.histCart.length>0?`
+  <div class="card card-lavender" style="margin-top:12px;">
+    <div class="section-title">Items de esta venta histórica</div>
+    ${state.histCart.map(item=>`<div class="cart-item">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${item.name} ${item.sub}</div>
+        <div class="cart-item-price">${fmt(item.price)} c/u</div>
+      </div>
+      <div class="qty-controls">
+        <button class="qty-btn" data-hist-qty-minus="${item.id}">−</button>
+        <span class="cart-qty">${item.qty}</span>
+        <button class="qty-btn" data-hist-qty-plus="${item.id}">+</button>
+        <button class="qty-btn qty-remove" data-hist-qty-remove="${item.id}">✕</button>
+      </div>
+      <span class="cart-subtotal">${fmt(item.price*item.qty)}</span>
+    </div>`).join("")}
+
+    <div class="discount-bar">
+      <span class="discount-label">Descuento</span>
+      ${[0,5,10,15,20].map(d=>`<button class="discount-btn ${state.histDiscount===d?"active":""}" data-hist-discount="${d}">${d}%</button>`).join("")}
+    </div>
+
+    <div style="margin-top:10px;">
+      ${state.histDiscount>0?`<div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;color:var(--red);">Descuento ${state.histDiscount}%</span>
+        <span style="font-size:12px;font-weight:700;color:var(--red);">-${fmt(discAmt)}</span>
+      </div>`:""}
+      <div class="total-row">
+        <span class="total-label">TOTAL</span>
+        <div style="text-align:right;">
+          <div class="total-amount">${fmt(total)}</div>
+          <div class="total-iva">IVA 15% incluido</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <div class="section-title">Método de pago</div>
+    <div class="payment-methods">
+      ${PAYMENTS.map(pt=>`<button class="payment-btn ${state.histPayment===pt.id?"active":""}" data-hist-payment="${pt.id}">
+        <div class="pay-icon">${pt.icon}</div>
+        <div>${pt.label}</div>
+      </button>`).join("")}
+    </div>
+  </div>
+
+  <textarea placeholder="Nota opcional..." id="hist-note">${state.histNote}</textarea>
+  `:""}
+
+  <button class="btn-lime btn-lime-full" id="hist-save-btn" ${state.histCart.length===0||state.histSaving?"disabled":""}>
+    ${state.histSaving?"Guardando...":state.histCart.length>0?`Registrar venta histórica · ${fmt(total)}`:"Selecciona productos"}
+  </button>`;
+}
+
+function renderHistoricoArchivo() {
+  const rows = state.histFileRows;
+  const errors = state.histFileErrors||[];
+  return `
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Formato del archivo CSV</div>
+    <div style="font-size:11px;color:var(--gray);line-height:1.6;">
+      Una fila = un producto de una venta. Filas con el mismo <strong>venta_id</strong> se agrupan en una sola venta.<br>
+      Columnas (en este orden, con encabezado):<br>
+      <code>venta_id,fecha,punto_venta,producto_id,cantidad,precio_unitario,metodo_pago,descuento_pct</code><br><br>
+      <strong>punto_venta:</strong> quicentro / sanfrancisco / mercadito / oficina<br>
+      <strong>metodo_pago:</strong> efectivo / td / tc / deuna / produbanco / pichincha<br>
+      <strong>producto_id:</strong> SKU del catálogo (ej. WMO30, WLBN6...)<br>
+      <strong>fecha:</strong> formato YYYY-MM-DD
+    </div>
+    <button class="btn-ghost" id="hist-template-btn" style="margin-top:10px;">⬇️ Descargar plantilla de ejemplo</button>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Subir archivo</div>
+    <input type="file" id="hist-file-input" accept=".csv" class="dispatch-input">
+  </div>
+
+  ${errors.length>0?`<div class="alert-card alert-red">
+    <div class="section-title">⚠️ Errores encontrados (${errors.length})</div>
+    ${errors.slice(0,20).map(e=>`<div class="alert-item alert-item-red">${e}</div>`).join("")}
+    ${errors.length>20?`<div class="alert-item alert-item-red">...y ${errors.length-20} más</div>`:""}
+  </div>`:""}
+
+  ${rows && rows.length>0?`<div class="card">
+    <div class="section-title">Vista previa: ${rows.length} venta${rows.length===1?"":"s"} (${rows.reduce((s,v)=>s+v.items.length,0)} items)</div>
+    <div style="max-height:300px;overflow-y:auto;">
+      ${rows.slice(0,30).map(v=>`<div style="border-bottom:1px solid var(--lavender-light);padding:8px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--purple);">
+          <span>${v.id} · ${fmtDate(v.fecha)} · ${PUNTOS_VENTA.find(p=>p.id===v.stand)?.name||v.stand}</span>
+          <span>${fmt(v.total)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--gray);margin-top:2px;">
+          ${v.items.map(i=>`${i.name} ×${i.qty}`).join(" · ")} · ${PAYMENTS.find(p=>p.id===v.pago)?.label||v.pago}
+        </div>
+      </div>`).join("")}
+      ${rows.length>30?`<div style="text-align:center;padding:8px;font-size:11px;color:var(--gray);">...y ${rows.length-30} ventas más</div>`:""}
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid var(--purple);margin-top:8px;">
+      <span style="font-size:13px;font-weight:800;color:var(--purple);">Total a registrar</span>
+      <span style="font-size:16px;font-weight:900;color:var(--purple);">${fmt(rows.reduce((s,v)=>s+v.total,0))}</span>
+    </div>
+  </div>
+
+  <button class="btn-lime btn-lime-full" id="hist-file-save-btn" ${state.histFileSaving?"disabled":""}>
+    ${state.histFileSaving?"Guardando...":`Confirmar y registrar ${rows.length} ventas históricas`}
+  </button>`:""}
+
+  ${state.histFileResult?`<div class="card card-lavender" style="margin-top:12px;text-align:center;">
+    <div style="font-size:13px;font-weight:700;color:var(--purple);">✅ ${state.histFileResult.count} ventas históricas registradas</div>
+    <div style="font-size:11px;color:var(--gray);margin-top:2px;">Total: ${fmt(state.histFileResult.total)}</div>
+  </div>`:""}
+  `;
+}
+
 function cierreDocId(standId, fecha) {
   return `${standId}_${fecha}`;
 }
@@ -952,9 +1123,11 @@ let state = {
   catFilter: "all",
   periodFilter: "today",
   adminStoreFilter: "all",
-  inicioPeriod: "todo",
+  inicioPeriod: "hoy",
   inicioStand: "all",
-  inicioFecha: today(),
+  inicioMesAno: today().slice(0,7),
+  inicioRangoDesde: today(),
+  inicioRangoHasta: today(),
   stockView: "consolidado",
   editingStock: null,
   editStockVal: "",
@@ -1015,6 +1188,20 @@ let state = {
   evEditSaving: false,
   unsubInventory: null,
   unsubSales: null,
+  // Carga de ventas historicas
+  histCart: [],
+  histFecha: today(),
+  histStand: "quicentro",
+  histPayment: "efectivo",
+  histDiscount: 0,
+  histNote: "",
+  histSaving: false,
+  histCatFilter: "all",
+  histBulkMode: false,
+  histFileRows: null,
+  histFileErrors: [],
+  histFileSaving: false,
+  histFileResult: null,
 };
 
 // ─── RENDER ───────────────────────────────────────────────────
@@ -1319,12 +1506,20 @@ function renderBodegaDashboard() {
 function renderAdminDashboard() {
   const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
 
-  // ── Filtro combinado: periodo (hoy/todo/fecha) x punto de venta ──
+  // ── Filtro combinado: periodo (hoy/semana/mes/mesEspecifico/rango) x punto de venta ──
   const filteredSales = getInicioFilteredSales();
   const { from, to } = getInicioDateRange();
+  const mesEspecificoLabel = (() => {
+    const [y,m] = (state.inicioMesAno||"").split("-").map(Number);
+    if(!y||!m) return "";
+    return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
+  })();
   const periodLabel = state.inicioPeriod==="hoy" ? "Hoy"
-    : state.inicioPeriod==="fecha" ? fmtDate(state.inicioFecha)
-    : "Todo el histórico";
+    : state.inicioPeriod==="semana" ? "Últimos 7 días"
+    : state.inicioPeriod==="mes" ? "Este mes"
+    : state.inicioPeriod==="mesEspecifico" ? mesEspecificoLabel
+    : state.inicioPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
+    : "Hoy";
 
   const periodTotal = filteredSales.reduce((s,v)=>s+Number(v.total),0);
   const periodTx = filteredSales.length;
@@ -1367,13 +1562,25 @@ function renderAdminDashboard() {
     ${stores.map(s=>`<button class="store-btn ${state.inicioStand===s.id?"active":""}" data-inicio-stand="${s.id}">${s.id==="oficina"?"🏢 ":s.id!=="all"?"🏪 ":""}${s.name}</button>`).join("")}
   </div>
 
-  <div class="period-filter">
+  <div class="period-filter" style="flex-wrap:wrap;">
     <button class="period-btn ${state.inicioPeriod==="hoy"?"active":""}" data-inicio-period="hoy">Hoy</button>
-    <button class="period-btn ${state.inicioPeriod==="todo"?"active":""}" data-inicio-period="todo">Todo</button>
-    <button class="period-btn ${state.inicioPeriod==="fecha"?"active":""}" data-inicio-period="fecha">📅 Fecha</button>
+    <button class="period-btn ${state.inicioPeriod==="semana"?"active":""}" data-inicio-period="semana">Semana</button>
+    <button class="period-btn ${state.inicioPeriod==="mes"?"active":""}" data-inicio-period="mes">Mes actual</button>
+    <button class="period-btn ${state.inicioPeriod==="mesEspecifico"?"active":""}" data-inicio-period="mesEspecifico">📅 Mes</button>
+    <button class="period-btn ${state.inicioPeriod==="rango"?"active":""}" data-inicio-period="rango">📅 Rango</button>
   </div>
-  ${state.inicioPeriod==="fecha"?`<div class="card" style="margin-bottom:12px;padding:10px;">
-    <input type="date" class="dispatch-input" id="inicio-fecha" value="${state.inicioFecha}">
+  ${state.inicioPeriod==="mesEspecifico"?`<div class="card" style="margin-bottom:12px;padding:10px;">
+    <input type="month" class="dispatch-input" id="inicio-mes" value="${state.inicioMesAno}" max="${today().slice(0,7)}">
+  </div>`:""}
+  ${state.inicioPeriod==="rango"?`<div class="card" style="margin-bottom:12px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Desde</label>
+      <input type="date" class="dispatch-input" id="inicio-rango-desde" value="${state.inicioRangoDesde}" max="${today()}">
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Hasta</label>
+      <input type="date" class="dispatch-input" id="inicio-rango-hasta" value="${state.inicioRangoHasta}" max="${today()}">
+    </div>
   </div>`:""}
 
   <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
@@ -1406,7 +1613,7 @@ function renderAdminDashboard() {
   </div>
 
   <div class="card">
-    <div class="section-title">Tendencia · ${state.inicioPeriod==="todo"?"por semana":"últimos 14 días"}${state.inicioStand!=="all"?" · "+PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name:""}</div>
+    <div class="section-title">Tendencia · últimos 14 días${state.inicioStand!=="all"?" · "+PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name:""}</div>
     <div style="position:relative;width:100%;height:200px;" data-trend-chart='${trendLabels}|||${trendData}'>
       <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas">Tendencia de ventas.</canvas>
     </div>
@@ -1985,7 +2192,7 @@ function renderVentas() {
       return `<div class="card sale-card" style="margin-bottom:8px;">
       <div class="sale-header">
         <div style="flex:1;min-width:0;">
-          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}</div>
+          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}${sale.historica?` · <span style="color:var(--purple);font-weight:700;">📜 Histórica</span>`:""}</div>
           <div class="sale-items">${sale.items?sale.items.map(i=>`${i.name} ×${i.qty}`).join(" · "):"—"}</div>
           ${sale.nota?`<div class="sale-note">📝 ${sale.nota}</div>`:""}
         </div>
@@ -2342,7 +2549,9 @@ function bindApp() {
   document.querySelectorAll("[data-inicio-stand]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.inicioStand=btn.dataset.inicioStand; render(); });
   });
-  document.getElementById("inicio-fecha")?.addEventListener("change",e=>{ state.inicioFecha=e.target.value; render(); });
+  document.getElementById("inicio-mes")?.addEventListener("change",e=>{ state.inicioMesAno=e.target.value; render(); });
+  document.getElementById("inicio-rango-desde")?.addEventListener("change",e=>{ state.inicioRangoDesde=e.target.value; render(); });
+  document.getElementById("inicio-rango-hasta")?.addEventListener("change",e=>{ state.inicioRangoHasta=e.target.value; render(); });
 
   // Inv store filter (admin inventory) - legacy
   document.querySelectorAll("[data-inv-store]").forEach(btn=>{
@@ -2506,6 +2715,54 @@ function bindApp() {
   document.getElementById("gasto-monto")?.addEventListener("input",e=>{ state.gastoMonto=e.target.value; });
   document.getElementById("gasto-nota")?.addEventListener("input",e=>{ state.gastoNota=e.target.value; });
   document.getElementById("gasto-save-btn")?.addEventListener("click", handleGastoSave);
+
+  // Historico: modo manual/archivo
+  document.querySelectorAll("[data-hist-mode]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histBulkMode = btn.dataset.histMode==="archivo"; render(); });
+  });
+
+  // Historico: form manual
+  document.getElementById("hist-fecha")?.addEventListener("change",e=>{ state.histFecha=e.target.value; });
+  document.getElementById("hist-stand")?.addEventListener("change",e=>{ state.histStand=e.target.value; });
+  document.querySelectorAll("[data-hist-cat]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histCatFilter=btn.dataset.histCat; render(); });
+  });
+  document.querySelectorAll("[data-hist-product]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id=btn.dataset.histProduct;
+      const p=CATALOG.find(c=>c.id===id);
+      if(!p) return;
+      const ex=state.histCart.find(i=>i.id===id);
+      if(ex) state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:i.qty+1}:i);
+      else state.histCart=[...state.histCart,{...p,price:getPrice(p.id),qty:1}];
+      render();
+    });
+  });
+  document.querySelectorAll("[data-hist-qty-minus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.histQtyMinus; state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:Math.max(1,i.qty-1)}:i); render(); });
+  });
+  document.querySelectorAll("[data-hist-qty-plus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.histQtyPlus; state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:i.qty+1}:i); render(); });
+  });
+  document.querySelectorAll("[data-hist-qty-remove]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histCart=state.histCart.filter(i=>i.id!==btn.dataset.histQtyRemove); render(); });
+  });
+  document.querySelectorAll("[data-hist-discount]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histDiscount=parseInt(btn.dataset.histDiscount); render(); });
+  });
+  document.querySelectorAll("[data-hist-payment]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histPayment=btn.dataset.histPayment; render(); });
+  });
+  document.getElementById("hist-note")?.addEventListener("input",e=>{ state.histNote=e.target.value; });
+  document.getElementById("hist-save-btn")?.addEventListener("click", handleHistSell);
+
+  // Historico: archivo CSV
+  document.getElementById("hist-file-input")?.addEventListener("change",e=>{
+    const file = e.target.files[0];
+    if(file) handleHistFileSelected(file);
+  });
+  document.getElementById("hist-file-save-btn")?.addEventListener("click", handleHistFileSave);
+  document.getElementById("hist-template-btn")?.addEventListener("click", downloadHistTemplate);
 
   // Finanzas: editar gasto
   document.querySelectorAll("[data-eg-edit]").forEach(btn=>{
@@ -2798,9 +3055,195 @@ async function handleSell() {
   }
 }
 
+// ─── HISTORICO DE VENTAS ────────────────────────────────────────
+async function handleHistSell() {
+  if (!state.histCart.length || state.histSaving) return;
+  state.histSaving = true; render();
+
+  const subtotal = state.histCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const discAmt = subtotal*state.histDiscount/100;
+  const total = subtotal - discAmt;
+
+  const sale = {
+    id: genId(),
+    fecha: state.histFecha,
+    timestamp: new Date(state.histFecha+"T12:00:00").toISOString(),
+    stand: state.histStand,
+    items: state.histCart.map(i=>({id:i.id,ref:i.ref,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:false,rutinaItems:null})),
+    subtotal, descuento:state.histDiscount, descuentoAmt:discAmt, total,
+    pago: state.histPayment, nota: state.histNote,
+    historica: true
+  };
+
+  try {
+    await db.collection("ventas").doc(sale.id).set(sale);
+
+    // Comision bancaria automatica (igual que venta normal)
+    const comisionRate = getComisionRate(sale.pago);
+    if (comisionRate > 0) {
+      const comisionMonto = total * comisionRate;
+      const gastoCom = {
+        id: genId(),
+        fecha: sale.fecha,
+        timestamp: new Date().toISOString(),
+        stand: sale.stand,
+        cat: "comisiones",
+        monto: Number(comisionMonto.toFixed(2)),
+        nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta histórica ${sale.id}`,
+      };
+      await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
+      state.gastos = [...(state.gastos||[]), gastoCom];
+    }
+
+    state.sales = [...state.sales, sale];
+    state.histCart = [];
+    state.histDiscount = 0;
+    state.histNote = "";
+    state.histSaving = false;
+    showToast("✅ Venta histórica registrada");
+    render();
+  } catch(e) {
+    state.histSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+// Parser simple de CSV (sin librerias externas). Soporta comas y campos sin comillas.
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+  if (lines.length===0) return [];
+  const headers = lines[0].split(",").map(h=>h.trim().toLowerCase());
+  return lines.slice(1).map(line=>{
+    const cols = line.split(",").map(c=>c.trim());
+    const row = {};
+    headers.forEach((h,i)=>{ row[h] = cols[i]!==undefined ? cols[i] : ""; });
+    return row;
+  });
+}
+
+const VALID_PUNTOS = PUNTOS_VENTA.map(p=>p.id);
+const VALID_PAGOS = PAYMENTS.map(p=>p.id);
+
+function handleHistFileSelected(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const rows = parseCSV(text);
+    const errors = [];
+    const ventasMap = {};
+
+    rows.forEach((row, idx) => {
+      const lineNum = idx+2; // +1 por header, +1 por 1-index
+      const ventaId = row["venta_id"];
+      const fecha = row["fecha"];
+      const stand = row["punto_venta"];
+      const productId = row["producto_id"];
+      const cantidad = parseFloat(row["cantidad"]);
+      const precio = parseFloat(row["precio_unitario"]);
+      const pago = row["metodo_pago"];
+      const descPct = row["descuento_pct"] ? parseFloat(row["descuento_pct"]) : 0;
+
+      if (!ventaId) { errors.push(`Fila ${lineNum}: falta venta_id`); return; }
+      if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { errors.push(`Fila ${lineNum}: fecha inválida "${fecha}" (usa YYYY-MM-DD)`); return; }
+      if (!VALID_PUNTOS.includes(stand)) { errors.push(`Fila ${lineNum}: punto_venta inválido "${stand}"`); return; }
+      const product = CATALOG.find(p=>p.id===productId);
+      if (!product) { errors.push(`Fila ${lineNum}: producto_id desconocido "${productId}"`); return; }
+      if (isNaN(cantidad) || cantidad<=0) { errors.push(`Fila ${lineNum}: cantidad inválida "${row["cantidad"]}"`); return; }
+      if (isNaN(precio) || precio<0) { errors.push(`Fila ${lineNum}: precio_unitario inválido "${row["precio_unitario"]}"`); return; }
+      if (!VALID_PAGOS.includes(pago)) { errors.push(`Fila ${lineNum}: metodo_pago inválido "${pago}" (usa: ${VALID_PAGOS.join(", ")})`); return; }
+
+      if (!ventasMap[ventaId]) {
+        ventasMap[ventaId] = {
+          id: "H-"+ventaId+"-"+genId(),
+          fecha, stand, pago,
+          descPct: isNaN(descPct)?0:descPct,
+          items: []
+        };
+      }
+      ventasMap[ventaId].items.push({
+        id: product.id, ref: product.ref, name: `${product.name} ${product.sub}`,
+        qty: cantidad, price: precio, subtotal: cantidad*precio,
+        isRutina: false, rutinaItems: null
+      });
+    });
+
+    const ventas = Object.values(ventasMap).map(v=>{
+      const subtotal = v.items.reduce((s,i)=>s+i.subtotal,0);
+      const descuentoAmt = subtotal * v.descPct/100;
+      return {
+        id: v.id, fecha: v.fecha, timestamp: new Date(v.fecha+"T12:00:00").toISOString(),
+        stand: v.stand, items: v.items,
+        subtotal, descuento: v.descPct, descuentoAmt, total: subtotal-descuentoAmt,
+        pago: v.pago, nota: "", historica: true
+      };
+    });
+
+    state.histFileRows = ventas;
+    state.histFileErrors = errors;
+    state.histFileResult = null;
+    render();
+  };
+  reader.readAsText(file);
+}
+
+async function handleHistFileSave() {
+  if (!state.histFileRows || !state.histFileRows.length || state.histFileSaving) return;
+  state.histFileSaving = true; render();
+
+  try {
+    let count = 0, total = 0;
+    for (const sale of state.histFileRows) {
+      await db.collection("ventas").doc(sale.id).set(sale);
+      state.sales = [...state.sales, sale];
+      count++; total += sale.total;
+
+      const comisionRate = getComisionRate(sale.pago);
+      if (comisionRate > 0) {
+        const comisionMonto = sale.total * comisionRate;
+        const gastoCom = {
+          id: genId(),
+          fecha: sale.fecha,
+          timestamp: new Date().toISOString(),
+          stand: sale.stand,
+          cat: "comisiones",
+          monto: Number(comisionMonto.toFixed(2)),
+          nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta histórica ${sale.id}`,
+        };
+        await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
+        state.gastos = [...(state.gastos||[]), gastoCom];
+      }
+    }
+    state.histFileResult = { count, total };
+    state.histFileRows = null;
+    state.histFileErrors = [];
+    state.histFileSaving = false;
+    showToast("✅ Ventas históricas registradas");
+    render();
+  } catch(e) {
+    state.histFileSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+function downloadHistTemplate() {
+  const csv = [
+    "venta_id,fecha,punto_venta,producto_id,cantidad,precio_unitario,metodo_pago,descuento_pct",
+    "H001,2026-03-05,quicentro,WMO30,1,19.55,efectivo,0",
+    "H001,2026-03-05,quicentro,WLBN6,2,5.95,efectivo,0",
+    "H002,2026-03-05,mercadito,WHT80,1,27.75,deuna,0",
+  ].join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "plantilla_ventas_historicas.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 async function handleUpdateStock(standId, productId, newStock) {
   try {
-    const inv = {...(state.inventory[standId]||{})};
     inv[productId] = newStock;
     await db.collection("inventarios").doc(standId).set(inv);
     state.inventory[standId] = inv;
