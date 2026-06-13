@@ -293,16 +293,6 @@ function getComisionRate(pagoId) {
   return (pt && pt.comision) ? pt.comision : 0;
 }
 
-// Arriendo mensual Quicentro (sin IVA) prorrateado por dias reales del mes
-const ARRIENDO_QUICENTRO_MES = 800;
-function diasEnMes(fecha) {
-  const d = new Date(fecha+"T12:00:00");
-  return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
-}
-function arriendoQuicentroDiario(fecha) {
-  return ARRIENDO_QUICENTRO_MES / diasEnMes(fecha);
-}
-
 const STANDS = [
   { id:"quicentro",    name:"Quicentro Norte" },
   { id:"sanfrancisco", name:"San Francisco" },
@@ -563,24 +553,6 @@ function inFinRange(fecha) {
   return fecha >= from && fecha <= to;
 }
 
-// Suma el arriendo prorrateado de Quicentro entre dos fechas ISO inclusive (limita "all" al historico real)
-function arriendoQuicentroEnRango(from, to) {
-  const todayIso = today();
-  let f = from, t = to;
-  if (f < "2025-01-01") f = "2025-01-01"; // limite razonable para periodo "all"
-  if (t > todayIso) t = todayIso;
-  if (f > t) return 0;
-  let total = 0;
-  let cursor = new Date(f+"T12:00:00");
-  const end = new Date(t+"T12:00:00");
-  while (cursor <= end) {
-    const iso = cursor.toISOString().slice(0,10);
-    total += arriendoQuicentroDiario(iso);
-    cursor.setDate(cursor.getDate()+1);
-  }
-  return total;
-}
-
 // COGS de una venta: suma de (cantidad * costo unitario) de cada item, expandiendo rutinas
 function ventaCOGS(sale) {
   if (sale.obsequio) return 0;
@@ -609,14 +581,6 @@ function renderFinanzas() {
   const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
 
   const gastosByCat = GASTO_CATS.map(c=>({...c, total: filteredGastos.filter(g=>g.cat===c.id).reduce((s,g)=>s+Number(g.monto),0)}));
-
-  // Arriendo automatico de Quicentro ($800/mes prorrateado por dias reales), aplica si el filtro incluye Quicentro
-  if (state.finStore==="all" || state.finStore==="quicentro") {
-    const arriendoAuto = arriendoQuicentroEnRango(from, to);
-    const arriendoCat = gastosByCat.find(c=>c.id==="arriendo");
-    if (arriendoCat) arriendoCat.total += arriendoAuto;
-  }
-
   const totalGastos = gastosByCat.reduce((s,c)=>s+c.total,0);
   const utilidadOperativa = margenBruto - totalGastos;
   const utilidadPct = ventas>0 ? (utilidadOperativa/ventas*100) : 0;
@@ -671,7 +635,6 @@ function renderPYG(d) {
     </div>
 
     <div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;">Gastos operativos</div>
-    ${(state.finStore==="all"||state.finStore==="quicentro")?`<div style="font-size:10px;color:var(--gray);margin-bottom:4px;">Incluye arriendo Quicentro prorrateado automáticamente ($800/mes ÷ días del mes)</div>`:""}
     ${d.gastosByCat.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
       <span style="font-size:12px;color:var(--purple);">${c.icon} ${c.label}</span>
       <span style="font-size:13px;font-weight:700;color:${c.total>0?"var(--red)":"var(--gray)"};">${c.total>0?"-"+fmt(c.total):fmt(0)}</span>
