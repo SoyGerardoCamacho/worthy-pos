@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>WORTHY POS</title>
-<!-- v2026-06-12-ventas-resumen -->
-<meta name="app-version" content="2026-06-12-06">
+<!-- v2026-06-12-grafica-combinada -->
+<meta name="app-version" content="2026-06-12-07">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
@@ -512,29 +512,33 @@ function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
 
 // Genera el desglose diario (o semanal si supera ~31 dias) de ventas entre from y to (inclusive)
 // salesForStand: array de ventas ya filtradas por punto de venta
+// Agrupa por semana calendario (lunes-domingo) entre from y to (inclusive)
+function getWeeklyBreakdown(salesForStand, from, to) {
+  const start = new Date(from+"T12:00:00");
+  const end = new Date(to+"T12:00:00");
+  const dow = (start.getDay()+6)%7; // 0=lunes
+  const weekStart = new Date(start); weekStart.setDate(weekStart.getDate()-dow);
+  const weeks = [];
+  let cursor = new Date(weekStart);
+  while (cursor <= end) {
+    const wStart = new Date(cursor);
+    const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
+    const fromIso = wStart.toISOString().slice(0,10);
+    const toIso = wEnd.toISOString().slice(0,10);
+    const total = salesForStand.filter(s=>s.fecha>=fromIso && s.fecha<=toIso && s.fecha>=from && s.fecha<=to).reduce((s,v)=>s+Number(v.total),0);
+    const label = `${wStart.getDate()}/${wStart.getMonth()+1}`;
+    weeks.push({ label, total });
+    cursor.setDate(cursor.getDate()+7);
+  }
+  return weeks;
+}
+
 function getDailyBreakdown(salesForStand, from, to) {
   const start = new Date(from+"T12:00:00");
   const end = new Date(to+"T12:00:00");
   const totalDays = Math.round((end-start)/86400000)+1;
 
-  if (totalDays > 31) {
-    // Agrupar por semana (lunes-domingo)
-    const dow = (start.getDay()+6)%7; // 0=lunes
-    const weekStart = new Date(start); weekStart.setDate(weekStart.getDate()-dow);
-    const weeks = [];
-    let cursor = new Date(weekStart);
-    while (cursor <= end) {
-      const wStart = new Date(cursor);
-      const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
-      const fromIso = wStart.toISOString().slice(0,10);
-      const toIso = wEnd.toISOString().slice(0,10);
-      const total = salesForStand.filter(s=>s.fecha>=fromIso && s.fecha<=toIso && s.fecha>=from && s.fecha<=to).reduce((s,v)=>s+Number(v.total),0);
-      const label = `${wStart.getDate()}/${wStart.getMonth()+1}`;
-      weeks.push({ label, total });
-      cursor.setDate(cursor.getDate()+7);
-    }
-    return weeks;
-  }
+  if (totalDays > 31) return getWeeklyBreakdown(salesForStand, from, to);
 
   // Una barra por dia
   const days = [];
@@ -548,6 +552,7 @@ function getDailyBreakdown(salesForStand, from, to) {
   }
   return days;
 }
+
 
 // ─── INICIO: HELPERS DE FILTRO ────────────────────────────────
 // Retorna {from,to} ISO inclusive segun los filtros de Inicio
@@ -564,14 +569,44 @@ function getInicioFilteredSales() {
   );
 }
 
-// Construye datos de tendencia en barras: siempre ultimos 14 dias (independiente del filtro de periodo)
+// Construye datos para la grafica de barras de Inicio segun la combinacion de filtros:
+// - Si inicioStand === "all": una barra por punto de venta (Quicentro, San Francisco, Mercadito, Oficina), total del periodo
+// - Si inicioStand = especifico: evolucion temporal dentro del periodo
+//     hoy -> 1 barra (total del dia)
+//     semana -> 7 barras (una por dia)
+//     mes / mesEspecifico -> barras por semana calendario (lunes-domingo)
+//     rango -> dias si <=31, semanas si es mas largo
 function getInicioTrend() {
-  const salesForStand = state.inicioStand === "all"
-    ? state.sales
-    : state.sales.filter(s=>s.stand===state.inicioStand);
+  const { from, to } = getInicioDateRange();
 
-  return getLastN(salesForStand, 14).map(d=>({ label:d.label, total:d.total }));
+  if (state.inicioStand === "all") {
+    // Comparacion entre puntos de venta
+    return PUNTOS_VENTA.map(st=>{
+      const total = state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id).reduce((s,v)=>s+Number(v.total),0);
+      return { label: st.id==="oficina"?"🏢 "+st.name:st.name, total };
+    });
+  }
+
+  const salesForStand = state.sales.filter(s=>s.stand===state.inicioStand);
+
+  if (state.inicioPeriod === "hoy") {
+    const total = salesForStand.filter(s=>s.fecha===from).reduce((s,v)=>s+Number(v.total),0);
+    const label = new Date(from+"T12:00:00").toLocaleDateString("es-EC",{day:"2-digit",month:"2-digit"});
+    return [{ label, total }];
+  }
+
+  if (state.inicioPeriod === "semana") {
+    return getDailyBreakdown(salesForStand, from, to);
+  }
+
+  if (state.inicioPeriod === "mes" || state.inicioPeriod === "mesEspecifico") {
+    return getWeeklyBreakdown(salesForStand, from, to);
+  }
+
+  // rango
+  return getDailyBreakdown(salesForStand, from, to);
 }
+
 
 // ─── FINANZAS: HELPERS ────────────────────────────────────────
 // Retorna {from, to} (ISO yyyy-mm-dd inclusive) segun el periodo seleccionado
@@ -1636,8 +1671,8 @@ function renderAdminDashboard() {
     rankMap[i.id].qty += i.qty;
     rankMap[i.id].total += i.subtotal;
   }));
-  const topByUsd = Object.values(rankMap).sort((a,b)=>b.total-a.total).slice(0,5);
-  const topByUnits = Object.values(rankMap).sort((a,b)=>b.qty-a.qty).slice(0,5);
+  const topByUsd = Object.values(rankMap).sort((a,b)=>b.total-a.total);
+  const topByUnits = Object.values(rankMap).sort((a,b)=>b.qty-a.qty);
 
   // Tendencia (siempre visible, independiente del filtro de periodo, respeta filtro de stand)
   const trend = getInicioTrend();
@@ -1700,9 +1735,9 @@ function renderAdminDashboard() {
   </div>
 
   <div class="card">
-    <div class="section-title">Tendencia · últimos 14 días${state.inicioStand!=="all"?" · "+PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name:""}</div>
+    <div class="section-title">${state.inicioStand==="all"?`Ventas por punto de venta · ${periodLabel}`:`Tendencia · ${periodLabel} · ${PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name}`}</div>
     <div style="position:relative;width:100%;height:200px;" data-trend-chart='${trendLabels}|||${trendData}'>
-      <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas">Tendencia de ventas.</canvas>
+      <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas">Gráfico de ventas.</canvas>
     </div>
   </div>
 
@@ -1734,7 +1769,8 @@ function renderAdminDashboard() {
   </div>
 
   ${topByUsd.length>0?`<div class="card">
-    <div class="section-title">Ranking productos · ${periodLabel} · USD</div>
+    <div class="section-title">Ranking productos · ${periodLabel} · USD (${topByUsd.length})</div>
+    <div style="max-height:420px;overflow-y:auto;">
     ${topByUsd.map((r,idx)=>{const p=CATALOG.find(c=>c.id===r.id);const maxUsd=topByUsd[0].total;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
       <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
       <span style="font-size:18px;">${p?.emoji||"📦"}</span>
@@ -1746,10 +1782,12 @@ function renderAdminDashboard() {
       </div>
       <span class="badge badge-purple">${fmt(r.total)}</span>
     </div>`;}).join("")}
+    </div>
   </div>` : ""}
 
   ${topByUnits.length>0?`<div class="card">
-    <div class="section-title">Ranking productos · ${periodLabel} · Unidades</div>
+    <div class="section-title">Ranking productos · ${periodLabel} · Unidades (${topByUnits.length})</div>
+    <div style="max-height:420px;overflow-y:auto;">
     ${topByUnits.map((r,idx)=>{const p=CATALOG.find(c=>c.id===r.id);const maxQty=topByUnits[0].qty;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
       <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
       <span style="font-size:18px;">${p?.emoji||"📦"}</span>
@@ -1761,6 +1799,7 @@ function renderAdminDashboard() {
       </div>
       <span class="badge badge-lime">${r.qty} uds</span>
     </div>`;}).join("")}
+    </div>
   </div>` : ""}
   `;
 }
