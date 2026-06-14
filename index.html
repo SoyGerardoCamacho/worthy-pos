@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>WORTHY POS</title>
-<!-- v2026-06-14-ajustes-bodega-y-margen-sku -->
-<meta name="app-version" content="2026-06-14-02">
+<!-- v2026-06-14-precio-historico-personalizado -->
+<meta name="app-version" content="2026-06-14-03">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
@@ -934,7 +934,10 @@ function renderGastosForm(filteredGastos) {
 // ─── HISTORICO DE VENTAS (carga manual y por archivo) ──────────
 function renderHistorico() {
   const visible = CATALOG.filter(p=>state.histCatFilter==="all"||p.cat===state.histCatFilter);
-  const subtotal = state.histCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const subtotal = state.histCart.reduce((s,i)=>{
+    const effectivePrice = state.histCustomPrices[i.id] !== undefined ? state.histCustomPrices[i.id] : i.price;
+    return s + effectivePrice * i.qty;
+  },0);
   const discAmt = subtotal*state.histDiscount/100;
   const total = subtotal - discAmt;
 
@@ -1033,9 +1036,9 @@ function renderHistoricoManual(visible, subtotal, discAmt, total) {
         <div class="cart-item-name">${item.name} ${item.sub}</div>
         <div class="cart-item-price" style="display:flex;align-items:center;gap:6px;">
           ${state.userInfo?.role==="full" ? `
-            <span style="font-size:11px;color:var(--gray);text-decoration:${state.customPrices[item.id]!==undefined?"line-through":"none"};">${fmt(item.price)}</span>
-            <input type="number" step="0.05" min="0" data-custom-price="${item.id}"
-              value="${state.customPrices[item.id]!==undefined?state.customPrices[item.id]:item.price}"
+            <span style="font-size:11px;color:var(--gray);text-decoration:${state.histCustomPrices[item.id]!==undefined?"line-through":"none"};">${fmt(item.price)}</span>
+            <input type="number" step="0.05" min="0" data-hist-custom-price="${item.id}"
+              value="${state.histCustomPrices[item.id]!==undefined?state.histCustomPrices[item.id]:item.price}"
               style="width:70px;border:1.5px solid var(--lavender);border-radius:8px;padding:3px 6px;font-size:13px;color:var(--purple);font-family:inherit;"
             >
           ` : `${fmt(item.price)} c/u`}
@@ -1047,7 +1050,7 @@ function renderHistoricoManual(visible, subtotal, discAmt, total) {
         <button class="qty-btn" data-hist-qty-plus="${item.id}">+</button>
         <button class="qty-btn qty-remove" data-hist-qty-remove="${item.id}">✕</button>
       </div>
-      <span class="cart-subtotal">${fmt((state.customPrices[item.id]!==undefined?state.customPrices[item.id]:item.price)*item.qty)}</span>
+      <span class="cart-subtotal">${fmt((state.histCustomPrices[item.id]!==undefined?state.histCustomPrices[item.id]:item.price)*item.qty)}</span>
     </div>`).join("")}
 
     <div class="discount-bar">
@@ -1392,6 +1395,7 @@ let state = {
   unsubSales: null,
   // Carga de ventas historicas
   histCart: [],
+  histCustomPrices: {},
   histFecha: today(),
   histStand: "quicentro",
   histPayment: "efectivo",
@@ -3012,6 +3016,20 @@ function bindApp() {
     });
   });
 
+  // Precios personalizados de ventas históricas (separados del POS normal)
+  document.querySelectorAll("[data-hist-custom-price]").forEach(inp=>{
+    inp.addEventListener("input",e=>{
+      const id = e.target.dataset.histCustomPrice;
+      const val = parseFloat(e.target.value);
+      if(!isNaN(val) && val >= 0) {
+        state.histCustomPrices[id] = val;
+      } else {
+        delete state.histCustomPrices[id];
+      }
+      render();
+    });
+  });
+
   // Sell button
   document.getElementById("sell-btn")?.addEventListener("click", handleSell);
 
@@ -3175,7 +3193,12 @@ function bindApp() {
     btn.addEventListener("click",()=>{ const id=btn.dataset.histQtyPlus; state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:i.qty+1}:i); render(); });
   });
   document.querySelectorAll("[data-hist-qty-remove]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ state.histCart=state.histCart.filter(i=>i.id!==btn.dataset.histQtyRemove); render(); });
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.histQtyRemove;
+      state.histCart = state.histCart.filter(i=>i.id!==id);
+      delete state.histCustomPrices[id];
+      render();
+    });
   });
   document.querySelectorAll("[data-hist-discount]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.histDiscount=parseInt(btn.dataset.histDiscount); render(); });
@@ -3515,7 +3538,10 @@ async function handleHistSell() {
   if (!state.histCart.length || state.histSaving) return;
   state.histSaving = true; render();
 
-  const subtotal = state.histCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const subtotal = state.histCart.reduce((s,i)=>{
+    const effectivePrice = state.histCustomPrices[i.id] !== undefined ? state.histCustomPrices[i.id] : i.price;
+    return s + effectivePrice * i.qty;
+  },0);
   const discAmt = subtotal*state.histDiscount/100;
   const total = subtotal - discAmt;
 
@@ -3524,7 +3550,22 @@ async function handleHistSell() {
     fecha: state.histFecha,
     timestamp: new Date(state.histFecha+"T12:00:00").toISOString(),
     stand: state.histStand,
-    items: state.histCart.map(i=>({id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null})),
+    items: state.histCart.map(i=>{
+      const cp = state.histCustomPrices[i.id];
+      const effectivePrice = cp !== undefined ? cp : i.price;
+      return {
+        id:i.id,
+        ref:i.ref||i.rutinaId,
+        name:`${i.name} ${i.sub}`,
+        qty:i.qty,
+        price:effectivePrice,
+        precioOriginal:i.price,
+        precioModificado:cp!==undefined,
+        subtotal:effectivePrice*i.qty,
+        isRutina:i.isRutina||false,
+        rutinaItems:i.items||null
+      };
+    }),
     subtotal, descuento:state.histDiscount, descuentoAmt:discAmt, total,
     pago: state.histPayment, nota: state.histNote,
     historica: true
@@ -3552,6 +3593,7 @@ async function handleHistSell() {
 
     state.sales = [...state.sales, sale];
     state.histCart = [];
+    state.histCustomPrices = {};
     state.histDiscount = 0;
     state.histNote = "";
     state.histSaving = false;
