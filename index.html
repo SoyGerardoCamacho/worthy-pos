@@ -2548,6 +2548,7 @@ function renderDespachar() {
 // ─── ADMIN BODEGA ────────────────────────────────────────────
 function renderAdminBodega() {
   const role = state.userInfo.role;
+  const adjStand = state.bodegaAdjStand || "bodega";
   const inv = state.inventory["bodega"] || {};
   const canSeeCosts = (role==="full" || role==="bodega");
   const canEditPrices = (role==="full");
