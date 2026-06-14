@@ -2545,6 +2545,39 @@ function renderDespachar() {
   </div>`;
 }
 
+// ─── BODEGA ADJ PANEL ────────────────────────────────────────
+function renderBodegaAdjPanel(adjStand) {
+  const allPoints = [{id:"bodega", name:"Bodega Central", emoji:"🏭"}, ...PUNTOS_VENTA.map(s=>({...s, emoji:"🏪"}))];
+  const adjInv = state.inventory[adjStand] || {};
+  const adjName = adjStand==="bodega" ? "Bodega Central" : (PUNTOS_VENTA.find(s=>s.id===adjStand)?.name||adjStand);
+
+  const btns = allPoints.map(pt => {
+    const active = adjStand === pt.id;
+    const border = active ? "var(--purple)" : "var(--lavender)";
+    const bg = active ? "var(--purple)" : "white";
+    const color = active ? "white" : "var(--gray)";
+    return `<button data-bodega-adj="${pt.id}" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${border};background:${bg};color:${color};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">${pt.emoji} ${pt.name}</button>`;
+  }).join("");
+
+  const rows = CATALOG.map(p => {
+    const stock = adjInv[p.id] || 0;
+    const level = stock===0 ? "red" : stock<=6 ? "amber" : "green";
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span>${p.emoji}</span>
+      <div style="flex:1;font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
+      <span class="badge badge-${level}">${stock}</span>
+      <button style="background:#FEF3C7;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;" data-ajuste-stock="${p.id}" data-ajuste-stand="${adjStand}">⚖️</button>
+    </div>`;
+  }).join("");
+
+  return `<div class="card" style="margin-top:12px;margin-bottom:12px;background:var(--lavender-light);">
+    <div class="section-title">⚖️ Ajuste de inventario por punto</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${btns}</div>
+    <div style="font-size:14px;color:var(--purple);font-weight:700;margin-bottom:10px;">📍 ${adjName}</div>
+    ${rows}
+  </div>`;
+}
+
 // ─── ADMIN BODEGA ────────────────────────────────────────────
 function renderAdminBodega() {
   const role = state.userInfo.role;
@@ -2628,26 +2661,7 @@ function renderAdminBodega() {
     }).join("")}
   </div>`:""}
 
-  <div class="card" style="margin-top:12px;margin-bottom:12px;background:var(--lavender-light);">
-    <div class="section-title">⚖️ Punto para ajuste de inventario</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button data-bodega-adj="bodega" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${adjStand==="bodega"?"var(--purple)":"var(--lavender)"};background:${adjStand==="bodega"?"var(--purple)":"white"};color:${adjStand==="bodega"?"white":"var(--gray)"};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🏭 Bodega</button>
-      ${PUNTOS_VENTA.map(s=>`<button data-bodega-adj="${s.id}" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${adjStand===s.id?"var(--purple)":"var(--lavender)"};background:${adjStand===s.id?"var(--purple)":"white"};color:${adjStand===s.id?"white":"var(--gray)"};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🏪 ${s.name}</button>`).join("")}
-    </div>
-    <div style="margin-top:12px;">
-      <div style="font-size:13px;color:var(--purple);font-weight:700;margin-bottom:8px;">Stock en: ${adjStand==="bodega"?"Bodega Central":PUNTOS_VENTA.find(s=>s.id===adjStand)?.name||adjStand}</div>
-      ${CATALOG.map(p=>{
-        const adjInv = state.inventory[adjStand]||{};
-        const adjStock = adjInv[p.id]||0;
-        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span>${p.emoji}</span>
-          <div style="flex:1;font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
-          <span class="badge badge-${adjStock===0?"red":adjStock<=6?"amber":"green"}">${adjStock}</span>
-          <button style="background:#FEF3C7;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;" data-ajuste-stock="${p.id}" data-ajuste-stand="${adjStand}">⚖️</button>
-        </div>`;
-      }).join("")}
-    </div>
-  </div>
+  ${renderBodegaAdjPanel(adjStand)}
 
   <div class="card" style="margin-top:12px;">
     <div class="section-title">Inventario por Stand</div>
