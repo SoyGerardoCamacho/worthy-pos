@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY POS</title>
-<!-- v2026-06-14-responsive-celular-tablet-laptop -->
-<meta name="app-version" content="2026-06-14-04">
+<!-- v2026-06-14-responsive-y-consolidado-medios-pago -->
+<meta name="app-version" content="2026-06-14-05">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
@@ -215,6 +215,90 @@ textarea { width:100%; border-radius:12px; border:1.5px solid var(--lavender); p
 .alert-item-red { color:var(--red); }
 .alert-item-amber { color:var(--amber); }
 
+
+
+/* CONSOLIDADO POR MEDIO DE PAGO */
+.payment-summary-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.payment-summary-box {
+  min-width:0;
+  border:1.5px solid var(--lavender);
+  border-radius:14px;
+  padding:12px;
+  background:var(--off-white);
+}
+.payment-summary-box .ps-label {
+  font-size:11px;
+  font-weight:800;
+  color:var(--gray);
+  text-transform:uppercase;
+  letter-spacing:.6px;
+}
+.payment-summary-box .ps-value {
+  font-size:20px;
+  font-weight:900;
+  color:var(--purple);
+  margin-top:4px;
+}
+.payment-summary-box .ps-meta {
+  font-size:11px;
+  color:var(--gray);
+  margin-top:3px;
+  line-height:1.35;
+}
+.payment-detail-row {
+  display:grid;
+  grid-template-columns:minmax(145px,1.5fr) minmax(58px,.45fr) minmax(80px,.65fr) minmax(54px,.4fr);
+  gap:8px;
+  align-items:center;
+  padding:8px 0;
+  border-bottom:1px solid var(--lavender-light);
+}
+.payment-detail-row:last-child { border-bottom:none; }
+.payment-detail-head {
+  font-size:10px;
+  font-weight:800;
+  color:var(--gray);
+  text-transform:uppercase;
+  letter-spacing:.5px;
+}
+.payment-detail-name {
+  min-width:0;
+  font-size:12px;
+  font-weight:700;
+  color:var(--purple);
+  overflow-wrap:anywhere;
+}
+.payment-detail-number {
+  text-align:right;
+  font-size:12px;
+  font-weight:800;
+  color:var(--purple);
+}
+.payment-total-check {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:var(--lavender-light);
+}
+@media (max-width: 599px) {
+  .payment-summary-grid { grid-template-columns:1fr; }
+  .payment-detail-row {
+    grid-template-columns:minmax(120px,1.4fr) 44px 72px 44px;
+    gap:5px;
+  }
+}
+@media (min-width: 600px) and (max-width: 1023px) {
+  .payment-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
 
 
 /* AJUSTE DE INVENTARIO */
@@ -512,6 +596,124 @@ const PAYMENT_GROUPS = [
 function getComisionRate(pagoId) {
   const pt = PAYMENTS.find(p=>p.id===pagoId);
   return (pt && pt.comision) ? pt.comision : 0;
+}
+
+
+// Consolida ventas por método exacto y por grupo financiero.
+// Incluye ventas históricas porque usan la misma colección state.sales.
+function getPaymentConsolidado(sales) {
+  const rows = (sales||[]).filter(s=>!s.obsequio && Number(s.total||0)>0);
+  const total = rows.reduce((sum,s)=>sum+Number(s.total||0),0);
+
+  const methods = PAYMENTS.map(pt=>{
+    const methodRows = rows.filter(s=>s.pago===pt.id);
+    const amount = methodRows.reduce((sum,s)=>sum+Number(s.total||0),0);
+    const commission = methodRows.reduce((sum,s)=>sum+Number(s.total||0)*getComisionRate(s.pago),0);
+    return {
+      ...pt,
+      total: amount,
+      count: methodRows.length,
+      commission,
+      net: amount-commission,
+      pct: total>0 ? amount/total*100 : 0
+    };
+  });
+
+  const knownIds = new Set(PAYMENTS.map(p=>p.id));
+  const unidentifiedRows = rows.filter(s=>!knownIds.has(s.pago));
+  const unidentifiedTotal = unidentifiedRows.reduce((sum,s)=>sum+Number(s.total||0),0);
+
+  const groupMeta = {
+    efectivo:      { icon:"💵", label:"Efectivo" },
+    transferencia:{ icon:"📲", label:"Transferencias" },
+    bendo:         { icon:"💳", label:"Bendo / Tarjetas" }
+  };
+
+  const groups = PAYMENT_GROUPS.map(g=>{
+    const groupMethods = methods.filter(m=>m.group===g.id);
+    const amount = groupMethods.reduce((sum,m)=>sum+m.total,0);
+    const count = groupMethods.reduce((sum,m)=>sum+m.count,0);
+    const commission = groupMethods.reduce((sum,m)=>sum+m.commission,0);
+    return {
+      id:g.id,
+      label:groupMeta[g.id]?.label||g.label,
+      icon:groupMeta[g.id]?.icon||"💰",
+      total:amount,
+      count,
+      commission,
+      net:amount-commission,
+      pct:total>0 ? amount/total*100 : 0
+    };
+  });
+
+  return {
+    total,
+    count:rows.length,
+    methods,
+    groups,
+    unidentifiedTotal,
+    unidentifiedCount:unidentifiedRows.length,
+    accountedTotal:methods.reduce((sum,m)=>sum+m.total,0)+unidentifiedTotal
+  };
+}
+
+function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") {
+  const d = getPaymentConsolidado(sales);
+  return `
+  <div class="card payment-consolidado-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div class="section-title" style="margin-bottom:3px;">${title}</div>
+        <div style="font-size:11px;color:var(--gray);">Incluye ventas normales e históricas del filtro seleccionado</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.7px;">Total cobrado</div>
+        <div style="font-size:24px;font-weight:900;color:var(--purple);">${fmt(d.total)}</div>
+        <div style="font-size:11px;color:var(--gray);">${d.count} transacciones</div>
+      </div>
+    </div>
+
+    <div class="payment-summary-grid">
+      ${d.groups.map(g=>`
+        <div class="payment-summary-box">
+          <div class="ps-label">${g.icon} ${g.label}</div>
+          <div class="ps-value">${fmt(g.total)}</div>
+          <div class="ps-meta">${g.count} tx · ${g.pct.toFixed(1)}% del total</div>
+          ${g.id==="bendo"&&g.total>0?`
+            <div class="ps-meta">Comisión estimada: -${fmt(g.commission)}</div>
+            <div class="ps-meta"><strong>Neto esperado: ${fmt(g.net)}</strong></div>
+          `:""}
+        </div>
+      `).join("")}
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="payment-detail-row payment-detail-head">
+        <div>Método</div><div style="text-align:right;">Tx</div><div style="text-align:right;">Valor</div><div style="text-align:right;">%</div>
+      </div>
+      ${d.methods.map(m=>`
+        <div class="payment-detail-row">
+          <div class="payment-detail-name">${m.icon} ${m.label}</div>
+          <div class="payment-detail-number">${m.count}</div>
+          <div class="payment-detail-number">${fmt(m.total)}</div>
+          <div class="payment-detail-number">${m.pct.toFixed(1)}%</div>
+        </div>
+      `).join("")}
+      ${d.unidentifiedCount>0?`
+        <div class="payment-detail-row" style="background:#FEE2E2;padding-left:6px;padding-right:6px;border-radius:8px;">
+          <div class="payment-detail-name" style="color:var(--red);">⚠️ Sin método identificado</div>
+          <div class="payment-detail-number" style="color:var(--red);">${d.unidentifiedCount}</div>
+          <div class="payment-detail-number" style="color:var(--red);">${fmt(d.unidentifiedTotal)}</div>
+          <div class="payment-detail-number" style="color:var(--red);">${d.total>0?(d.unidentifiedTotal/d.total*100).toFixed(1):"0.0"}%</div>
+        </div>
+      `:""}
+    </div>
+
+    <div class="payment-total-check">
+      <span style="font-size:12px;font-weight:800;color:var(--purple);">✅ Control: suma de medios de pago</span>
+      <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.accountedTotal)}</span>
+    </div>
+  </div>`;
 }
 
 const STANDS = [
@@ -1928,6 +2130,8 @@ function renderStandDashboard() {
     </div>
   </div>
 
+  ${renderPaymentConsolidado(todaySales, "Consolidado por medio de pago · Hoy")}
+
   <div class="card">
     <div class="section-title">Tendencia · últimos 14 días</div>
     <div style="position:relative;width:100%;height:160px;" data-trend-chart='${chartLabels}|||${chartData}'>
@@ -2009,10 +2213,6 @@ function renderAdminDashboard() {
   const salesForStand = state.inicioStand==="all" ? state.sales : state.sales.filter(s=>s.stand===state.inicioStand);
   const yestTotal = salesForStand.filter(s=>s.fecha===yestIso).reduce((s,v)=>s+Number(v.total),0);
   const pctChange = yestTotal>0 ? ((periodTotal-yestTotal)/yestTotal*100) : (periodTotal>0?100:0);
-
-  // Metodo de pago - segun filtro
-  const byPay = PAYMENTS.map(pt=>({...pt,total:filteredSales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
-  const maxPay = Math.max(...byPay.map(p=>p.total),1);
 
   // Ventas por stand - segun filtro de periodo (todos los stands, independiente del filtro de stand)
   const standTotals = PUNTOS_VENTA.map(st=>{
@@ -2098,18 +2298,7 @@ function renderAdminDashboard() {
     </div>
   </div>
 
-  <div class="card">
-    <div class="section-title">Métodos de pago · ${periodLabel}</div>
-    ${byPay.map(pt=>`<div style="margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-        <span style="font-size:12px;font-weight:700;color:var(--purple);">${pt.icon} ${pt.label}</span>
-        <span style="font-size:12px;font-weight:800;color:var(--purple);">${fmt(pt.total)}</span>
-      </div>
-      <div style="height:8px;border-radius:8px;background:var(--lavender-light);overflow:hidden;">
-        <div style="height:100%;width:${(pt.total/maxPay*100)}%;background:var(--lime);border-radius:8px;transition:width 0.3s;"></div>
-      </div>
-    </div>`).join("")}
-  </div>
+  ${renderPaymentConsolidado(filteredSales, `Consolidado por medio de pago · ${periodLabel}`)}
 
   <div class="card">
     <div class="section-title">Ventas por local · ${periodLabel}</div>
@@ -2600,8 +2789,6 @@ function renderVentas() {
 
   filteredSales = [...filteredSales].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
   const totalRev = filteredSales.reduce((s,v)=>s+Number(v.total),0);
-  const byPay = PAYMENTS.map(pt=>({...pt,total:filteredSales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
-
   const mesEspecificoLabel = (() => {
     const [y,m] = (state.ventasMesAno||"").split("-").map(Number);
     if(!y||!m) return "";
@@ -2665,13 +2852,7 @@ function renderVentas() {
     </div>
   </div>
 
-  <div class="card" style="margin-bottom:12px;">
-    <div class="section-title">Por método de pago</div>
-    ${byPay.map(pt=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <span style="font-size:14px;">${pt.icon} <span style="font-weight:600;color:var(--purple);">${pt.label}</span></span>
-      <span style="font-size:15px;font-weight:800;color:${pt.total>0?"var(--purple)":"var(--gray)"};">${fmt(pt.total)}</span>
-    </div>`).join("")}
-  </div>
+  ${renderPaymentConsolidado(filteredSales, `Consolidado por medio de pago · ${periodLabel}`)}
 
   ${filteredSales.length===0
     ?`<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`
