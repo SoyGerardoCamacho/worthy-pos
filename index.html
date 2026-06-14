@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>WORTHY POS</title>
-<!-- v2026-06-14-mejoras-completas -->
-<meta name="app-version" content="2026-06-14-01">
+<!-- v2026-06-14-ajustes-bodega-y-margen-sku -->
+<meta name="app-version" content="2026-06-14-02">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
@@ -782,11 +782,18 @@ function renderMargenSKU(filteredSales) {
   // pero el margen de la rutina se reporta sobre la fila de la rutina misma)
   const bySku = {};
   filteredSales.filter(sale=>!sale.obsequio).forEach(sale=>{
-    (sale.items||[]).forEach(item=>{
+    const saleItems = sale.items||[];
+    // Distribuye descuentos proporcionalmente entre los SKU para que la suma
+    // de Margen por SKU coincida exactamente con el ingreso neto de la venta.
+    const grossItemsTotal = saleItems.reduce((sum,item)=>sum+Number(item.subtotal||0),0);
+    const netSaleTotal = Number(sale.total||0);
+    const netFactor = grossItemsTotal>0 ? netSaleTotal/grossItemsTotal : 0;
+
+    saleItems.forEach(item=>{
       const key = item.isRutina ? ("RUTINA:"+(item.ref||item.name)) : item.id;
       if(!bySku[key]) bySku[key] = { name:item.name, qty:0, ventas:0, cogs:0, isRutina:!!item.isRutina };
       bySku[key].qty += item.qty;
-      bySku[key].ventas += item.subtotal;
+      bySku[key].ventas += Number(item.subtotal||0) * netFactor;
       if (item.isRutina && item.rutinaItems) {
         item.rutinaItems.forEach(ri=>{ bySku[key].cogs += (getCost(ri.id)||0)*(ri.q||0)*(item.qty||0); });
       } else {
@@ -794,10 +801,27 @@ function renderMargenSKU(filteredSales) {
       }
     });
   });
-  const rows = Object.values(bySku).map(r=>({...r, margen:r.ventas-r.cogs, margenPct: r.ventas>0?((r.ventas-r.cogs)/r.ventas*100):0}))
-    .sort((a,b)=>b.ventas-a.ventas);
+  let rows = Object.values(bySku).sort((a,b)=>b.ventas-a.ventas);
 
-  const totalVentas = rows.reduce((s,r)=>s+r.ventas,0);
+  // Control contable: la columna Ventas debe coincidir exactamente con el ingreso neto
+  // usado en Ventas y P&G para el mismo filtro. Corrige residuos de redondeo o datos
+  // históricos cuyo subtotal por ítem no coincida perfectamente con el total cobrado.
+  const ingresoNetoEsperado = filteredSales
+    .filter(sale=>!sale.obsequio)
+    .reduce((sum,sale)=>sum+Number(sale.total||0),0);
+  const ingresoSkuCalculado = rows.reduce((sum,r)=>sum+Number(r.ventas||0),0);
+  const diferenciaVentas = ingresoNetoEsperado - ingresoSkuCalculado;
+  if (rows.length && Math.abs(diferenciaVentas) > 0.000001) {
+    rows[0].ventas += diferenciaVentas;
+  }
+
+  rows = rows.map(r=>({
+    ...r,
+    margen:r.ventas-r.cogs,
+    margenPct:r.ventas>0?((r.ventas-r.cogs)/r.ventas*100):0
+  })).sort((a,b)=>b.ventas-a.ventas);
+
+  const totalVentas = ingresoNetoEsperado;
   const totalCogs = rows.reduce((s,r)=>s+r.cogs,0);
   const totalMargen = totalVentas-totalCogs;
 
