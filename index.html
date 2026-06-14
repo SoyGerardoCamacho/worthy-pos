@@ -1267,6 +1267,7 @@ let state = {
   ajusteDelta: "",
   ajusteNota: "",
   ajusteSaving: false,
+  bodegaAdjStand: "bodega",
   customPrices: {},
   loading: true,
   toast: null,
@@ -2626,6 +2627,27 @@ function renderAdminBodega() {
     }).join("")}
   </div>`:""}
 
+  <div class="card" style="margin-top:12px;margin-bottom:12px;background:var(--lavender-light);">
+    <div class="section-title">⚖️ Punto para ajuste de inventario</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button data-bodega-adj="bodega" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${adjStand==="bodega"?"var(--purple)":"var(--lavender)"};background:${adjStand==="bodega"?"var(--purple)":"white"};color:${adjStand==="bodega"?"white":"var(--gray)"};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🏭 Bodega</button>
+      ${PUNTOS_VENTA.map(s=>`<button data-bodega-adj="${s.id}" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${adjStand===s.id?"var(--purple)":"var(--lavender)"};background:${adjStand===s.id?"var(--purple)":"white"};color:${adjStand===s.id?"white":"var(--gray)"};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🏪 ${s.name}</button>`).join("")}
+    </div>
+    <div style="margin-top:12px;">
+      <div style="font-size:13px;color:var(--purple);font-weight:700;margin-bottom:8px;">Stock en: ${adjStand==="bodega"?"Bodega Central":PUNTOS_VENTA.find(s=>s.id===adjStand)?.name||adjStand}</div>
+      ${CATALOG.map(p=>{
+        const adjInv = state.inventory[adjStand]||{};
+        const adjStock = adjInv[p.id]||0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span>${p.emoji}</span>
+          <div style="flex:1;font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
+          <span class="badge badge-${adjStock===0?"red":adjStock<=6?"amber":"green"}">${adjStock}</span>
+          <button style="background:#FEF3C7;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;" data-ajuste-stock="${p.id}" data-ajuste-stand="${adjStand}">⚖️</button>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>
+
   <div class="card" style="margin-top:12px;">
     <div class="section-title">Inventario por Stand</div>
     ${STANDS.map(st=>{
@@ -3149,6 +3171,11 @@ function bindApp() {
   document.getElementById("dispatch-target")?.addEventListener("change",e=>{ state.dispatchTarget=e.target.value; });
   document.getElementById("dispatch-qty")?.addEventListener("input",e=>{ state.dispatchQty=e.target.value; });
   document.getElementById("dispatch-btn")?.addEventListener("click", handleDispatch);
+
+  // Bodega adj stand selector
+  document.querySelectorAll("[data-bodega-adj]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.bodegaAdjStand=btn.dataset.bodegaAdj; render(); });
+  });
 
   // Ajuste de inventario
   document.querySelectorAll("[data-ajuste-stock]").forEach(btn=>{
