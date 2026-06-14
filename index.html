@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>WORTHY POS</title>
+<!-- v2026-06-12-grafica-combinada -->
+<meta name="app-version" content="2026-06-12-07">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
   --purple: #2D1B69;
@@ -28,6 +31,8 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 /* LOGIN */
 .login-screen { min-height:100vh; background: var(--purple); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
 .login-logo { font-size:40px; font-weight:900; color:var(--lime); letter-spacing:-1px; }
+.login-logo-img { height:42px; width:auto; display:block; margin:0 auto; }
+.brand-logo-img { height:24px; width:auto; display:block; }
 .login-sub { font-size:13px; color:var(--lavender); font-weight:600; letter-spacing:2px; text-transform:uppercase; margin-top:4px; margin-bottom:40px; }
 .login-card { background:white; border-radius:20px; padding:28px; width:100%; max-width:380px; }
 .login-card h2 { font-size:18px; color:var(--purple); font-weight:800; margin-bottom:20px; }
@@ -40,7 +45,7 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 .btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
 .login-error { font-size:13px; color:var(--red); font-weight:600; margin-top:10px; text-align:center; }
 
-/* APP LAYOUT - MOBILE */
+/* APP LAYOUT */
 .app { max-width:480px; margin:0 auto; min-height:100vh; padding-bottom:80px; }
 .header { background:var(--purple); padding:14px 18px; position:sticky; top:0; z-index:100; display:flex; align-items:center; justify-content:space-between; }
 .header-brand .brand-name { font-size:20px; font-weight:900; color:var(--lime); letter-spacing:-0.5px; }
@@ -50,7 +55,7 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 .header-right .today-date { font-size:10px; color:var(--lavender); }
 .logout-btn { background:rgba(255,255,255,0.15); border:none; border-radius:8px; padding:4px 8px; color:white; font-size:11px; cursor:pointer; margin-left:8px; font-family:inherit; }
 
-/* BOTTOM NAV - MOBILE */
+/* BOTTOM NAV */
 .bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:white; border-top:1px solid var(--lavender); display:flex; padding:6px 0 10px; box-shadow:0 -2px 12px rgba(45,27,105,0.1); z-index:100; }
 .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; background:none; border:none; cursor:pointer; font-family:inherit; padding:0; }
 .nav-item .nav-icon { font-size:20px; }
@@ -60,97 +65,6 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 
 /* CONTENT */
 .content { padding:14px; }
-
-/* DESKTOP RESPONSIVE */
-@media (min-width: 768px) {
-  body { background: #1a0f3d; }
-
-  .app {
-    max-width: 100%;
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    grid-template-rows: 60px 1fr;
-    min-height: 100vh;
-    padding-bottom: 0;
-  }
-
-  .header {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    padding: 0 24px;
-    height: 60px;
-  }
-
-  .header-brand .brand-name { font-size: 24px; }
-  .header-brand .brand-stand { font-size: 11px; }
-  .header-right .today-total { font-size: 16px; }
-
-  /* SIDEBAR replacing bottom nav on desktop */
-  .bottom-nav {
-    position: relative;
-    left: auto;
-    transform: none;
-    width: 240px;
-    max-width: 240px;
-    grid-column: 1;
-    grid-row: 2;
-    flex-direction: column;
-    padding: 16px 0;
-    height: calc(100vh - 60px);
-    border-top: none;
-    border-right: 1px solid var(--lavender);
-    box-shadow: none;
-    align-items: stretch;
-    background: white;
-    overflow-y: auto;
-  }
-
-  .nav-item {
-    flex-direction: row;
-    gap: 12px;
-    padding: 12px 20px;
-    border-radius: 0;
-    align-items: center;
-    justify-content: flex-start;
-  }
-
-  .nav-item .nav-icon { font-size: 18px; }
-  .nav-item .nav-label { font-size: 14px; font-weight: 600; color: var(--gray); }
-  .nav-item.active { background: var(--lavender-light); }
-  .nav-item.active .nav-label { color: var(--purple); font-weight: 800; }
-  .nav-item .nav-dot { display: none; }
-  .nav-item.active::before { content: ""; width: 4px; height: 100%; background: var(--lime); position: absolute; left: 0; border-radius: 0 4px 4px 0; }
-  .nav-item { position: relative; }
-
-  /* CONTENT AREA */
-  .content {
-    grid-column: 2;
-    grid-row: 2;
-    padding: 24px;
-    overflow-y: auto;
-    height: calc(100vh - 60px);
-    background: var(--off-white);
-  }
-
-  /* WIDER CARDS AND GRIDS ON DESKTOP */
-  .product-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .stats-grid { grid-template-columns: repeat(4, 1fr); }
-  .card { border-radius: 16px; }
-
-  /* LOGIN */
-  .login-screen { background: #1a0f3d; }
-  .login-card { max-width: 420px; padding: 40px; }
-
-  /* DISPATCH / KARDEX FORM */
-  .dispatch-form { max-width: 600px; }
-}
-
-@media (min-width: 1200px) {
-  .app { grid-template-columns: 260px 1fr; }
-  .bottom-nav { width: 260px; max-width: 260px; }
-  .product-grid { grid-template-columns: repeat(4, 1fr); }
-  .stats-grid { grid-template-columns: repeat(4, 1fr); }
-}
 
 /* CARDS */
 .card { background:white; border-radius:16px; padding:14px; box-shadow:0 1px 4px rgba(45,27,105,0.08); margin-bottom:12px; }
@@ -197,8 +111,8 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 .cart-subtotal { font-size:13px; font-weight:800; color:var(--purple); min-width:46px; text-align:right; }
 
 /* PAYMENT */
-.payment-methods { display:flex; gap:8px; }
-.payment-btn { flex:1; padding:10px 4px; border-radius:12px; border:2px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:11px; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.15s; }
+.payment-methods { display:flex; gap:8px; flex-wrap:wrap; }
+.payment-btn { flex:1 1 30%; min-width:90px; padding:10px 4px; border-radius:12px; border:2px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:11px; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.15s; }
 .payment-btn.active { border-color:var(--purple); background:var(--purple); color:white; }
 .payment-btn .pay-icon { font-size:18px; }
 
@@ -216,7 +130,7 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 
 /* PERIOD FILTER */
 .period-filter { display:flex; gap:8px; margin-bottom:12px; }
-.period-btn { flex:1; padding:8px; border-radius:10px; border:1.5px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; }
+.period-btn { flex:1 1 30%; min-width:80px; padding:8px; border-radius:10px; border:1.5px solid var(--lavender); background:white; color:var(--gray); font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; }
 .period-btn.active { border-color:var(--purple); background:var(--purple); color:white; }
 
 /* STATS */
@@ -305,12 +219,114 @@ textarea { width:100%; border-radius:12px; border:1.5px solid var(--lavender); p
   .product-grid { gap:6px; }
   .product-card { padding:8px 6px; }
 }
+
+/* TABLET (768px+) */
+@media (min-width: 768px) {
+  body { background: #1a1040; }
+
+  .app {
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 64px 1fr;
+    min-height: 100vh;
+    padding-bottom: 0;
+  }
+
+  .header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    padding: 0 28px;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+
+  .header-brand .brand-name { font-size: 22px; }
+  .header-brand .brand-stand { font-size: 11px; }
+  .header-right .today-total { font-size: 15px; }
+
+  /* SIDEBAR */
+  .bottom-nav {
+    position: relative !important;
+    left: auto !important;
+    transform: none !important;
+    width: 220px !important;
+    max-width: 220px !important;
+    grid-column: 1;
+    grid-row: 2;
+    flex-direction: column;
+    padding: 12px 0 !important;
+    height: calc(100vh - 64px);
+    border-top: none !important;
+    border-right: 1px solid var(--lavender);
+    box-shadow: none !important;
+    align-items: stretch;
+    background: white;
+    overflow-y: auto;
+  }
+
+  .nav-item {
+    flex-direction: row !important;
+    gap: 12px !important;
+    padding: 13px 20px !important;
+    border-radius: 0 !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    position: relative;
+  }
+
+  .nav-item .nav-icon { font-size: 18px !important; }
+  .nav-item .nav-label { font-size: 13px !important; font-weight: 600 !important; color: var(--gray) !important; }
+  .nav-item.active { background: var(--lavender-light) !important; }
+  .nav-item.active .nav-label { color: var(--purple) !important; font-weight: 800 !important; }
+  .nav-item .nav-dot { display: none !important; }
+  .nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0;
+    width: 4px; height: 100%;
+    background: var(--lime);
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* CONTENT AREA */
+  .content {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 24px;
+    overflow-y: auto;
+    height: calc(100vh - 64px);
+    background: var(--off-white);
+  }
+
+  /* GRIDS */
+  .product-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* FORMS */
+  .dispatch-form { max-width: 560px; }
+  .login-card { max-width: 420px; padding: 40px; }
+}
+
+/* LAPTOP / DESKTOP (1024px+) */
+@media (min-width: 1024px) {
+  .app { grid-template-columns: 240px 1fr; }
+  .bottom-nav { width: 240px !important; max-width: 240px !important; }
+  .product-grid { grid-template-columns: repeat(4, 1fr); }
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  .content { padding: 28px 32px; }
+}
 </style>
 </head>
 <body>
 <div id="app"></div>
 
 <script>
+// ─── LOGO ────────────────────────────────────────────────────
+const LOGO_WORTHY = "data:image/png;base64,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";
+
 // ─── FIREBASE CONFIG ─────────────────────────────────────────
 // IMPORTANTE: Reemplaza estos valores con los de tu proyecto Firebase
 const firebaseConfig = {
@@ -328,12 +344,12 @@ const db = firebase.firestore();
 
 // ─── USUARIOS DEL SISTEMA ────────────────────────────────────
 const USERS = {
-  "admin@worthy.com":   { role:"admin",   name:"Administrador", emoji:"👑", canKardex:false, canSell:false, canBodega:false },
-  "bodega@worthy.com":  { role:"bodega",  name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:false, canBodega:true  },
-  "gerardo@worthy.com": { role:"full",    name:"Gerardo",       emoji:"👤", canKardex:true,  canSell:true,  canBodega:true  },
-  "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true  },
-  "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false },
-  "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false },
+  "admin@worthy.com":   { role:"admin",   name:"Administrador", emoji:"👑", canKardex:false, canSell:false, canBodega:false, canFinanzas:false },
+  "bodega@worthy.com":  { role:"bodega",  name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:false, canBodega:true,  canFinanzas:false },
+  "gerardo@worthy.com": { role:"full",    name:"Gerardo",       emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
+  "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
+  "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
+  "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
 };
 
 // ─── CATÁLOGO ────────────────────────────────────────────────
@@ -355,10 +371,26 @@ const CATALOG = [
 ];
 
 const PAYMENTS = [
-  { id:"efectivo",      label:"Efectivo",  icon:"💵" },
-  { id:"tarjeta",       label:"Tarjeta",   icon:"💳" },
-  { id:"transferencia", label:"Transfer.", icon:"📲" },
+  { id:"efectivo",     label:"Efectivo",       icon:"💵", group:"efectivo" },
+  { id:"td",           label:"T. Débito",      icon:"💳", group:"bendo", comision:0.02 },
+  { id:"tc",           label:"T. Crédito",     icon:"💳", group:"bendo", comision:0.04 },
+  { id:"deuna",        label:"De Una",         icon:"📲", group:"transferencia" },
+  { id:"produbanco",   label:"Transf. Produbanco", icon:"🏦", group:"transferencia" },
+  { id:"pichincha",    label:"Transf. Pichincha",  icon:"🏦", group:"transferencia" },
 ];
+
+// Grupos de conciliacion para Caja
+const PAYMENT_GROUPS = [
+  { id:"efectivo",     label:"Efectivo" },
+  { id:"transferencia",label:"Transferencias" },
+  { id:"bendo",        label:"Bendo" },
+];
+
+// Comision de venta segun metodo de pago (0 si no aplica)
+function getComisionRate(pagoId) {
+  const pt = PAYMENTS.find(p=>p.id===pagoId);
+  return (pt && pt.comision) ? pt.comision : 0;
+}
 
 const STANDS = [
   { id:"quicentro",    name:"Quicentro Norte" },
@@ -366,15 +398,55 @@ const STANDS = [
   { id:"mercadito",    name:"El Mercadito" },
 ];
 
+// Puntos de venta para el POS (incluye Oficina, que vende desde el inventario de Bodega Central)
+const PUNTOS_VENTA = [
+  ...STANDS,
+  { id:"oficina", name:"Oficina", invSource:"bodega" },
+];
+
+function getInvSourceForStand(standId) {
+  const pv = PUNTOS_VENTA.find(p=>p.id===standId);
+  return (pv && pv.invSource) ? pv.invSource : standId;
+}
+
+// El punto de venta activo (donde se registra la venta): para full/asesor/bodega es selectedStand, para "stand" es su propio stand
+function getActiveSaleStandId() {
+  const role = state.userInfo.role;
+  if (role==="full"||role==="asesor"||role==="bodega") return state.selectedStand;
+  return state.userInfo.stand;
+}
+
+// El inventario real que se lee/descuenta para la venta (Oficina -> bodega)
+function getActiveInvSourceId() {
+  return getInvSourceForStand(getActiveSaleStandId());
+}
+
 const CATS = [
   { id:"all",     label:"Todos"    },
-  { id:"aceite",  label:"Aceite"   },
+  { id:"aceite",  label:"Óleos"    },
   { id:"balm",    label:"Bálsamos" },
   { id:"deo",     label:"Desod."   },
   { id:"shampoo", label:"Shampoo"  },
   { id:"tonico",  label:"Tónico"   },
   { id:"rutinas", label:"Rutinas"  },
 ];
+
+// Colores por categoria para las tarjetas de producto en Vender
+const CAT_COLORS = {
+  aceite:  "#8e4585",
+  tonico:  "#FFDE21",
+  balm:    "#ffc067",
+  deo:     "#0047ab",
+  shampoo: "#0BDA51",
+};
+
+// Determina si un color de fondo es oscuro (para decidir el color de texto)
+function isDarkColor(hex) {
+  const c = hex.replace("#","");
+  const r = parseInt(c.substr(0,2),16), g = parseInt(c.substr(2,2),16), b = parseInt(c.substr(4,2),16);
+  const luminance = (0.299*r + 0.587*g + 0.114*b)/255;
+  return luminance < 0.55;
+}
 
 // ─── RUTINAS ─────────────────────────────────────────────────
 const RUTINAS = [
@@ -455,10 +527,795 @@ const RUTINAS = [
 
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n).toFixed(2)}`;
-const today = () => new Date().toISOString().slice(0,10);
+// Ecuador no usa horario de verano: UTC-5 fijo
+const today = () => {
+  const d = new Date(Date.now() - 5*60*60*1000); // ajusta a hora Ecuador
+  return d.toISOString().slice(0,10);
+};
 const fmtDate = iso => new Date(iso+"T12:00:00").toLocaleDateString("es-EC",{day:"2-digit",month:"short",year:"numeric"});
 const fmtTime = ts => new Date(ts).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"});
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+// Verifica si una variante puede armarse completa con el inventario actual del stand
+function varianteDisponible(variante, inv) {
+  return variante.items.every(it => (inv[it.id]||0) >= it.q);
+}
+
+// Una rutina esta disponible si AL MENOS UNA de sus variantes tiene stock completo
+function rutinaDisponible(rutina, inv) {
+  return rutina.variantes.some(v => varianteDisponible(v, inv));
+}
+
+// Determina el standId a usar en la vista de Stock/Inventario segun el rol
+function getInvStandId() {
+  const role = state.userInfo.role;
+  if (role === "admin" || role === "full" || role === "bodega") {
+    const view = state.stockView || "consolidado";
+    return view === "consolidado" ? "quicentro" : view;
+  }
+  if (role === "asesor") return state.selectedStand;
+  return state.userInfo.stand;
+}
+
+// Costo unitario de un producto (para valorizar inventario). Si no hay costo definido, retorna 0.
+function getCost(productId) {
+  const c = state.costs[productId];
+  return (typeof c === "number") ? c : 0;
+}
+
+// Precio de venta de un producto. Si hay override en config/precios lo usa, si no usa CATALOG.price
+function getPrice(productId) {
+  const override = state.prices ? state.prices[productId] : undefined;
+  if (typeof override === "number") return override;
+  const p = CATALOG.find(c=>c.id===productId);
+  return p ? p.price : 0;
+}
+
+// ─── HELPERS GENERICOS DE PERIODO ──────────────────────────────
+// period: "hoy" | "semana" | "mes" | "mesEspecifico" (con mesAno "YYYY-MM") | "rango" (con rangoDesde/rangoHasta)
+// Retorna {from,to} ISO inclusive
+function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
+  const todayIso = today();
+  const d = new Date(Date.now()-5*60*60*1000);
+
+  if (period === "hoy") return { from: todayIso, to: todayIso };
+
+  if (period === "semana") {
+    const d2 = new Date(d); d2.setDate(d2.getDate()-6);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
+  }
+
+  if (period === "mes") {
+    const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
+  }
+
+  if (period === "mesEspecifico") {
+    const my = mesAno || todayIso.slice(0,7); // "YYYY-MM"
+    const [y,m] = my.split("-").map(Number);
+    const from = `${my}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${my}-${String(lastDay).padStart(2,"0")}`;
+    return { from, to };
+  }
+
+  if (period === "rango") {
+    const from = rangoDesde || todayIso;
+    const to = rangoHasta || todayIso;
+    return from <= to ? { from, to } : { from: to, to: from };
+  }
+
+  // fallback
+  return { from: todayIso, to: todayIso };
+}
+
+// Genera el desglose diario (o semanal si supera ~31 dias) de ventas entre from y to (inclusive)
+// salesForStand: array de ventas ya filtradas por punto de venta
+// Agrupa por semana calendario (lunes-domingo) entre from y to (inclusive)
+function getWeeklyBreakdown(salesForStand, from, to) {
+  const start = new Date(from+"T12:00:00");
+  const end = new Date(to+"T12:00:00");
+  const dow = (start.getDay()+6)%7; // 0=lunes
+  const weekStart = new Date(start); weekStart.setDate(weekStart.getDate()-dow);
+  const weeks = [];
+  let cursor = new Date(weekStart);
+  while (cursor <= end) {
+    const wStart = new Date(cursor);
+    const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
+    const fromIso = wStart.toISOString().slice(0,10);
+    const toIso = wEnd.toISOString().slice(0,10);
+    const total = salesForStand.filter(s=>s.fecha>=fromIso && s.fecha<=toIso && s.fecha>=from && s.fecha<=to).reduce((s,v)=>s+Number(v.total),0);
+    const label = `${wStart.getDate()}/${wStart.getMonth()+1}`;
+    weeks.push({ label, total });
+    cursor.setDate(cursor.getDate()+7);
+  }
+  return weeks;
+}
+
+function getDailyBreakdown(salesForStand, from, to) {
+  const start = new Date(from+"T12:00:00");
+  const end = new Date(to+"T12:00:00");
+  const totalDays = Math.round((end-start)/86400000)+1;
+
+  if (totalDays > 31) return getWeeklyBreakdown(salesForStand, from, to);
+
+  // Una barra por dia
+  const days = [];
+  let cursor = new Date(start);
+  while (cursor <= end) {
+    const iso = cursor.toISOString().slice(0,10);
+    const total = salesForStand.filter(s=>s.fecha===iso).reduce((s,v)=>s+Number(v.total),0);
+    const label = cursor.toLocaleDateString("es-EC",{day:"2-digit",month:"2-digit"});
+    days.push({ label, total, iso });
+    cursor.setDate(cursor.getDate()+1);
+  }
+  return days;
+}
+
+
+// ─── INICIO: HELPERS DE FILTRO ────────────────────────────────
+// Retorna {from,to} ISO inclusive segun los filtros de Inicio
+function getInicioDateRange() {
+  return getPeriodRange(state.inicioPeriod, state.inicioMesAno, state.inicioRangoDesde, state.inicioRangoHasta);
+}
+
+// Filtra ventas segun el filtro de periodo + punto de venta de Inicio
+function getInicioFilteredSales() {
+  const { from, to } = getInicioDateRange();
+  return state.sales.filter(s =>
+    s.fecha >= from && s.fecha <= to &&
+    (state.inicioStand === "all" || s.stand === state.inicioStand)
+  );
+}
+
+// Construye datos para la grafica de barras de Inicio segun la combinacion de filtros:
+// - Si inicioStand === "all": una barra por punto de venta (Quicentro, San Francisco, Mercadito, Oficina), total del periodo
+// - Si inicioStand = especifico: evolucion temporal dentro del periodo
+//     hoy -> 1 barra (total del dia)
+//     semana -> 7 barras (una por dia)
+//     mes / mesEspecifico -> barras por semana calendario (lunes-domingo)
+//     rango -> dias si <=31, semanas si es mas largo
+function getInicioTrend() {
+  const { from, to } = getInicioDateRange();
+
+  if (state.inicioStand === "all") {
+    // Comparacion entre puntos de venta
+    return PUNTOS_VENTA.map(st=>{
+      const total = state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id).reduce((s,v)=>s+Number(v.total),0);
+      return { label: st.id==="oficina"?"🏢 "+st.name:st.name, total };
+    });
+  }
+
+  const salesForStand = state.sales.filter(s=>s.stand===state.inicioStand);
+
+  if (state.inicioPeriod === "hoy") {
+    const total = salesForStand.filter(s=>s.fecha===from).reduce((s,v)=>s+Number(v.total),0);
+    const label = new Date(from+"T12:00:00").toLocaleDateString("es-EC",{day:"2-digit",month:"2-digit"});
+    return [{ label, total }];
+  }
+
+  if (state.inicioPeriod === "semana") {
+    return getDailyBreakdown(salesForStand, from, to);
+  }
+
+  if (state.inicioPeriod === "mes" || state.inicioPeriod === "mesEspecifico") {
+    return getWeeklyBreakdown(salesForStand, from, to);
+  }
+
+  // rango
+  return getDailyBreakdown(salesForStand, from, to);
+}
+
+
+// ─── FINANZAS: HELPERS ────────────────────────────────────────
+// Retorna {from, to} (ISO yyyy-mm-dd inclusive) segun el periodo seleccionado
+function getFinDateRange() {
+  const todayIso = today();
+  const d = new Date(Date.now()-5*60*60*1000);
+  if (state.finPeriod === "today") return { from: todayIso, to: todayIso };
+  if (state.finPeriod === "week") {
+    const d2 = new Date(d); d2.setDate(d2.getDate()-6);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
+  }
+  if (state.finPeriod === "month") {
+    const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
+    return { from: d2.toISOString().slice(0,10), to: todayIso };
+  }
+  // "all"
+  return { from: "0000-01-01", to: "9999-12-31" };
+}
+
+function inFinRange(fecha) {
+  const { from, to } = getFinDateRange();
+  return fecha >= from && fecha <= to;
+}
+
+// COGS de una venta: suma de (cantidad * costo unitario) de cada item, expandiendo rutinas
+function ventaCOGS(sale) {
+  if (sale.obsequio) return 0;
+  let cogs = 0;
+  (sale.items||[]).forEach(item=>{
+    if (item.isRutina && item.rutinaItems) {
+      item.rutinaItems.forEach(ri=>{ cogs += (getCost(ri.id)||0) * (ri.q||0) * (item.qty||0); });
+    } else {
+      cogs += (getCost(item.id)||0) * (item.qty||0);
+    }
+  });
+  return cogs;
+}
+
+// ─── FINANZAS: P&G ─────────────────────────────────────────────
+function renderFinanzas() {
+  const { from, to } = getFinDateRange();
+  const periodLabels = { today:"Hoy", week:"Últimos 7 días", month:"Este mes (P&G mensual)", all:"Todo el histórico" };
+
+  const filteredSales = state.sales.filter(s=>inFinRange(s.fecha) && (state.finStore==="all" || s.stand===state.finStore));
+  const filteredGastos = (state.gastos||[]).filter(g=>inFinRange(g.fecha) && (state.finStore==="all" || g.stand===state.finStore));
+
+  const ventas = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const cogs = filteredSales.reduce((s,v)=>s+ventaCOGS(v),0);
+  const margenBruto = ventas - cogs;
+  const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
+
+  const gastosByCat = GASTO_CATS.map(c=>({...c, total: filteredGastos.filter(g=>g.cat===c.id).reduce((s,g)=>s+Number(g.monto),0)}));
+  const totalGastos = gastosByCat.reduce((s,c)=>s+c.total,0);
+  const utilidadOperativa = margenBruto - totalGastos;
+  const utilidadPct = ventas>0 ? (utilidadOperativa/ventas*100) : 0;
+
+  return `
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Finanzas · Estado de Resultados</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Información privada — Gerardo y Rosita</div>
+  </div>
+
+  <div class="period-filter">
+    ${[["today","Hoy"],["week","7 días"],["month","Mes"],["all","Todo"]].map(([k,l])=>`<button class="period-btn ${state.finPeriod===k?"active":""}" data-fin-period="${k}">${l}</button>`).join("")}
+  </div>
+
+  <div class="store-selector">
+    ${[{id:"all",name:"Todos"},...PUNTOS_VENTA].map(s=>`<button class="store-btn ${state.finStore===s.id?"active":""}" data-fin-store="${s.id}">${s.name}</button>`).join("")}
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn ${state.finTab==="pyg"?"active":""}" data-fin-tab="pyg">📊 P&amp;G</button>
+    <button class="filter-btn ${state.finTab==="sku"?"active":""}" data-fin-tab="sku">🏷️ Margen por SKU</button>
+    <button class="filter-btn ${state.finTab==="gastos"?"active":""}" data-fin-tab="gastos">💸 Gastos</button>
+    <button class="filter-btn ${state.finTab==="caja"?"active":""}" data-fin-tab="caja">💼 Caja</button>
+    <button class="filter-btn ${state.finTab==="historico"?"active":""}" data-fin-tab="historico">📜 Histórico</button>
+  </div>
+
+  ${state.finTab==="pyg" ? renderPYG({ventas,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
+  ${state.finTab==="sku" ? renderMargenSKU(filteredSales) : ""}
+  ${state.finTab==="gastos" ? renderGastosForm(filteredGastos) : ""}
+  ${state.finTab==="caja" ? renderCaja() : ""}
+  ${state.finTab==="historico" ? renderHistorico() : ""}
+  `;
+}
+
+function renderPYG(d) {
+  return `
+  <div class="card">
+    <div class="section-title">${d.periodLabel} ${state.finStore==="all"?"· Todos los locales":"· "+PUNTOS_VENTA.find(s=>s.id===state.finStore)?.name}</div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
+      <span style="font-size:13px;font-weight:700;color:var(--purple);">Ventas (ingresos)</span>
+      <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.ventas)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
+      <span style="font-size:13px;font-weight:700;color:var(--gray);">(–) Costo de productos vendidos</span>
+      <span style="font-size:14px;font-weight:800;color:var(--red);">-${fmt(d.cogs)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:2px solid var(--purple);">
+      <span style="font-size:14px;font-weight:800;color:var(--purple);">= Margen bruto</span>
+      <div style="text-align:right;">
+        <div style="font-size:16px;font-weight:900;color:${d.margenBruto>=0?"var(--lime-dark)":"var(--red)"};">${fmt(d.margenBruto)}</div>
+        <div style="font-size:10px;color:var(--gray);">${d.margenPct.toFixed(1)}% sobre ventas</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;">Gastos operativos</div>
+    ${d.gastosByCat.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+      <span style="font-size:12px;color:var(--purple);">${c.icon} ${c.label}</span>
+      <span style="font-size:13px;font-weight:700;color:${c.total>0?"var(--red)":"var(--gray)"};">${c.total>0?"-"+fmt(c.total):fmt(0)}</span>
+    </div>`).join("")}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--lavender-light);margin-top:4px;">
+      <span style="font-size:13px;font-weight:700;color:var(--purple);">(–) Total gastos operativos</span>
+      <span style="font-size:14px;font-weight:800;color:var(--red);">-${fmt(d.totalGastos)}</span>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:6px;border-top:2px solid var(--purple);background:${d.utilidadOperativa>=0?"var(--lavender-light)":"#FEE2E2"};border-radius:10px;padding-left:10px;padding-right:10px;">
+      <span style="font-size:15px;font-weight:900;color:var(--purple);">= Utilidad operativa</span>
+      <div style="text-align:right;">
+        <div style="font-size:20px;font-weight:900;color:${d.utilidadOperativa>=0?"var(--lime-dark)":"var(--red)"};">${fmt(d.utilidadOperativa)}</div>
+        <div style="font-size:10px;color:var(--gray);">${d.utilidadPct.toFixed(1)}% sobre ventas</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderMargenSKU(filteredSales) {
+  // Acumular ventas/COGS por producto (expandiendo rutinas a sus componentes para COGS,
+  // pero el margen de la rutina se reporta sobre la fila de la rutina misma)
+  const bySku = {};
+  filteredSales.filter(sale=>!sale.obsequio).forEach(sale=>{
+    (sale.items||[]).forEach(item=>{
+      const key = item.isRutina ? ("RUTINA:"+(item.ref||item.name)) : item.id;
+      if(!bySku[key]) bySku[key] = { name:item.name, qty:0, ventas:0, cogs:0, isRutina:!!item.isRutina };
+      bySku[key].qty += item.qty;
+      bySku[key].ventas += item.subtotal;
+      if (item.isRutina && item.rutinaItems) {
+        item.rutinaItems.forEach(ri=>{ bySku[key].cogs += (getCost(ri.id)||0)*(ri.q||0)*(item.qty||0); });
+      } else {
+        bySku[key].cogs += (getCost(item.id)||0)*item.qty;
+      }
+    });
+  });
+  const rows = Object.values(bySku).map(r=>({...r, margen:r.ventas-r.cogs, margenPct: r.ventas>0?((r.ventas-r.cogs)/r.ventas*100):0}))
+    .sort((a,b)=>b.ventas-a.ventas);
+
+  const totalVentas = rows.reduce((s,r)=>s+r.ventas,0);
+  const totalCogs = rows.reduce((s,r)=>s+r.cogs,0);
+  const totalMargen = totalVentas-totalCogs;
+
+  if(rows.length===0) return `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`;
+
+  return `
+  <div class="card">
+    <div class="section-title">Margen por SKU/Rutina</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:480px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:6px 4px;color:var(--gray);font-weight:700;">Producto</th>
+            <th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">Uds</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Ventas</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Costo</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--purple);font-weight:800;">Margen</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--purple);font-weight:800;">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>`<tr style="border-bottom:1px solid var(--lavender-light);">
+            <td style="padding:6px 4px;font-weight:700;color:var(--purple);">${r.isRutina?"⭐ ":""}${r.name}</td>
+            <td style="text-align:center;padding:6px 4px;color:var(--gray);">${r.qty}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.ventas)}</td>
+            <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.cogs)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:${r.margen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(r.margen)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:700;color:${r.margenPct>=0?"var(--gray)":"var(--red)"};">${r.margenPct.toFixed(0)}%</td>
+          </tr>`).join("")}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--purple);">
+            <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Total</td>
+            <td></td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalVentas)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalCogs)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:${totalMargen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(totalMargen)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${totalVentas>0?(totalMargen/totalVentas*100).toFixed(0):0}%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderGastosForm(filteredGastos) {
+  const sorted = [...filteredGastos].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
+  return `
+  <div class="card card-lavender" style="margin-bottom:12px;">
+    <div class="section-title">Registrar Gasto</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input type="date" class="dispatch-input" id="gasto-fecha" value="${state.gastoFecha}">
+      <select class="dispatch-select" id="gasto-stand">
+        ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.gastoStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+      </select>
+      <select class="dispatch-select" id="gasto-cat">
+        ${GASTO_CATS.map(c=>`<option value="${c.id}" ${state.gastoCat===c.id?"selected":""}>${c.icon} ${c.label}</option>`).join("")}
+      </select>
+      <input type="number" class="dispatch-input" id="gasto-monto" min="0" step="0.01" placeholder="Monto $" value="${state.gastoMonto}">
+      <input type="text" class="dispatch-input" id="gasto-nota" placeholder="Nota (opcional)" value="${state.gastoNota}">
+      <button class="btn-lime btn-lime-full" id="gasto-save-btn" ${state.gastoSaving?"disabled":""}>
+        ${state.gastoSaving?"Guardando...":"Registrar Gasto"}
+      </button>
+    </div>
+  </div>
+
+  <div class="section-title">Gastos del período (${sorted.length})</div>
+  ${sorted.length===0
+    ? `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin gastos registrados</div>`
+    : sorted.map(g=>{
+        const cat = GASTO_CATS.find(c=>c.id===g.cat);
+        const isEditing = state.editingGasto===g.id;
+        if(isEditing) {
+          return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--purple);">
+            <div class="section-title">Editar gasto</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <input type="date" class="dispatch-input" id="eg-edit-fecha" value="${state.egEditFecha}">
+              <select class="dispatch-select" id="eg-edit-stand">
+                ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.egEditStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+              </select>
+              <select class="dispatch-select" id="eg-edit-cat">
+                ${GASTO_CATS.map(c=>`<option value="${c.id}" ${state.egEditCat===c.id?"selected":""}>${c.icon} ${c.label}</option>`).join("")}
+              </select>
+              <input type="number" class="dispatch-input" id="eg-edit-monto" min="0" step="0.01" value="${state.egEditMonto}">
+              <input type="text" class="dispatch-input" id="eg-edit-nota" value="${state.egEditNota}">
+              <div style="display:flex;gap:8px;">
+                <button class="btn-lime" style="flex:1;" id="eg-edit-save" data-id="${g.id}" ${state.egEditSaving?"disabled":""}>${state.egEditSaving?"Guardando...":"Guardar"}</button>
+                <button class="btn-ghost" style="flex:1;" id="eg-edit-cancel">Cancelar</button>
+              </div>
+              <button class="btn-ghost" style="color:var(--red);border-color:var(--red);" id="eg-edit-delete" data-id="${g.id}" ${state.egEditSaving?"disabled":""}>🗑️ Eliminar gasto</button>
+            </div>
+          </div>`;
+        }
+        return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--red);">
+          <div style="display:flex;justify-content:space-between;">
+            <div>
+              <div style="font-size:11px;color:var(--gray);">${fmtDate(g.fecha)} · ${PUNTOS_VENTA.find(s=>s.id===g.stand)?.name||g.stand}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--purple);">${cat?.icon||"📎"} ${cat?.label||g.cat}</div>
+              ${g.nota?`<div style="font-size:11px;color:var(--gray);">${g.nota}</div>`:""}
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:900;color:var(--red);">-${fmt(g.monto)}</div>
+              <button class="btn-ghost" data-eg-edit="${g.id}" style="font-size:11px;padding:4px 10px;margin-top:4px;">✏️ Editar</button>
+            </div>
+          </div>
+        </div>`;
+      }).join("")}`;
+}
+
+// ─── HISTORICO DE VENTAS (carga manual y por archivo) ──────────
+function renderHistorico() {
+  const visible = CATALOG.filter(p=>state.histCatFilter==="all"||p.cat===state.histCatFilter);
+  const subtotal = state.histCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const discAmt = subtotal*state.histDiscount/100;
+  const total = subtotal - discAmt;
+
+  return `
+  <div class="card card-lavender" style="margin-bottom:12px;">
+    <div class="section-title">📜 Cargar ventas históricas</div>
+    <div style="font-size:12px;color:var(--gray);line-height:1.5;">
+      Registra ventas anteriores al sistema. Afectan ventas, costo de ventas, P&amp;G, margen por SKU, caja y ranking de productos —
+      <strong>no descuentan inventario</strong> (ese stock ya salió antes). Se guardan en la fecha que elijas.
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn ${!state.histBulkMode?"active":""}" data-hist-mode="manual">✍️ Manual</button>
+    <button class="filter-btn ${state.histBulkMode?"active":""}" data-hist-mode="archivo">📄 Archivo CSV</button>
+  </div>
+
+  ${state.histBulkMode ? renderHistoricoArchivo() : renderHistoricoManual(visible, subtotal, discAmt, total)}
+  `;
+}
+
+function renderHistoricoManual(visible, subtotal, discAmt, total) {
+  return `
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Fecha y punto de venta</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input type="date" class="dispatch-input" id="hist-fecha" value="${state.histFecha}" max="${today()}">
+      <select class="dispatch-select" id="hist-stand">
+        ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.histStand===s.id?"selected":""}>${s.name}</option>`).join("")}
+      </select>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    ${CATS.map(c=>`<button class="filter-btn ${state.histCatFilter===c.id?"active":""}" data-hist-cat="${c.id}">${c.label}</button>`).join("")}
+  </div>
+
+  ${state.histCatFilter === "rutinas" ? `
+  ${state.histRutinaModal ? `
+  <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:flex-end;">
+    <div style="background:white;width:100%;border-radius:20px 20px 0 0;padding:20px;max-height:80vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--purple);">${RUTINAS.find(r=>r.id===state.histRutinaModal)?.name}</div>
+          <div style="font-size:22px;font-weight:900;color:var(--lime);">${fmt(RUTINAS.find(r=>r.id===state.histRutinaModal)?.price||0)}</div>
+        </div>
+        <button id="close-hist-rutina-modal" style="background:var(--lavender-light);border:none;border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--gray);margin-bottom:4px;">Base: ${RUTINAS.find(r=>r.id===state.histRutinaModal)?.desc}</div>
+      ${RUTINAS.find(r=>r.id===state.histRutinaModal)?.gifts?`<div style="font-size:12px;color:var(--lime);font-weight:700;margin-bottom:16px;">🎁 Obsequio: ${RUTINAS.find(r=>r.id===state.histRutinaModal)?.gifts}</div>`:""}
+      <div class="section-title">Elige la variante:</div>
+      ${(RUTINAS.find(r=>r.id===state.histRutinaModal)?.variantes||[]).map(v=>`
+        <button data-hist-add-rutina="${state.histRutinaModal}" data-variante="${v.id}" style="width:100%;text-align:left;padding:12px;border-radius:12px;border:1.5px solid var(--lavender);background:white;margin-bottom:8px;cursor:pointer;font-family:inherit;">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${v.label}</div>
+          <div style="font-size:11px;color:var(--gray);">${v.items.map(i=>{ const p=CATALOG.find(c=>c.id===i.id); return `${(p?.name||i.id)+" "+(p?.sub||"")+(i.q>1?" ×"+i.q:"")}`; }).join(" + ")}</div>
+        </button>`).join("")}
+    </div>
+  </div>` : ""}
+  <div class="product-grid">
+    ${RUTINAS.map(r=>{
+      const inCart = state.histCart.find(i=>i.rutinaId===r.id);
+      return `<button class="product-card ${inCart?"in-cart":""}" data-hist-rutina-open="${r.id}">
+        <div class="p-emoji">${r.emoji}</div>
+        <div class="p-name" style="font-size:13px;">${r.name}</div>
+        <div class="p-sub">${r.desc}</div>
+        ${r.gifts?`<div style="font-size:10px;color:var(--lime);margin-top:3px;">🎁 ${r.gifts}</div>`:""}
+        <div class="p-bottom" style="margin-top:8px;">
+          <span class="p-price">${fmt(r.price)}</span>
+          <span style="font-size:10px;color:var(--gray);">${r.variantes.length} var.</span>
+        </div>
+        ${inCart?`<div class="p-cart-qty">En carrito</div>`:""}
+      </button>`;
+    }).join("")}
+  </div>` : `
+  <div class="product-grid">
+    ${visible.map(p=>{
+      const inCart = state.histCart.find(i=>i.id===p.id);
+      return `<button class="product-card ${inCart?"in-cart":""}" data-hist-product="${p.id}">
+        <div class="p-emoji">${p.emoji}</div>
+        <div class="p-ref">${p.ref}</div>
+        <div class="p-name">${p.name}</div>
+        <div class="p-sub">${p.sub}</div>
+        <div class="p-bottom">
+          <span class="p-price">${fmt(getPrice(p.id))}</span>
+        </div>
+        ${inCart?`<div class="p-cart-qty">× ${inCart.qty} en carrito</div>`:""}
+      </button>`;
+    }).join("")}
+  </div>`}
+
+  ${state.histCart.length>0?`
+  <div class="card card-lavender" style="margin-top:12px;">
+    <div class="section-title">Items de esta venta histórica</div>
+    ${state.histCart.map(item=>`<div class="cart-item">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${item.name} ${item.sub}</div>
+        <div class="cart-item-price">${fmt(item.price)} c/u</div>
+      </div>
+      <div class="qty-controls">
+        <button class="qty-btn" data-hist-qty-minus="${item.id}">−</button>
+        <span class="cart-qty">${item.qty}</span>
+        <button class="qty-btn" data-hist-qty-plus="${item.id}">+</button>
+        <button class="qty-btn qty-remove" data-hist-qty-remove="${item.id}">✕</button>
+      </div>
+      <span class="cart-subtotal">${fmt(item.price*item.qty)}</span>
+    </div>`).join("")}
+
+    <div class="discount-bar">
+      <span class="discount-label">Descuento</span>
+      ${[0,5,10,15,20].map(d=>`<button class="discount-btn ${state.histDiscount===d?"active":""}" data-hist-discount="${d}">${d}%</button>`).join("")}
+    </div>
+
+    <div style="margin-top:10px;">
+      ${state.histDiscount>0?`<div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;color:var(--red);">Descuento ${state.histDiscount}%</span>
+        <span style="font-size:12px;font-weight:700;color:var(--red);">-${fmt(discAmt)}</span>
+      </div>`:""}
+      <div class="total-row">
+        <span class="total-label">TOTAL</span>
+        <div style="text-align:right;">
+          <div class="total-amount">${fmt(total)}</div>
+          <div class="total-iva">IVA 15% incluido</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <div class="section-title">Método de pago</div>
+    <div class="payment-methods">
+      ${PAYMENTS.map(pt=>`<button class="payment-btn ${state.histPayment===pt.id?"active":""}" data-hist-payment="${pt.id}">
+        <div class="pay-icon">${pt.icon}</div>
+        <div>${pt.label}</div>
+      </button>`).join("")}
+    </div>
+  </div>
+
+  <textarea placeholder="Nota opcional..." id="hist-note">${state.histNote}</textarea>
+  `:""}
+
+  <button class="btn-lime btn-lime-full" id="hist-save-btn" ${state.histCart.length===0||state.histSaving?"disabled":""}>
+    ${state.histSaving?"Guardando...":state.histCart.length>0?`Registrar venta histórica · ${fmt(total)}`:"Selecciona productos"}
+  </button>`;
+}
+
+function renderHistoricoArchivo() {
+  const rows = state.histFileRows;
+  const errors = state.histFileErrors||[];
+  return `
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Formato del archivo CSV</div>
+    <div style="font-size:11px;color:var(--gray);line-height:1.6;">
+      Una fila = un producto de una venta. Filas con el mismo <strong>venta_id</strong> se agrupan en una sola venta.<br>
+      Columnas (en este orden, con encabezado):<br>
+      <code>venta_id,fecha,punto_venta,producto_id,cantidad,precio_unitario,metodo_pago,descuento_pct</code><br><br>
+      <strong>punto_venta:</strong> quicentro / sanfrancisco / mercadito / oficina<br>
+      <strong>metodo_pago:</strong> efectivo / td / tc / deuna / produbanco / pichincha<br>
+      <strong>producto_id:</strong> SKU del catálogo (ej. WMO30, WLBN6...)<br>
+      <strong>fecha:</strong> formato YYYY-MM-DD
+    </div>
+    <button class="btn-ghost" id="hist-template-btn" style="margin-top:10px;">⬇️ Descargar plantilla de ejemplo</button>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Subir archivo</div>
+    <input type="file" id="hist-file-input" accept=".csv" class="dispatch-input">
+  </div>
+
+  ${errors.length>0?`<div class="alert-card alert-red">
+    <div class="section-title">⚠️ Errores encontrados (${errors.length})</div>
+    ${errors.slice(0,20).map(e=>`<div class="alert-item alert-item-red">${e}</div>`).join("")}
+    ${errors.length>20?`<div class="alert-item alert-item-red">...y ${errors.length-20} más</div>`:""}
+  </div>`:""}
+
+  ${rows && rows.length>0?`<div class="card">
+    <div class="section-title">Vista previa: ${rows.length} venta${rows.length===1?"":"s"} (${rows.reduce((s,v)=>s+v.items.length,0)} items)</div>
+    <div style="max-height:300px;overflow-y:auto;">
+      ${rows.slice(0,30).map(v=>`<div style="border-bottom:1px solid var(--lavender-light);padding:8px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--purple);">
+          <span>${v.id} · ${fmtDate(v.fecha)} · ${PUNTOS_VENTA.find(p=>p.id===v.stand)?.name||v.stand}</span>
+          <span>${fmt(v.total)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--gray);margin-top:2px;">
+          ${v.items.map(i=>`${i.name} ×${i.qty}`).join(" · ")} · ${PAYMENTS.find(p=>p.id===v.pago)?.label||v.pago}
+        </div>
+      </div>`).join("")}
+      ${rows.length>30?`<div style="text-align:center;padding:8px;font-size:11px;color:var(--gray);">...y ${rows.length-30} ventas más</div>`:""}
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid var(--purple);margin-top:8px;">
+      <span style="font-size:13px;font-weight:800;color:var(--purple);">Total a registrar</span>
+      <span style="font-size:16px;font-weight:900;color:var(--purple);">${fmt(rows.reduce((s,v)=>s+v.total,0))}</span>
+    </div>
+  </div>
+
+  <button class="btn-lime btn-lime-full" id="hist-file-save-btn" ${state.histFileSaving?"disabled":""}>
+    ${state.histFileSaving?"Guardando...":`Confirmar y registrar ${rows.length} ventas históricas`}
+  </button>`:""}
+
+  ${state.histFileResult?`<div class="card card-lavender" style="margin-top:12px;text-align:center;">
+    <div style="font-size:13px;font-weight:700;color:var(--purple);">✅ ${state.histFileResult.count} ventas históricas registradas</div>
+    <div style="font-size:11px;color:var(--gray);margin-top:2px;">Total: ${fmt(state.histFileResult.total)}</div>
+  </div>`:""}
+  `;
+}
+
+function cierreDocId(standId, fecha) {
+  return `${standId}_${fecha}`;
+}
+
+// Calcula totales esperados de un dia para un punto de venta
+function getCajaEsperado(standId, fecha) {
+  const ventasDia = state.sales.filter(s=>s.fecha===fecha && s.stand===standId);
+  const gastosDia = (state.gastos||[]).filter(g=>g.fecha===fecha && g.stand===standId);
+
+  const efectivoVentas = ventasDia.filter(s=>{const pt=PAYMENTS.find(p=>p.id===s.pago);return pt&&pt.group==="efectivo";}).reduce((s,v)=>s+Number(v.total),0);
+  const transferVentas = ventasDia.filter(s=>{const pt=PAYMENTS.find(p=>p.id===s.pago);return pt&&pt.group==="transferencia";}).reduce((s,v)=>s+Number(v.total),0);
+
+  // Bendo: ventas brutas con tarjeta (debito/credito), y neto = bruto - comision
+  const bendoVentas = ventasDia.filter(s=>{const pt=PAYMENTS.find(p=>p.id===s.pago);return pt&&pt.group==="bendo";});
+  const bendoBruto = bendoVentas.reduce((s,v)=>s+Number(v.total),0);
+  const bendoComision = bendoVentas.reduce((s,v)=>s+Number(v.total)*getComisionRate(v.pago),0);
+  const bendoNeto = bendoBruto - bendoComision;
+
+  const gastosEfectivo = gastosDia.filter(g=>g.cat!=="comisiones").reduce((s,g)=>s+Number(g.monto),0); // se asume gastos operativos pagados en efectivo (excluye comisiones bancarias, que son descuentos automaticos en Bendo)
+
+  return {
+    efectivoVentas, transferVentas, bendoBruto, bendoComision, bendoNeto,
+    gastosEfectivo,
+    totalVentas: efectivoVentas+transferVentas+bendoBruto,
+    txCount: ventasDia.length
+  };
+}
+
+function renderCaja() {
+  const fecha = state.cajaFecha;
+  const standId = state.cajaStand;
+  const docId = cierreDocId(standId, fecha);
+  const cierre = (state.cierres||{})[docId];
+  const esp = getCajaEsperado(standId, fecha);
+
+  const efIni = cierre ? cierre.efectivoInicial : (state.cajaEfectivoInicial!==""?parseFloat(state.cajaEfectivoInicial)||0:null);
+  const efFin = cierre ? cierre.efectivoFinal : (state.cajaEfectivoFinal!==""?parseFloat(state.cajaEfectivoFinal)||0:null);
+  const bendoBanco = cierre ? cierre.bendoBanco : (state.cajaBendoBanco!==""?parseFloat(state.cajaBendoBanco)||0:null);
+  const transBanco = cierre ? cierre.transferBanco : (state.cajaTransferBanco!==""?parseFloat(state.cajaTransferBanco)||0:null);
+
+  const efectivoEsperadoFinal = (efIni!==null) ? (efIni + esp.efectivoVentas - esp.gastosEfectivo) : null;
+  const difEfectivo = (efFin!==null && efectivoEsperadoFinal!==null) ? (efFin - efectivoEsperadoFinal) : null;
+  const difBendo = (bendoBanco!==null) ? (bendoBanco - esp.bendoNeto) : null;
+  const difTransfer = (transBanco!==null) ? (transBanco - esp.transferVentas) : null;
+
+  const isLocked = !!cierre;
+
+  return `
+  <div class="card">
+    <div class="section-title">Punto de venta y fecha</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <select class="dispatch-select" id="caja-stand">
+        ${STANDS.map(s=>`<option value="${s.id}" ${standId===s.id?"selected":""}>${s.name}</option>`).join("")}
+      </select>
+      <input type="date" class="dispatch-input" id="caja-fecha" value="${fecha}">
+    </div>
+  </div>
+
+  <div class="card card-purple" style="margin-top:12px;padding:16px;">
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Ventas del sistema · ${fmtDate(fecha)}</div>
+    <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(esp.totalVentas)}</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${esp.txCount} transacciones</div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);">💵 Efectivo</div>
+        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.efectivoVentas)}</div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);">📲 Transfer.</div>
+        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.transferVentas)}</div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);">💳 Bendo (bruto)</div>
+        <div style="font-size:13px;font-weight:800;color:white;">${fmt(esp.bendoBruto)}</div>
+      </div>
+    </div>
+    ${esp.bendoBruto>0?`<div style="margin-top:10px;font-size:11px;color:var(--lavender);">Comisión bancaria estimada: -${fmt(esp.bendoComision)} → Bendo neto esperado: ${fmt(esp.bendoNeto)}</div>`:""}
+    ${esp.gastosEfectivo>0?`<div style="margin-top:6px;font-size:11px;color:var(--lavender);">Gastos en efectivo del día: -${fmt(esp.gastosEfectivo)}</div>`:""}
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="section-title">💵 Efectivo</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Efectivo inicial (apertura)</label>
+        <input type="number" class="dispatch-input" id="caja-ef-ini" min="0" step="0.01" placeholder="$0.00" value="${efIni!==null?efIni:""}" ${isLocked?"disabled":""}>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Efectivo final (conteo de cierre)</label>
+        <input type="number" class="dispatch-input" id="caja-ef-fin" min="0" step="0.01" placeholder="$0.00" value="${efFin!==null?efFin:""}" ${isLocked?"disabled":""}>
+      </div>
+      ${efectivoEsperadoFinal!==null?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--lavender-light);">
+        <span style="font-size:12px;color:var(--gray);">Esperado en caja (inicial + ventas efvo − gastos)</span>
+        <span style="font-size:13px;font-weight:800;color:var(--purple);">${fmt(efectivoEsperadoFinal)}</span>
+      </div>`:""}
+      ${difEfectivo!==null?`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:10px;background:${Math.abs(difEfectivo)<0.01?"var(--lavender-light)":difEfectivo>0?"#D1FAE5":"#FEE2E2"};">
+        <span style="font-size:13px;font-weight:800;color:var(--purple);">${Math.abs(difEfectivo)<0.01?"✅ Caja exacta":difEfectivo>0?"⬆️ Sobrante":"⬇️ Faltante"}</span>
+        <span style="font-size:16px;font-weight:900;color:${Math.abs(difEfectivo)<0.01?"var(--purple)":difEfectivo>0?"#065F46":"var(--red)"};">${fmt(Math.abs(difEfectivo))}</span>
+      </div>`:""}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="section-title">📲💳 Conciliación medios electrónicos</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Transferencias (De Una + Pichincha + Produbanco) — según banco</label>
+        <input type="number" class="dispatch-input" id="caja-trans-banco" min="0" step="0.01" placeholder="${fmt(esp.transferVentas)} (sistema)" value="${transBanco!==null?transBanco:""}" ${isLocked?"disabled":""}>
+      </div>
+      ${difTransfer!==null?`<div style="display:flex;justify-content:space-between;padding:6px 0;">
+        <span style="font-size:12px;color:var(--gray);">Diferencia transferencias</span>
+        <span style="font-size:13px;font-weight:800;color:${Math.abs(difTransfer)<0.01?"var(--gray)":"var(--red)"};">${difTransfer>=0?"+":""}${fmt(difTransfer)}</span>
+      </div>`:""}
+
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Bendo (TC/TD, neto de comisión) — según banco</label>
+        <input type="number" class="dispatch-input" id="caja-bendo-banco" min="0" step="0.01" placeholder="${fmt(esp.bendoNeto)} (sistema, neto)" value="${bendoBanco!==null?bendoBanco:""}" ${isLocked?"disabled":""}>
+      </div>
+      ${difBendo!==null?`<div style="display:flex;justify-content:space-between;padding:6px 0;">
+        <span style="font-size:12px;color:var(--gray);">Diferencia Bendo</span>
+        <span style="font-size:13px;font-weight:800;color:${Math.abs(difBendo)<0.01?"var(--gray)":"var(--red)"};">${difBendo>=0?"+":""}${fmt(difBendo)}</span>
+      </div>`:""}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="section-title">Nota de cierre</div>
+    <textarea id="caja-nota" placeholder="Observaciones del cierre (opcional)" ${isLocked?"disabled":""}>${cierre?(cierre.nota||""):state.cajaNota}</textarea>
+  </div>
+
+  ${isLocked?`
+  <div class="card card-lavender" style="margin-top:12px;text-align:center;">
+    <div style="font-size:13px;font-weight:700;color:var(--purple);">🔒 Caja cerrada</div>
+    <div style="font-size:11px;color:var(--gray);margin-top:2px;">Cerrada por ${cierre.cerradoPor||"—"} el ${cierre.cerradoEn?new Date(cierre.cerradoEn).toLocaleString("es-EC"):"—"}</div>
+    <button class="btn-ghost" id="caja-reabrir-btn" style="margin-top:10px;">🔓 Reabrir para editar</button>
+  </div>`:`
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <button class="btn-ghost" style="flex:1;" id="caja-calcular-btn">🔄 Calcular diferencias</button>
+    <button class="btn-lime" style="flex:1;" id="caja-cerrar-btn" ${state.cajaSaving?"disabled":""}>
+      ${state.cajaSaving?"Guardando...":"🔒 Cerrar Caja"}
+    </button>
+  </div>`}
+  `;
+}
 
 // ─── APP STATE ────────────────────────────────────────────────
 let state = {
@@ -467,14 +1324,31 @@ let state = {
   selectedStand: null,
   tab: "dashboard",
   inventory: {},
+  costs: {},
+  prices: {},
+  editingCost: null,
+  editCostVal: "",
+  editingPrice: null,
+  editPriceVal: "",
   sales: [],
   cart: [],
   payment: "efectivo",
   discount: 0,
+  obsequio: false,
   note: "",
   catFilter: "all",
   periodFilter: "today",
+  ventasPeriod: "hoy",
+  ventasMesAno: today().slice(0,7),
+  ventasRangoDesde: today(),
+  ventasRangoHasta: today(),
   adminStoreFilter: "all",
+  inicioPeriod: "hoy",
+  inicioStand: "all",
+  inicioMesAno: today().slice(0,7),
+  inicioRangoDesde: today(),
+  inicioRangoHasta: today(),
+  stockView: "consolidado",
   editingStock: null,
   editStockVal: "",
   success: null,
@@ -491,8 +1365,64 @@ let state = {
   kardexObs: "",
   kardexSaving: false,
   kardexFilter: "all",
+  editingKardex: null,
+  kxEditProduct: "",
+  kxEditQty: "",
+  kxEditLote: "",
+  kxEditObs: "",
+  kxEditSaving: false,
+  // Finanzas
+  gastos: [],
+  finPeriod: "today",
+  finStore: "quicentro",
+  finTab: "pyg",
+  gastoFecha: today(),
+  gastoStand: "quicentro",
+  gastoCat: "arriendo",
+  gastoMonto: "",
+  gastoNota: "",
+  gastoSaving: false,
+  editingGasto: null,
+  egEditCat: "",
+  egEditMonto: "",
+  egEditNota: "",
+  egEditFecha: "",
+  egEditStand: "",
+  egEditSaving: false,
+  // Caja
+  cajaFecha: today(),
+  cajaStand: "quicentro",
+  cierres: {},
+  cajaEfectivoInicial: "",
+  cajaEfectivoFinal: "",
+  cajaBendoBanco: "",
+  cajaTransferBanco: "",
+  cajaNota: "",
+  cajaSaving: false,
+  // Edicion de ventas
+  editingSale: null,
+  evEditPago: "",
+  evEditDescuento: 0,
+  evEditNota: "",
+  evEditItems: [],
+  evEditSaving: false,
   unsubInventory: null,
   unsubSales: null,
+  // Carga de ventas historicas
+  histCart: [],
+  histFecha: today(),
+  histStand: "quicentro",
+  histPayment: "efectivo",
+  histDiscount: 0,
+  histNote: "",
+  histSaving: false,
+  histCatFilter: "all",
+  histBulkMode: false,
+  histRutinaModal: null,
+  histFileRows: null,
+  histFileErrors: [],
+  histFileSaving: false,
+  histFileResult: null,
 };
 
 // ─── RENDER ───────────────────────────────────────────────────
@@ -500,7 +1430,17 @@ function render() {
   const app = document.getElementById("app");
   if (state.loading) { app.innerHTML = renderLoading(); return; }
   if (!state.user) { app.innerHTML = renderLogin(); bindLogin(); return; }
-  if ((state.userInfo.role === "full" || state.userInfo.role === "asesor") && !state.selectedStand) {
+  if (state.userInfo.role === "asesor" && !state.selectedStand) {
+    app.innerHTML = renderStandSelector();
+    bindStandSelector();
+    return;
+  }
+  if (state.userInfo.role === "full" && state.tab === "pos" && !state.selectedStand) {
+    app.innerHTML = renderStandSelector();
+    bindStandSelector();
+    return;
+  }
+  if (state.userInfo.role === "bodega" && state.tab === "pos" && !state.selectedStand) {
     app.innerHTML = renderStandSelector();
     bindStandSelector();
     return;
@@ -510,15 +1450,20 @@ function render() {
 }
 
 function renderStandSelector() {
+  const role = state.userInfo.role;
+  const options = role==="bodega"
+    ? PUNTOS_VENTA.filter(p=>p.id==="oficina")
+    : PUNTOS_VENTA;
   return `<div class="login-screen">
-    <div class="login-logo">WORTHY</div>
+    <img src="${LOGO_WORTHY}" alt="WORTHY" class="login-logo-img">
     <div class="login-sub">Hola ${state.userInfo.name} 👋</div>
     <div class="login-card">
       <h2>¿En qué punto estás hoy?</h2>
-      ${STANDS.map(s => `<button class="btn-primary" data-select-stand="${s.id}" style="margin-bottom:12px;background:var(--purple);">
-        🏪 ${s.name}
+      ${options.map(s => `<button class="btn-primary" data-select-stand="${s.id}" style="margin-bottom:12px;background:var(--purple);">
+        ${s.id==="oficina"?"🏢":"🏪"} ${s.name}
       </button>`).join("")}
       <button id="logout-btn-select" style="width:100%;background:transparent;border:none;color:var(--gray);font-size:13px;cursor:pointer;margin-top:8px;font-family:inherit;">Cerrar sesión</button>
+      ${state.userInfo.role==="full"||state.userInfo.role==="bodega"?`<button id="back-dashboard-btn" style="width:100%;background:transparent;border:none;color:var(--purple);font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;font-family:inherit;">← Volver al inicio</button>`:""}
     </div>
   </div>`;
 }
@@ -533,6 +1478,7 @@ function bindStandSelector() {
     });
   });
   document.getElementById("logout-btn-select")?.addEventListener("click", () => auth.signOut());
+  document.getElementById("back-dashboard-btn")?.addEventListener("click", () => { state.tab="dashboard"; render(); });
 }
 
 function renderLoading() {
@@ -546,7 +1492,7 @@ function renderLoading() {
 // ─── LOGIN ────────────────────────────────────────────────────
 function renderLogin() {
   return `<div class="login-screen">
-    <div class="login-logo">WORTHY</div>
+    <img src="${LOGO_WORTHY}" alt="WORTHY" class="login-logo-img">
     <div class="login-sub">Sistema de Gestión</div>
     <div class="login-card">
       <h2>Iniciar Sesión</h2>
@@ -594,8 +1540,8 @@ function renderApp() {
   <div class="app">
     <div class="header">
       <div class="header-brand">
-        <div class="brand-name">WORTHY</div>
-        <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor")&&state.selectedStand?" · "+STANDS.find(s=>s.id===state.selectedStand)?.name:""}</div>
+        <img src="${LOGO_WORTHY}" alt="WORTHY" class="brand-logo-img">
+        <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor"||u.role==="bodega")&&state.selectedStand?" · "+PUNTOS_VENTA.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
         ${u.role==="stand"?`<div><div class="today-total">${fmt(todayTotal)} hoy</div><div class="today-date">${fmtDate(today())}</div></div>`:""}
@@ -633,9 +1579,11 @@ function getTabsForRole(role) {
   // Bodega - solo bodega central
   if (role === "bodega") return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
+    {id:"pos",icon:"🛒",label:"Vender"},
     {id:"inventario",icon:"📦",label:"Bodega"},
     {id:"despachar",icon:"🚚",label:"Despachar"},
     {id:"kardex",icon:"📒",label:"Kardex"},
+    {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
 
   // Full (gerardo, rosita) - todo
@@ -646,6 +1594,7 @@ function getTabsForRole(role) {
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"bodega",icon:"🏭",label:"Bodega"},
     {id:"kardex",icon:"📒",label:"Kardex"},
+    ...(u.canFinanzas?[{id:"finanzas",icon:"💰",label:"Finanzas"}]:[]),
     {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
 
@@ -661,9 +1610,21 @@ function getTabsForRole(role) {
 
 function renderTab() {
   const role = state.userInfo.role;
-  if (state.tab === "cambiar" && (role === "full" || role === "asesor")) {
+  if (state.tab === "cambiar" && role === "asesor") {
     state.selectedStand = null;
     state.tab = "pos";
+    render();
+    return "";
+  }
+  if (state.tab === "cambiar" && role === "full") {
+    state.selectedStand = null;
+    state.tab = "dashboard";
+    render();
+    return "";
+  }
+  if (state.tab === "cambiar" && role === "bodega") {
+    state.selectedStand = null;
+    state.tab = "dashboard";
     render();
     return "";
   }
@@ -675,6 +1636,7 @@ function renderTab() {
     case "despachar":  return renderDespachar();
     case "bodega":     return renderAdminBodega();
     case "kardex":     return renderKardex();
+    case "finanzas":   return state.userInfo?.canFinanzas ? renderFinanzas() : "<p>No autorizado</p>";
     default:           return "<p>Tab no encontrado</p>";
   }
 }
@@ -684,8 +1646,9 @@ function renderStandDashboard() {
   const todaySales = state.sales.filter(s=>s.fecha===today());
   const todayTotal = todaySales.reduce((s,v)=>s+Number(v.total),0);
   const byPay = PAYMENTS.map(pt=>({...pt,t:todaySales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
-  const last7 = getLast7(state.sales);
-  const maxDay = Math.max(...last7.map(d=>d.total),1);
+  const last14 = getLastN(state.sales, 14);
+  const chartLabels = JSON.stringify(last14.map(d=>d.label));
+  const chartData = JSON.stringify(last14.map(d=>Number(d.total.toFixed(2))));
   const topMap={};
   todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
   const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -699,22 +1662,18 @@ function renderStandDashboard() {
     <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Ventas hoy</div>
     <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones · IVA incluido</div>
-    <div style="display:flex;gap:8px;margin-top:14px;">
-      ${byPay.map(pt=>`<div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
-        <div style="font-size:11px;color:var(--lavender);font-weight:600;">${pt.icon} ${pt.label}</div>
-        <div style="font-size:14px;font-weight:800;color:white;margin-top:3px;">${fmt(pt.t)}</div>
+    <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
+      ${byPay.filter(pt=>pt.t>0).map(pt=>`<div style="flex:1;min-width:70px;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
+        <div style="font-size:10px;color:var(--lavender);font-weight:600;">${pt.icon} ${pt.label}</div>
+        <div style="font-size:13px;font-weight:800;color:white;margin-top:3px;">${fmt(pt.t)}</div>
       </div>`).join("")}
     </div>
   </div>
 
   <div class="card">
-    <div class="section-title">Últimos 7 días</div>
-    <div class="bar-chart">
-      ${last7.map(d=>`<div class="bar-col">
-        ${d.total>0?`<div class="bar-val">${fmt(d.total).replace("$","")}</div>`:"<div></div>"}
-        <div class="bar ${d.isToday?"bar-today":"bar-other"}" style="height:${Math.max(6,(d.total/maxDay)*52)}px;"></div>
-        <div class="bar-day" style="color:${d.isToday?"var(--purple)":"var(--gray)"};font-weight:${d.isToday?800:600};">${d.label}</div>
-      </div>`).join("")}
+    <div class="section-title">Tendencia · últimos 14 días</div>
+    <div style="position:relative;width:100%;height:160px;" data-trend-chart='${chartLabels}|||${chartData}'>
+      <canvas id="trendChart" role="img" aria-label="Gráfico de línea de ventas diarias de los últimos 14 días">Tendencia de ventas de los últimos 14 días.</canvas>
     </div>
   </div>
 
@@ -724,7 +1683,7 @@ function renderStandDashboard() {
       <span style="font-size:18px;">${p?.emoji}</span>
       <div style="flex:1;"><div style="font-size:12px;font-weight:700;color:var(--purple);">${p?.name} ${p?.sub}</div></div>
       <span class="badge badge-lime">${qty} uds</span>
-      <span style="font-size:13px;font-weight:800;color:var(--purple);">${fmt((p?.price||0)*qty)}</span>
+      <span style="font-size:13px;font-weight:800;color:var(--purple);">${fmt((p?getPrice(p.id):0)*qty)}</span>
     </div>`;}).join("")}
   </div>`:""}
 
@@ -739,7 +1698,7 @@ function renderStandDashboard() {
 function renderBodegaDashboard() {
   const inv = state.inventory["bodega"] || {};
   const totalUnits = CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
-  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
   const lowStock = CATALOG.filter(p=>(inv[p.id]||0)>0&&(inv[p.id]||0)<=5);
   const outStock = CATALOG.filter(p=>(inv[p.id]||0)===0);
 
@@ -766,56 +1725,248 @@ function renderBodegaDashboard() {
 
 // ─── ADMIN DASHBOARD ─────────────────────────────────────────
 function renderAdminDashboard() {
-  const stores = [{id:"all",name:"Todos"},...STANDS];
-  const filteredSales = state.adminStoreFilter==="all"
-    ? state.sales
-    : state.sales.filter(s=>s.stand===state.adminStoreFilter);
+  const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
 
-  const todaySales = filteredSales.filter(s=>s.fecha===today());
-  const todayTotal = todaySales.reduce((s,v)=>s+Number(v.total),0);
-  const last7 = getLast7(filteredSales);
-  const maxDay = Math.max(...last7.map(d=>d.total),1);
+  // ── Filtro combinado: periodo (hoy/semana/mes/mesEspecifico/rango) x punto de venta ──
+  const filteredSales = getInicioFilteredSales();
+  const { from, to } = getInicioDateRange();
+  const mesEspecificoLabel = (() => {
+    const [y,m] = (state.inicioMesAno||"").split("-").map(Number);
+    if(!y||!m) return "";
+    return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
+  })();
+  const periodLabel = state.inicioPeriod==="hoy" ? "Hoy"
+    : state.inicioPeriod==="semana" ? "Últimos 7 días"
+    : state.inicioPeriod==="mes" ? "Este mes"
+    : state.inicioPeriod==="mesEspecifico" ? mesEspecificoLabel
+    : state.inicioPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
+    : "Hoy";
 
-  // Ventas por stand hoy
-  const standTotals = STANDS.map(st=>({
-    ...st,
-    total: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).reduce((s,v)=>s+Number(v.total),0),
-    count: state.sales.filter(s=>s.fecha===today()&&s.stand===st.id).length,
+  const periodTotal = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const periodTx = filteredSales.length;
+  const avgTicket = periodTx>0 ? periodTotal/periodTx : 0;
+
+  // Comparacion vs ayer (solo tiene sentido si periodo = hoy)
+  const yestIso = (()=>{ const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
+  const salesForStand = state.inicioStand==="all" ? state.sales : state.sales.filter(s=>s.stand===state.inicioStand);
+  const yestTotal = salesForStand.filter(s=>s.fecha===yestIso).reduce((s,v)=>s+Number(v.total),0);
+  const pctChange = yestTotal>0 ? ((periodTotal-yestTotal)/yestTotal*100) : (periodTotal>0?100:0);
+
+  // Metodo de pago - segun filtro
+  const byPay = PAYMENTS.map(pt=>({...pt,total:filteredSales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
+  const maxPay = Math.max(...byPay.map(p=>p.total),1);
+
+  // Ventas por stand - segun filtro de periodo (todos los stands, independiente del filtro de stand)
+  const standTotals = PUNTOS_VENTA.map(st=>{
+    const stSales = state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id);
+    return { ...st, total: stSales.reduce((s,v)=>s+Number(v.total),0), count: stSales.length };
+  });
+  const maxStand = Math.max(...standTotals.map(s=>s.total),1);
+
+  // Ranking de productos (USD y unidades) - segun filtro
+  const rankMap = {};
+  filteredSales.forEach(s=>s.items&&s.items.forEach(i=>{
+    if(!rankMap[i.id]) rankMap[i.id] = { id:i.id, name:i.name, qty:0, total:0 };
+    rankMap[i.id].qty += i.qty;
+    rankMap[i.id].total += i.subtotal;
   }));
+  const topByUsd = Object.values(rankMap).sort((a,b)=>b.total-a.total);
+  const topByUnits = Object.values(rankMap).sort((a,b)=>b.qty-a.qty);
+
+  // Tendencia (siempre visible, independiente del filtro de periodo, respeta filtro de stand)
+  const trend = getInicioTrend();
+  const trendLabels = JSON.stringify(trend.map(d=>d.label));
+  const trendData = JSON.stringify(trend.map(d=>Number(d.total.toFixed(2))));
 
   return `
   <div class="store-selector">
-    ${stores.map(s=>`<button class="store-btn ${state.adminStoreFilter===s.id?"active":""}" data-store="${s.id}">${s.name}</button>`).join("")}
+    ${stores.map(s=>`<button class="store-btn ${state.inicioStand===s.id?"active":""}" data-inicio-stand="${s.id}">${s.id==="oficina"?"🏢 ":s.id!=="all"?"🏪 ":""}${s.name}</button>`).join("")}
   </div>
 
-  <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
-    <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">
-      ${state.adminStoreFilter==="all"?"Ventas consolidadas hoy":STANDS.find(s=>s.id===state.adminStoreFilter)?.name+" · hoy"}
+  <div class="period-filter" style="flex-wrap:wrap;">
+    <button class="period-btn ${state.inicioPeriod==="hoy"?"active":""}" data-inicio-period="hoy">Hoy</button>
+    <button class="period-btn ${state.inicioPeriod==="semana"?"active":""}" data-inicio-period="semana">Semana</button>
+    <button class="period-btn ${state.inicioPeriod==="mes"?"active":""}" data-inicio-period="mes">Mes actual</button>
+    <button class="period-btn ${state.inicioPeriod==="mesEspecifico"?"active":""}" data-inicio-period="mesEspecifico">📅 Mes</button>
+    <button class="period-btn ${state.inicioPeriod==="rango"?"active":""}" data-inicio-period="rango">📅 Rango</button>
+  </div>
+  ${state.inicioPeriod==="mesEspecifico"?`<div class="card" style="margin-bottom:12px;padding:10px;">
+    <input type="month" class="dispatch-input" id="inicio-mes" value="${state.inicioMesAno}" max="${today().slice(0,7)}">
+  </div>`:""}
+  ${state.inicioPeriod==="rango"?`<div class="card" style="margin-bottom:12px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Desde</label>
+      <input type="date" class="dispatch-input" id="inicio-rango-desde" value="${state.inicioRangoDesde}" max="${today()}">
     </div>
-    <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
-    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones</div>
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Hasta</label>
+      <input type="date" class="dispatch-input" id="inicio-rango-hasta" value="${state.inicioRangoHasta}" max="${today()}">
+    </div>
+  </div>`:""}
+
+  <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">
+          ${state.inicioStand==="all"?"Ventas consolidadas":PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name} · ${periodLabel}
+        </div>
+        <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(periodTotal)}</div>
+        <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${periodTx} transacciones · IVA incluido</div>
+      </div>
+      ${state.inicioPeriod==="hoy"&&(yestTotal>0||periodTotal>0)?`<div style="text-align:right;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.12);">
+        <div style="font-size:18px;font-weight:900;color:${pctChange>=0?"var(--lime)":"var(--red)"};">${pctChange>=0?"▲":"▼"} ${Math.abs(pctChange).toFixed(0)}%</div>
+        <div style="font-size:9px;color:var(--lavender);">vs. ayer</div>
+      </div>`:""}
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
+      <div class="stat-label" style="color:var(--gray);">Ticket promedio</div>
+      <div class="stat-value" style="color:var(--purple);">${fmt(avgTicket)}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px;">${periodLabel}</div>
+    </div>
+    <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
+      <div class="stat-label" style="color:var(--gray);">Transacciones</div>
+      <div class="stat-value" style="color:var(--purple);">${periodTx}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px;">${periodLabel}</div>
+    </div>
   </div>
 
   <div class="card">
-    <div class="section-title">Últimos 7 días</div>
-    <div class="bar-chart">
-      ${last7.map(d=>`<div class="bar-col">
-        ${d.total>0?`<div class="bar-val">${fmt(d.total).replace("$","")}</div>`:"<div></div>"}
-        <div class="bar ${d.isToday?"bar-today":"bar-other"}" style="height:${Math.max(6,(d.total/maxDay)*52)}px;"></div>
-        <div class="bar-day" style="color:${d.isToday?"var(--purple)":"var(--gray)"};font-weight:${d.isToday?800:600};">${d.label}</div>
-      </div>`).join("")}
+    <div class="section-title">${state.inicioStand==="all"?`Ventas por punto de venta · ${periodLabel}`:`Tendencia · ${periodLabel} · ${PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name}`}</div>
+    <div style="position:relative;width:100%;height:200px;" data-trend-chart='${trendLabels}|||${trendData}'>
+      <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas">Gráfico de ventas.</canvas>
     </div>
   </div>
 
-  ${state.adminStoreFilter==="all"?`<div class="card">
-    <div class="section-title">Ventas por local hoy</div>
-    ${standTotals.map(st=>`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div><div style="font-size:13px;font-weight:700;color:var(--purple);">🏪 ${st.name}</div>
-      <div style="font-size:11px;color:var(--gray);">${st.count} transacciones</div></div>
-      <div style="font-size:16px;font-weight:900;color:var(--purple);">${fmt(st.total)}</div>
+  <div class="card">
+    <div class="section-title">Métodos de pago · ${periodLabel}</div>
+    ${byPay.map(pt=>`<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:700;color:var(--purple);">${pt.icon} ${pt.label}</span>
+        <span style="font-size:12px;font-weight:800;color:var(--purple);">${fmt(pt.total)}</span>
+      </div>
+      <div style="height:8px;border-radius:8px;background:var(--lavender-light);overflow:hidden;">
+        <div style="height:100%;width:${(pt.total/maxPay*100)}%;background:var(--lime);border-radius:8px;transition:width 0.3s;"></div>
+      </div>
     </div>`).join("")}
-  </div>`:""}`;
+  </div>
+
+  <div class="card">
+    <div class="section-title">Ventas por local · ${periodLabel}</div>
+    ${standTotals.map(st=>`<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <div><span style="font-size:12px;font-weight:700;color:var(--purple);">${st.id==="oficina"?"🏢":"🏪"} ${st.name}</span>
+        <span style="font-size:10px;color:var(--gray);"> · ${st.count} tx</span></div>
+        <span style="font-size:13px;font-weight:900;color:var(--purple);">${fmt(st.total)}</span>
+      </div>
+      <div style="height:8px;border-radius:8px;background:var(--lavender-light);overflow:hidden;">
+        <div style="height:100%;width:${(st.total/maxStand*100)}%;background:var(--purple);border-radius:8px;transition:width 0.3s;"></div>
+      </div>
+    </div>`).join("")}
+  </div>
+
+  ${topByUsd.length>0?`<div class="card">
+    <div class="section-title">Ranking productos · ${periodLabel} · USD (${topByUsd.length})</div>
+    <div style="max-height:420px;overflow-y:auto;">
+    ${topByUsd.map((r,idx)=>{const p=CATALOG.find(c=>c.id===r.id);const maxUsd=topByUsd[0].total;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
+      <span style="font-size:18px;">${p?.emoji||"📦"}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);">${r.name}</div>
+        <div style="height:5px;border-radius:5px;background:var(--lavender-light);overflow:hidden;margin-top:3px;">
+          <div style="height:100%;width:${(r.total/maxUsd*100)}%;background:var(--lime);border-radius:5px;"></div>
+        </div>
+      </div>
+      <span class="badge badge-purple">${fmt(r.total)}</span>
+    </div>`;}).join("")}
+    </div>
+  </div>` : ""}
+
+  ${topByUnits.length>0?`<div class="card">
+    <div class="section-title">Ranking productos · ${periodLabel} · Unidades (${topByUnits.length})</div>
+    <div style="max-height:420px;overflow-y:auto;">
+    ${topByUnits.map((r,idx)=>{const p=CATALOG.find(c=>c.id===r.id);const maxQty=topByUnits[0].qty;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
+      <span style="font-size:18px;">${p?.emoji||"📦"}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);">${r.name}</div>
+        <div style="height:5px;border-radius:5px;background:var(--lavender-light);overflow:hidden;margin-top:3px;">
+          <div style="height:100%;width:${(r.qty/maxQty*100)}%;background:var(--lime);border-radius:5px;"></div>
+        </div>
+      </div>
+      <span class="badge badge-lime">${r.qty} uds</span>
+    </div>`;}).join("")}
+    </div>
+  </div>` : ""}
+  `;
 }
+
+function renderBarChart(canvasId) {
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  const wrapper = ctx.parentElement;
+  const raw = wrapper?.dataset?.trendChart || "";
+  const [labelsJson, dataJson] = raw.split("|||");
+  if(!labelsJson || !dataJson) return;
+  let labels, data;
+  try { labels = JSON.parse(labelsJson); data = JSON.parse(dataJson); } catch(e) { return; }
+
+  if(ctx._chartInstance) { ctx._chartInstance.destroy(); }
+  ctx._chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Ventas',
+        data: data,
+        backgroundColor: '#8DC63F',
+        borderRadius: 6,
+        maxBarThickness: 40,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 24 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(c){ return '$' + c.parsed.y.toFixed(2); } } },
+        datalabels: undefined
+      },
+      scales: {
+        y: { ticks: { callback: function(v){ return '$'+v; }, font:{size:9}, color:'#6B7280' }, grid:{ color:'rgba(108,114,128,0.08)'} },
+        x: { ticks: { font:{size:9}, color:'#6B7280', maxRotation:0 }, grid:{ display:false } }
+      }
+    },
+    plugins: [{
+      id: 'valueLabels',
+      afterDatasetsDraw(chart) {
+        const {ctx} = chart;
+        chart.data.datasets.forEach((dataset, i) => {
+          const meta = chart.getDatasetMeta(i);
+          meta.data.forEach((bar, idx) => {
+            const val = dataset.data[idx];
+            if (val === null || val === undefined) return;
+            ctx.save();
+            ctx.fillStyle = '#2D1B69';
+            ctx.font = '700 9px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('$'+Number(val).toFixed(0), bar.x, bar.y - 4);
+            ctx.restore();
+          });
+        });
+      }
+    }]
+  });
+}
+
+function renderTrendChart() {
+  renderBarChart('trendChart');
+  renderBarChart('ventasTrendChart');
+}
+
 
 // ─── POS ─────────────────────────────────────────────────────
 function renderPOS() {
@@ -827,11 +1978,15 @@ function renderPOS() {
     </div>`;
   }
 
-  const inv = state.inventory[(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand] || {};
+  const inv = state.inventory[getActiveInvSourceId()] || {};
   const visible = CATALOG.filter(p=>state.catFilter==="all"||p.cat===state.catFilter);
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
   const discAmt = subtotal*state.discount/100;
   const total = subtotal - discAmt;
+  const cartCost = state.cart.reduce((s,i)=>{
+    if(i.isRutina && i.items) return s + i.items.reduce((s2,ri)=>s2+(getCost(ri.id)||0)*(ri.q||0)*(i.qty||0),0);
+    return s + (getCost(i.id)||0)*i.qty;
+  },0);
 
   return `
   <div class="filter-bar">
@@ -852,18 +2007,21 @@ function renderPOS() {
       <div style="font-size:12px;color:var(--gray);margin-bottom:4px;">Base: ${RUTINAS.find(r=>r.id===state.rutinaModal)?.desc}</div>
       ${RUTINAS.find(r=>r.id===state.rutinaModal)?.gifts?`<div style="font-size:12px;color:var(--lime);font-weight:700;margin-bottom:16px;">🎁 Obsequio: ${RUTINAS.find(r=>r.id===state.rutinaModal)?.gifts}</div>`:""}
       <div class="section-title">Elige la variante:</div>
-      ${(RUTINAS.find(r=>r.id===state.rutinaModal)?.variantes||[]).map(v=>`
-        <button data-add-rutina="${state.rutinaModal}" data-variante="${v.id}" style="width:100%;text-align:left;padding:12px;border-radius:12px;border:1.5px solid var(--lavender);background:white;margin-bottom:8px;cursor:pointer;font-family:inherit;">
-          <div style="font-size:13px;font-weight:700;color:var(--purple);">${v.label}</div>
-          <div style="font-size:11px;color:var(--gray);">${v.items.map(i=>{ const p=CATALOG.find(c=>c.id===i.id); return (p?.name||i.id)+" "+( p?.sub||"")+(i.q>1?" ×"+i.q:""); }).join(" + ")}</div>
-        </button>
-      `).join("")}
+      ${(RUTINAS.find(r=>r.id===state.rutinaModal)?.variantes||[]).map(v=>{
+        const disponible = varianteDisponible(v, inv);
+        return `
+        <button data-add-rutina="${state.rutinaModal}" data-variante="${v.id}" ${!disponible?"disabled":""} style="width:100%;text-align:left;padding:12px;border-radius:12px;border:1.5px solid var(--lavender);background:white;margin-bottom:8px;cursor:pointer;font-family:inherit;${!disponible?"opacity:0.4;cursor:not-allowed;":""}">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${v.label}${!disponible?` <span style="color:var(--red);font-size:11px;">(sin stock)</span>`:""}</div>
+          <div style="font-size:11px;color:var(--gray);">${v.items.map(i=>{ const p=CATALOG.find(c=>c.id===i.id); const ok=(inv[i.id]||0)>=i.q; return `<span style="${ok?"":"color:var(--red);font-weight:700;"}">${(p?.name||i.id)+" "+( p?.sub||"")+(i.q>1?" ×"+i.q:"")}</span>`; }).join(" + ")}</div>
+        </button>`;
+      }).join("")}
     </div>
   </div>` : ""}
   <div class="product-grid">
     ${RUTINAS.map(r=>{
       const inCart = state.cart.find(i=>i.id===r.id);
-      return `<button class="product-card ${inCart?"in-cart":""}" data-rutina-open="${r.id}">
+      const disponible = rutinaDisponible(r, inv);
+      return `<button class="product-card ${inCart?"in-cart":""} ${!disponible?"out-stock":""}" data-rutina-open="${r.id}" ${!disponible?"disabled":""}>
         <div class="p-emoji">${r.emoji}</div>
         <div class="p-name" style="font-size:13px;">${r.name}</div>
         <div class="p-sub">${r.desc}</div>
@@ -873,6 +2031,7 @@ function renderPOS() {
           <span style="font-size:10px;color:var(--gray);">${r.variantes.length} var.</span>
         </div>
         ${inCart?`<div class="p-cart-qty">En carrito</div>`:""}
+        ${!disponible?`<div style="font-size:10px;color:var(--red);font-weight:700;margin-top:3px;">Sin stock</div>`:""}
       </button>`;
     }).join("")}
   </div>` :
@@ -880,13 +2039,18 @@ function renderPOS() {
     ${visible.map(p=>{
       const stock = inv[p.id]||0;
       const inCart = state.cart.find(i=>i.id===p.id);
-      return `<button class="product-card ${inCart?"in-cart":""} ${stock===0?"out-stock":""}" data-product="${p.id}" ${stock===0?"disabled":""}>
+      const catColor = CAT_COLORS[p.cat];
+      const useColor = catColor && !inCart;
+      const textColor = useColor ? (isDarkColor(catColor) ? "#FFFFFF" : "var(--purple)") : null;
+      const subColor = useColor ? (isDarkColor(catColor) ? "rgba(255,255,255,0.85)" : "var(--purple-mid)") : null;
+      const style = useColor ? `style="background:${catColor};border-color:${catColor};"` : "";
+      return `<button class="product-card ${inCart?"in-cart":""} ${stock===0?"out-stock":""}" ${style} data-product="${p.id}" ${stock===0?"disabled":""}>
         <div class="p-emoji">${p.emoji}</div>
-        <div class="p-ref">${p.ref}</div>
-        <div class="p-name">${p.name}</div>
-        <div class="p-sub">${p.sub}</div>
+        <div class="p-ref" ${textColor?`style="color:${subColor};"`:""}>${p.ref}</div>
+        <div class="p-name" ${textColor?`style="color:${textColor};"`:""}>${p.name}</div>
+        <div class="p-sub" ${subColor?`style="color:${subColor};"`:""}>${p.sub}</div>
         <div class="p-bottom">
-          <span class="p-price">${fmt(p.price)}</span>
+          <span class="p-price" ${textColor?`style="color:${textColor};"`:""}>${fmt(getPrice(p.id))}</span>
           <span class="badge badge-${stock>5?"green":stock>0?"amber":"red"}">${stock}</span>
         </div>
         ${inCart?`<div class="p-cart-qty">× ${inCart.qty} en carrito</div>`:""}
@@ -924,14 +2088,24 @@ function renderPOS() {
       <div class="total-row">
         <span class="total-label">TOTAL</span>
         <div style="text-align:right;">
-          <div class="total-amount">${fmt(total)}</div>
+          <div class="total-amount">${state.obsequio?fmt(0):fmt(total)}</div>
           <div class="total-iva">IVA 15% incluido</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div style="margin-top:12px;">
+  <div class="card" style="margin-top:12px;border:2px solid var(--lime);">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="checkbox" id="obsequio-toggle" ${state.obsequio?"checked":""} style="width:20px;height:20px;accent-color:var(--lime);">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--purple);">🎁 Registrar como obsequio</div>
+        <div style="font-size:11px;color:var(--gray);">Sale del inventario a costo (${fmt(cartCost)}), se registra como gasto de marketing. No genera ingreso.</div>
+      </div>
+    </label>
+  </div>
+
+  ${!state.obsequio?`<div style="margin-top:12px;">
     <div class="section-title">Método de pago</div>
     <div class="payment-methods">
       ${PAYMENTS.map(pt=>`<button class="payment-btn ${state.payment===pt.id?"active":""}" data-payment="${pt.id}">
@@ -939,31 +2113,182 @@ function renderPOS() {
         <div>${pt.label}</div>
       </button>`).join("")}
     </div>
-  </div>
+  </div>`:""}
 
   <textarea placeholder="Nota opcional..." id="sale-note">${state.note}</textarea>
   `:""}
 
   <button class="btn-lime btn-lime-full" id="sell-btn" ${state.cart.length===0?"disabled":""}>
-    ${state.cart.length>0?`Registrar Venta · ${fmt(total)}`:"Selecciona productos"}
+    ${state.cart.length>0?(state.obsequio?`Registrar Obsequio · costo ${fmt(cartCost)}`:`Registrar Venta · ${fmt(total)}`):"Selecciona productos"}
   </button>`;
 }
 
 // ─── INVENTARIO ──────────────────────────────────────────────
+const GASTO_CATS = [
+  { id:"arriendo",     label:"Arriendo",      icon:"🏢" },
+  { id:"personal",     label:"Personal",      icon:"👥" },
+  { id:"almuerzo",     label:"Almuerzo",      icon:"🍱" },
+  { id:"transporte",   label:"Transporte",    icon:"🚗" },
+  { id:"servicios",    label:"Servicios",     icon:"💡" },
+  { id:"marketing",    label:"Marketing/Obsequios", icon:"🎁" },
+  { id:"comisiones",   label:"Comisiones bancarias", icon:"💳" },
+  { id:"otro",         label:"Otro",          icon:"📎" },
+];
+
+const STOCK_POINTS = [
+  { id:"quicentro",    name:"Quicentro Norte", emoji:"🏪" },
+  { id:"sanfrancisco", name:"San Francisco",   emoji:"🏪" },
+  { id:"mercadito",    name:"El Mercadito",    emoji:"🏪" },
+  { id:"bodega",       name:"Bodega Central",  emoji:"🏭" },
+];
+
 function renderInventario() {
   const role = state.userInfo.role;
-  const standId = (role==="admin"||role==="full") ? (state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter) : (role==="asesor") ? state.selectedStand : state.userInfo.stand;
+
+  // Roles con vista multi-punto: full y bodega (Gerardo, Rosita, Bodega Central)
+  if (role==="admin" || role==="full" || role==="bodega") {
+    const view = state.stockView || "consolidado";
+    const canSeeCosts = (role==="full" || role==="bodega");
+
+    if (view === "consolidado") {
+      const totalGeneral = STOCK_POINTS.reduce((sum,pt)=>{
+        const inv = state.inventory[pt.id]||{};
+        return sum + CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
+      },0);
+      const totalUnitsGeneral = STOCK_POINTS.reduce((sum,pt)=>{
+        const inv = state.inventory[pt.id]||{};
+        return sum + CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
+      },0);
+
+      return `
+      <div class="filter-bar">
+        <button class="filter-btn active" data-stock-view="consolidado">Consolidado</button>
+        ${STOCK_POINTS.map(pt=>`<button class="filter-btn" data-stock-view="${pt.id}">${pt.emoji} ${pt.name}</button>`).join("")}
+      </div>
+
+      <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${canSeeCosts?"Valor total al costo (todos los puntos)":"Unidades totales (todos los puntos)"}</div>
+          ${canSeeCosts?`<div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalGeneral)}</div>`:`<div style="font-size:28px;font-weight:900;color:var(--lime);">${totalUnitsGeneral} uds</div>`}
+        </div>
+        ${canSeeCosts?`<div style="text-align:right;">
+          <div style="font-size:11px;color:var(--lavender);">${totalUnitsGeneral} uds</div>
+          <div style="font-size:10px;color:var(--lavender);">en total</div>
+        </div>`:""}
+      </div>
+
+      <div class="section-title">Stock por SKU — todos los puntos</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:560px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--lavender);">
+              <th style="text-align:left;padding:6px 4px;color:var(--gray);font-weight:700;">Producto</th>
+              ${STOCK_POINTS.map(pt=>`<th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">${pt.emoji}<br>${pt.name}</th>`).join("")}
+              <th style="text-align:center;padding:6px 4px;color:var(--purple);font-weight:800;">Total</th>
+              ${canSeeCosts?`<th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">Costo<br>unit.</th>
+              <th style="text-align:center;padding:6px 4px;color:var(--purple);font-weight:800;">Subtotal</th>`:""}
+            </tr>
+          </thead>
+          <tbody>
+            ${CATALOG.map(p=>{
+              const rowTotal = STOCK_POINTS.reduce((s,pt)=>s+((state.inventory[pt.id]||{})[p.id]||0),0);
+              const cost = getCost(p.id);
+              const subtotal = rowTotal*cost;
+              return `<tr style="border-bottom:1px solid var(--lavender-light);">
+                <td style="padding:6px 4px;font-weight:700;color:var(--purple);">${p.emoji} ${p.name} <span style="color:var(--gray);font-weight:400;">${p.sub}</span></td>
+                ${STOCK_POINTS.map(pt=>{
+                  const stock = (state.inventory[pt.id]||{})[p.id]||0;
+                  const color = stock===0?"var(--red)":stock<=5?"var(--amber)":"var(--gray)";
+                  return `<td style="text-align:center;padding:6px 4px;font-weight:700;color:${color};">${stock}</td>`;
+                }).join("")}
+                <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--purple);">${rowTotal}</td>
+                ${canSeeCosts?`<td style="text-align:center;padding:6px 4px;font-weight:700;color:${cost>0?"var(--gray)":"var(--red)"};">${cost>0?fmt(cost):"—"}</td>
+                <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(subtotal)}</td>`:""}
+              </tr>`;
+            }).join("")}
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--purple);">
+              <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Total uds</td>
+              ${STOCK_POINTS.map(pt=>{
+                const inv = state.inventory[pt.id]||{};
+                const t = CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
+                return `<td style="text-align:center;padding:6px 4px;font-weight:800;color:var(--purple);">${t}</td>`;
+              }).join("")}
+              <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--lime);background:var(--purple);border-radius:6px;">${totalUnitsGeneral}</td>
+              ${canSeeCosts?`<td colspan="2"></td>`:""}
+            </tr>
+            ${canSeeCosts?`<tr style="border-top:1px solid var(--lavender);">
+              <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Valor al costo</td>
+              ${STOCK_POINTS.map(pt=>{
+                const inv = state.inventory[pt.id]||{};
+                const v = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
+                return `<td style="text-align:center;padding:6px 4px;font-weight:800;color:var(--purple);">${fmt(v)}</td>`;
+              }).join("")}
+              <td style="text-align:center;padding:6px 4px;font-weight:900;color:var(--lime);background:var(--purple);border-radius:6px;">${fmt(totalGeneral)}</td>
+              <td colspan="2"></td>
+            </tr>`:""}
+          </tfoot>
+        </table>
+      </div>`;
+    }
+
+    // Vista individual de un punto (stand o bodega)
+    const point = STOCK_POINTS.find(pt=>pt.id===view) || STOCK_POINTS[0];
+    const inv = state.inventory[point.id] || {};
+    const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
+
+    return `
+    <div class="filter-bar">
+      <button class="filter-btn" data-stock-view="consolidado">Consolidado</button>
+      ${STOCK_POINTS.map(pt=>`<button class="filter-btn ${view===pt.id?"active":""}" data-stock-view="${pt.id}">${pt.emoji} ${pt.name}</button>`).join("")}
+    </div>
+
+    <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">${point.emoji} ${point.name}${canSeeCosts?" · valor al costo":""}</div>
+        ${canSeeCosts?`<div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>`:`<div style="font-size:28px;font-weight:900;color:var(--lime);">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} uds</div>`}
+      </div>
+      ${canSeeCosts?`<div style="text-align:right;">
+        <div style="font-size:11px;color:var(--lavender);">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} uds</div>
+        <div style="font-size:10px;color:var(--lavender);">en stock</div>
+      </div>`:""}
+    </div>
+
+    <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
+    ${CATALOG.map(p=>{
+      const stock = inv[p.id]||0;
+      const level = stock>5?"green":stock>0?"amber":"red";
+      return `<div class="card" style="margin-bottom:8px;">
+        <div class="inv-item">
+          <span class="inv-emoji">${p.emoji}</span>
+          <div class="inv-info">
+            <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
+            <div class="inv-sub">${p.ref} · ${fmt(getPrice(p.id))}</div>
+          </div>
+          ${state.editingStock===p.id?`
+            <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
+            <button class="btn-lime btn-sm" id="inv-save" data-save="${p.id}">OK</button>
+            <button class="btn-ghost btn-sm" id="inv-cancel">✕</button>
+          `:`
+            <span class="badge badge-${level}">${stock} uds</span>
+            <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>
+          `}
+        </div>
+      </div>`;
+    }).join("")}`;
+  }
+
+
+  // Asesor / stand: solo su propio punto, sin selector
+  const standId = getInvStandId();
   const inv = state.inventory[standId] || {};
-  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0);
+  const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
 
   return `
-  ${role==="admin"?`<div class="store-selector">
-    ${STANDS.map(s=>`<button class="store-btn ${(state.adminStoreFilter==="all"?"quicentro":state.adminStoreFilter)===s.id?"active":""}" data-inv-store="${s.id}">${s.name}</button>`).join("")}
-  </div>`:""}
-
   <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
     <div>
-      <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor en stock</div>
+      <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor en stock (al costo)</div>
       <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>
     </div>
     <div style="text-align:right;">
@@ -972,7 +2297,7 @@ function renderInventario() {
     </div>
   </div>
 
-  <div class="section-title">Stock por SKU ${role!=="admin"?"— toca ✏️ para ajustar":""}</div>
+  <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
   ${CATALOG.map(p=>{
     const stock = inv[p.id]||0;
     const level = stock>5?"green":stock>0?"amber":"red";
@@ -981,7 +2306,7 @@ function renderInventario() {
         <span class="inv-emoji">${p.emoji}</span>
         <div class="inv-info">
           <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
-          <div class="inv-sub">${p.ref} · ${fmt(p.price)}</div>
+          <div class="inv-sub">${p.ref} · ${fmt(getPrice(p.id))}</div>
         </div>
         ${state.editingStock===p.id?`
           <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
@@ -989,7 +2314,7 @@ function renderInventario() {
           <button class="btn-ghost btn-sm" id="inv-cancel">✕</button>
         `:`
           <span class="badge badge-${level}">${stock} uds</span>
-          ${role!=="admin"?`<button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>`:""}
+          <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>
         `}
       </div>
     </div>`;
@@ -999,34 +2324,75 @@ function renderInventario() {
 // ─── VENTAS ──────────────────────────────────────────────────
 function renderVentas() {
   const role = state.userInfo.role;
-  let filteredSales = role==="admin" && state.adminStoreFilter!=="all"
+  const canFilterStore = role==="admin" || role==="full";
+  const baseSales = (canFilterStore && state.adminStoreFilter!=="all")
     ? state.sales.filter(s=>s.stand===state.adminStoreFilter)
     : state.sales;
 
-  if (state.periodFilter==="today") filteredSales = filteredSales.filter(s=>s.fecha===today());
-  else if (state.periodFilter==="week") { const d=new Date(); d.setDate(d.getDate()-7); filteredSales=filteredSales.filter(s=>new Date(s.fecha)>=d); }
+  const { from, to } = getPeriodRange(state.ventasPeriod, state.ventasMesAno, state.ventasRangoDesde, state.ventasRangoHasta);
+  let filteredSales = baseSales.filter(s=>s.fecha>=from && s.fecha<=to);
 
   filteredSales = [...filteredSales].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
   const totalRev = filteredSales.reduce((s,v)=>s+Number(v.total),0);
   const byPay = PAYMENTS.map(pt=>({...pt,total:filteredSales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
 
+  const mesEspecificoLabel = (() => {
+    const [y,m] = (state.ventasMesAno||"").split("-").map(Number);
+    if(!y||!m) return "";
+    return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
+  })();
+  const periodLabel = state.ventasPeriod==="hoy" ? "Hoy"
+    : state.ventasPeriod==="semana" ? "Últimos 7 días"
+    : state.ventasPeriod==="mes" ? "Este mes"
+    : state.ventasPeriod==="mesEspecifico" ? mesEspecificoLabel
+    : state.ventasPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
+    : "Hoy";
+
+  const breakdown = getDailyBreakdown(filteredSales, from, to);
+  const breakdownLabels = JSON.stringify(breakdown.map(d=>d.label));
+  const breakdownData = JSON.stringify(breakdown.map(d=>Number(d.total.toFixed(2))));
+
   return `
-  ${role==="admin"?`<div class="store-selector">
-    ${[{id:"all",name:"Todos"},...STANDS].map(s=>`<button class="store-btn ${state.adminStoreFilter===s.id?"active":""}" data-store="${s.id}">${s.name}</button>`).join("")}
+  ${canFilterStore?`<div class="store-selector">
+    ${[{id:"all",name:"Todos"},...PUNTOS_VENTA].map(s=>`<button class="store-btn ${state.adminStoreFilter===s.id?"active":""}" data-store="${s.id}">${s.id==="oficina"?"🏢 ":s.id!=="all"?"🏪 ":""}${s.name}</button>`).join("")}
   </div>`:""}
 
-  <div class="period-filter">
-    ${[["today","Hoy"],["week","7 días"],["all","Todo"]].map(([k,l])=>`<button class="period-btn ${state.periodFilter===k?"active":""}" data-period="${k}">${l}</button>`).join("")}
+  <div class="period-filter" style="flex-wrap:wrap;">
+    <button class="period-btn ${state.ventasPeriod==="hoy"?"active":""}" data-ventas-period="hoy">Hoy</button>
+    <button class="period-btn ${state.ventasPeriod==="semana"?"active":""}" data-ventas-period="semana">Semana</button>
+    <button class="period-btn ${state.ventasPeriod==="mes"?"active":""}" data-ventas-period="mes">Mes actual</button>
+    <button class="period-btn ${state.ventasPeriod==="mesEspecifico"?"active":""}" data-ventas-period="mesEspecifico">📅 Mes</button>
+    <button class="period-btn ${state.ventasPeriod==="rango"?"active":""}" data-ventas-period="rango">📅 Rango</button>
   </div>
+  ${state.ventasPeriod==="mesEspecifico"?`<div class="card" style="margin-bottom:12px;padding:10px;">
+    <input type="month" class="dispatch-input" id="ventas-mes" value="${state.ventasMesAno}" max="${today().slice(0,7)}">
+  </div>`:""}
+  ${state.ventasPeriod==="rango"?`<div class="card" style="margin-bottom:12px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Desde</label>
+      <input type="date" class="dispatch-input" id="ventas-rango-desde" value="${state.ventasRangoDesde}" max="${today()}">
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Hasta</label>
+      <input type="date" class="dispatch-input" id="ventas-rango-hasta" value="${state.ventasRangoHasta}" max="${today()}">
+    </div>
+  </div>`:""}
 
   <div class="stats-grid">
     <div class="stat-card card-purple" style="border-radius:14px;">
-      <div class="stat-label" style="color:var(--lavender);">Ingresos</div>
+      <div class="stat-label" style="color:var(--lavender);">Ingresos · ${periodLabel}</div>
       <div class="stat-value" style="color:var(--lime);">${fmt(totalRev)}</div>
     </div>
     <div class="stat-card card-lavender" style="border-radius:14px;">
       <div class="stat-label" style="color:var(--purple);">Transacciones</div>
       <div class="stat-value" style="color:var(--purple);">${filteredSales.length}</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Ventas por ${breakdown.length>0&&breakdown[0].iso?"día":"semana"} · ${periodLabel}</div>
+    <div style="position:relative;width:100%;height:200px;" data-trend-chart='${breakdownLabels}|||${breakdownData}'>
+      <canvas id="ventasTrendChart" role="img" aria-label="Gráfico de barras de ventas por periodo">Ventas por periodo.</canvas>
     </div>
   </div>
 
@@ -1040,21 +2406,79 @@ function renderVentas() {
 
   ${filteredSales.length===0
     ?`<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`
-    :filteredSales.map(sale=>`<div class="card sale-card" style="margin-bottom:8px;">
+    :filteredSales.map(sale=>{
+      const isEditing = state.editingSale===sale.id;
+      const canEdit = role==="full";
+      if (isEditing) {
+        const evSubtotal = (state.evEditItems||[]).reduce((s,it)=>s+it.price*it.qty,0);
+        const evDescAmt = evSubtotal*(state.evEditDescuento||0)/100;
+        const evTotal = evSubtotal - evDescAmt;
+        return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--purple);">
+          <div class="section-title">Editar venta · ${fmtDate(sale.fecha)} ${fmtTime(sale.timestamp)}</div>
+          ${(state.evEditItems||[]).map((it,idx)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:700;color:var(--purple);">${it.name}</div>
+              <div style="font-size:11px;color:var(--gray);">${fmt(it.price)} c/u</div>
+            </div>
+            <div class="qty-controls">
+              <button class="qty-btn" data-ev-qty-minus="${idx}">−</button>
+              <span class="cart-qty">${it.qty}</span>
+              <button class="qty-btn" data-ev-qty-plus="${idx}">+</button>
+            </div>
+            <span class="cart-subtotal">${fmt(it.price*it.qty)}</span>
+          </div>`).join("")}
+
+          <div class="discount-bar">
+            <span class="discount-label">Descuento</span>
+            ${[0,5,10,15,20].map(d=>`<button class="discount-btn ${state.evEditDescuento===d?"active":""}" data-ev-discount="${d}">${d}%</button>`).join("")}
+          </div>
+
+          <div style="margin-top:10px;">
+            <div class="section-title">Método de pago</div>
+            <div class="payment-methods">
+              ${PAYMENTS.map(pt=>`<button class="payment-btn ${state.evEditPago===pt.id?"active":""}" data-ev-payment="${pt.id}">
+                <div class="pay-icon">${pt.icon}</div>
+                <div>${pt.label}</div>
+              </button>`).join("")}
+            </div>
+          </div>
+
+          <textarea id="ev-edit-nota" placeholder="Nota opcional..." style="margin-top:10px;">${state.evEditNota}</textarea>
+
+          <div class="total-row" style="margin-top:10px;">
+            <span class="total-label">TOTAL</span>
+            <div style="text-align:right;">
+              <div class="total-amount">${fmt(evTotal)}</div>
+              ${state.evEditDescuento>0?`<div class="total-iva">Descuento ${state.evEditDescuento}% incluido</div>`:""}
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn-lime" style="flex:1;" id="ev-edit-save" data-id="${sale.id}" ${state.evEditSaving?"disabled":""}>${state.evEditSaving?"Guardando...":"Guardar"}</button>
+            <button class="btn-ghost" style="flex:1;" id="ev-edit-cancel">Cancelar</button>
+          </div>
+          <button class="btn-ghost" style="color:var(--red);border-color:var(--red);width:100%;margin-top:8px;" id="ev-edit-delete" data-id="${sale.id}" ${state.evEditSaving?"disabled":""}>🗑️ Eliminar venta completa</button>
+        </div>`;
+      }
+      return `<div class="card sale-card" style="margin-bottom:8px;">
       <div class="sale-header">
         <div style="flex:1;min-width:0;">
-          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${STANDS.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}</div>
+          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}${sale.historica?` · <span style="color:var(--purple);font-weight:700;">📜 Histórica</span>`:""}</div>
           <div class="sale-items">${sale.items?sale.items.map(i=>`${i.name} ×${i.qty}`).join(" · "):"—"}</div>
           ${sale.nota?`<div class="sale-note">📝 ${sale.nota}</div>`:""}
         </div>
         <div style="text-align:right;margin-left:8px;">
           <div class="sale-amount">${fmt(sale.total)}</div>
-          <span class="badge badge-${sale.pago==="efectivo"?"green":sale.pago==="tarjeta"?"purple":"amber"}">
-            ${PAYMENTS.find(p=>p.id===sale.pago)?.icon} ${PAYMENTS.find(p=>p.id===sale.pago)?.label}
+          <span class="badge badge-${sale.obsequio?"lime":sale.pago==="efectivo"?"green":PAYMENTS.find(p=>p.id===sale.pago)?.group==="bendo"?"purple":"amber"}">
+            ${sale.obsequio?"🎁 Obsequio":`${PAYMENTS.find(p=>p.id===sale.pago)?.icon||""} ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago}`}
           </span>
         </div>
       </div>
-    </div>`).join("")}`;
+      ${canEdit?`<div style="margin-top:8px;text-align:right;">
+        <button class="btn-ghost" data-ev-edit="${sale.id}" style="font-size:11px;padding:4px 10px;">✏️ Editar</button>
+      </div>`:""}
+    </div>`;
+    }).join("")}`;
 }
 
 // ─── DESPACHAR ───────────────────────────────────────────────
@@ -1102,12 +2526,15 @@ function renderDespachar() {
 
 // ─── ADMIN BODEGA ────────────────────────────────────────────
 function renderAdminBodega() {
+  const role = state.userInfo.role;
   const inv = state.inventory["bodega"] || {};
+  const canSeeCosts = (role==="full" || role==="bodega");
+  const canEditPrices = (role==="full");
   return `
   <div class="card card-purple" style="margin-bottom:12px;padding:16px;">
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Bodega Central</div>
-    <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*p.price,0))}</div>
-    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} unidades totales</div>
+    <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0))}</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} unidades totales${canSeeCosts?" · valor al costo":""}</div>
   </div>
 
   <div class="card">
@@ -1129,11 +2556,60 @@ function renderAdminBodega() {
     }).join("")}
   </div>
 
+  ${canEditPrices?`<div class="card" style="margin-top:12px;">
+    <div class="section-title">Precios (PVP) · toca 🏷️ para editar</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Precio de venta al público, IVA 15% incluido. Solo editable por Gerardo y Rosita.</div>
+    ${CATALOG.map(p=>{
+      const price = getPrice(p.id);
+      const isOverride = typeof (state.prices||{})[p.id] === "number";
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:20px;">${p.emoji}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
+          <div style="font-size:10px;color:var(--gray);">${isOverride?"Actualizado":"Precio de catálogo"}</div>
+        </div>
+        ${state.editingPrice===p.id?`
+          <input type="number" class="inv-edit-input" id="price-input" value="${state.editPriceVal}" min="0" step="0.01" style="width:70px;">
+          <button class="btn-lime btn-sm" data-price-save="${p.id}">OK</button>
+          <button class="btn-ghost btn-sm" id="price-cancel">✕</button>
+        `:`
+          <span class="badge badge-purple">${fmt(price)}</span>
+          <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-price="${p.id}">🏷️</button>
+        `}
+      </div>`;
+    }).join("")}
+  </div>`:""}
+
+  ${canSeeCosts?`<div class="card" style="margin-top:12px;">
+    <div class="section-title">Costos · toca 💲 para editar</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Información privada — solo visible para Gerardo, Rosita y Bodega Central</div>
+    ${CATALOG.map(p=>{
+      const cost = getCost(p.id);
+      const price = getPrice(p.id);
+      const margin = cost>0 ? ((price-cost)/price*100) : null;
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:20px;">${p.emoji}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--purple);">${p.name} ${p.sub}</div>
+          <div style="font-size:10px;color:var(--gray);">PVP ${fmt(price)}${margin!==null?` · margen ${margin.toFixed(0)}%`:""}</div>
+        </div>
+        ${state.editingCost===p.id?`
+          <input type="number" class="inv-edit-input" id="cost-input" value="${state.editCostVal}" min="0" step="0.01" style="width:70px;">
+          <button class="btn-lime btn-sm" data-cost-save="${p.id}">OK</button>
+          <button class="btn-ghost btn-sm" id="cost-cancel">✕</button>
+        `:`
+          <span class="badge badge-${cost>0?"purple":"red"}">${cost>0?fmt(cost):"sin definir"}</span>
+          <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-cost="${p.id}">💲</button>
+        `}
+      </div>`;
+    }).join("")}
+  </div>`:""}
+
   <div class="card" style="margin-top:12px;">
     <div class="section-title">Inventario por Stand</div>
     ${STANDS.map(st=>{
       const stInv = state.inventory[st.id]||{};
-      const total = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0)*p.price,0);
+      const total = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0)*getCost(p.id),0);
       const units = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0),0);
       return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px;background:var(--lavender-light);border-radius:12px;">
         <div><div style="font-size:13px;font-weight:700;color:var(--purple);">🏪 ${st.name}</div>
@@ -1188,6 +2664,27 @@ function renderKardex() {
     : movs.map(m=>{
         const p = CATALOG.find(c=>c.id===m.product);
         const isE = m.type==="entrada";
+        const isEditing = state.editingKardex === m.id;
+        if (isEditing) {
+          return `<div class="card" style="margin-bottom:8px;border-left:4px solid var(--purple);">
+            <div class="section-title">Editar movimiento</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <select class="dispatch-select" id="kx-edit-product">
+                ${CATALOG.map(c=>`<option value="${c.id}" ${state.kxEditProduct===c.id?"selected":""}>${c.name} ${c.sub}</option>`).join("")}
+              </select>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <input type="number" class="dispatch-input" id="kx-edit-qty" min="1" placeholder="Cantidad" value="${state.kxEditQty}">
+                <input type="text" class="dispatch-input" id="kx-edit-lote" placeholder="Lote" value="${state.kxEditLote}">
+              </div>
+              <input type="text" class="dispatch-input" id="kx-edit-obs" placeholder="Observacion (opcional)" value="${state.kxEditObs}">
+              <div style="display:flex;gap:8px;">
+                <button class="btn-lime" style="flex:1;" id="kx-edit-save" data-id="${m.id}" ${state.kxEditSaving?"disabled":""}>${state.kxEditSaving?"Guardando...":"Guardar"}</button>
+                <button class="btn-ghost" style="flex:1;" id="kx-edit-cancel">Cancelar</button>
+              </div>
+              <button class="btn-ghost" style="color:var(--red);border-color:var(--red);" id="kx-edit-delete" data-id="${m.id}" ${state.kxEditSaving?"disabled":""}>🗑️ Eliminar movimiento</button>
+            </div>
+          </div>`;
+        }
         return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${isE?"var(--lime)":"var(--red)"};">
           <div style="display:flex;justify-content:space-between;">
             <div>
@@ -1201,35 +2698,96 @@ function renderKardex() {
               <div style="font-size:10px;color:var(--gray);">${isE?"ENTRADA":"SALIDA"}</div>
             </div>
           </div>
+          ${canAdd && isE ? `<div style="margin-top:8px;text-align:right;">
+            <button class="btn-ghost" data-kx-edit="${m.id}" style="font-size:11px;padding:4px 10px;">✏️ Editar</button>
+          </div>` : ""}
         </div>`;
       }).join("")}`;
 }
 
-async function handleKardexEntrada() {
-  const product = state.kardexProduct;
-  const qty = parseInt(state.kardexQty)||0;
-  if(!product||qty<=0) { showToast("Selecciona producto y cantidad","err"); return; }
-  state.kardexSaving = true; render();
+async function handleKardexEditSave(id) {
+  const movs = state.kardexMovements || [];
+  const original = movs.find(m=>m.id===id);
+  if(!original) { showToast("Movimiento no encontrado","err"); return; }
+
+  const newProduct = state.kxEditProduct;
+  const newQty = parseInt(state.kxEditQty)||0;
+  if(!newProduct||newQty<=0) { showToast("Completa producto y cantidad","err"); return; }
+
+  state.kxEditSaving = true; render();
   try {
-    const mov = { id:genId(), fecha:today(), timestamp:new Date().toISOString(), type:"entrada", product, qty, lote:state.kardexLote.trim(), obs:state.kardexObs, registradoPor:state.user.email };
-    await db.collection("kardex").doc(mov.id).set(mov);
-    const inv = {...(state.inventory["bodega"]||{})};
-    inv[product] = (inv[product]||0)+qty;
-    await db.collection("inventarios").doc("bodega").set(inv);
-    state.inventory["bodega"] = inv;
-    state.kardexProduct=""; state.kardexQty=""; state.kardexLote=""; state.kardexObs="";
-    state.kardexSaving=false;
-    showToast("Entrada registrada: "+qty+" uds");
+    const bodegaInv = {...(state.inventory["bodega"]||{})};
+
+    // Revertir el efecto del movimiento original sobre el inventario de bodega
+    bodegaInv[original.product] = (bodegaInv[original.product]||0) - (original.qty||0);
+
+    // Aplicar el efecto del movimiento nuevo (corregido)
+    bodegaInv[newProduct] = (bodegaInv[newProduct]||0) + newQty;
+
+    await db.collection("inventarios").doc("bodega").set(bodegaInv);
+
+    const updatedMov = {
+      ...original,
+      product: newProduct,
+      qty: newQty,
+      lote: state.kxEditLote.trim(),
+      obs: state.kxEditObs,
+      editadoPor: state.user.email,
+      editadoEn: new Date().toISOString(),
+    };
+    await db.collection("kardex").doc(id).set(updatedMov);
+
+    state.inventory["bodega"] = bodegaInv;
+    state.kardexMovements = movs.map(m=>m.id===id?updatedMov:m);
+    state.editingKardex = null;
+    state.kxEditSaving = false;
+    showToast("✅ Movimiento actualizado");
     render();
-  } catch(e) { state.kardexSaving=false; showToast("Error: "+e.message,"err"); render(); }
+  } catch(e) {
+    state.kxEditSaving = false;
+    showToast("Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleKardexEditDelete(id) {
+  const movs = state.kardexMovements || [];
+  const original = movs.find(m=>m.id===id);
+  if(!original) { showToast("Movimiento no encontrado","err"); return; }
+
+  state.kxEditSaving = true; render();
+  try {
+    const bodegaInv = {...(state.inventory["bodega"]||{})};
+    // Revertir el efecto del movimiento sobre bodega
+    bodegaInv[original.product] = (bodegaInv[original.product]||0) - (original.qty||0);
+    await db.collection("inventarios").doc("bodega").set(bodegaInv);
+
+    await db.collection("kardex").doc(id).delete();
+
+    state.inventory["bodega"] = bodegaInv;
+    state.kardexMovements = movs.filter(m=>m.id!==id);
+    state.editingKardex = null;
+    state.kxEditSaving = false;
+    showToast("✅ Movimiento eliminado");
+    render();
+  } catch(e) {
+    state.kxEditSaving = false;
+    showToast("Error: "+e.message,"err");
+    render();
+  }
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────
 function getLast7(sales) {
-  return Array.from({length:7},(_,i)=>{
-    const d=new Date(); d.setDate(d.getDate()-(6-i));
+  return getLastN(sales, 7);
+}
+
+function getLastN(sales, n) {
+  return Array.from({length:n},(_,i)=>{
+    const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-(n-1-i));
     const iso=d.toISOString().slice(0,10);
     return {
+      iso,
       label: d.toLocaleDateString("es-EC",{weekday:"short"}),
       total: sales.filter(s=>s.fecha===iso).reduce((s,v)=>s+Number(v.total),0),
       isToday: iso===today()
@@ -1242,6 +2800,9 @@ function bindApp() {
   // Logout
   document.getElementById("logout-btn")?.addEventListener("click", ()=>auth.signOut());
 
+  // Trend chart (dashboard)
+  renderTrendChart();
+
   // Nav tabs
   document.querySelectorAll("[data-tab]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.tab=btn.dataset.tab; render(); });
@@ -1252,9 +2813,25 @@ function bindApp() {
     btn.addEventListener("click",()=>{ state.adminStoreFilter=btn.dataset.store; render(); });
   });
 
-  // Inv store filter (admin inventory)
+  // Inicio: filtros de periodo y punto de venta
+  document.querySelectorAll("[data-inicio-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.inicioPeriod=btn.dataset.inicioPeriod; render(); });
+  });
+  document.querySelectorAll("[data-inicio-stand]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.inicioStand=btn.dataset.inicioStand; render(); });
+  });
+  document.getElementById("inicio-mes")?.addEventListener("change",e=>{ state.inicioMesAno=e.target.value; render(); });
+  document.getElementById("inicio-rango-desde")?.addEventListener("change",e=>{ state.inicioRangoDesde=e.target.value; render(); });
+  document.getElementById("inicio-rango-hasta")?.addEventListener("change",e=>{ state.inicioRangoHasta=e.target.value; render(); });
+
+  // Inv store filter (admin inventory) - legacy
   document.querySelectorAll("[data-inv-store]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.adminStoreFilter=btn.dataset.invStore; render(); });
+  });
+
+  // Stock view selector (consolidado / por punto)
+  document.querySelectorAll("[data-stock-view]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.stockView=btn.dataset.stockView; state.editingStock=null; render(); });
   });
 
   // Cat filter
@@ -1262,10 +2839,13 @@ function bindApp() {
     btn.addEventListener("click",()=>{ state.catFilter=btn.dataset.cat; render(); });
   });
 
-  // Period filter
-  document.querySelectorAll("[data-period]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ state.periodFilter=btn.dataset.period; render(); });
+  // Ventas: filtros de periodo
+  document.querySelectorAll("[data-ventas-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.ventasPeriod=btn.dataset.ventasPeriod; render(); });
   });
+  document.getElementById("ventas-mes")?.addEventListener("change",e=>{ state.ventasMesAno=e.target.value; render(); });
+  document.getElementById("ventas-rango-desde")?.addEventListener("change",e=>{ state.ventasRangoDesde=e.target.value; render(); });
+  document.getElementById("ventas-rango-hasta")?.addEventListener("change",e=>{ state.ventasRangoHasta=e.target.value; render(); });
 
   // Product cards
   document.querySelectorAll("[data-product]").forEach(btn=>{
@@ -1275,7 +2855,7 @@ function bindApp() {
       if(!p) return;
       const ex=state.cart.find(i=>i.id===id);
       if(ex) state.cart=state.cart.map(i=>i.id===id?{...i,qty:i.qty+1}:i);
-      else state.cart=[...state.cart,{...p,qty:1}];
+      else state.cart=[...state.cart,{...p,price:getPrice(p.id),qty:1}];
       render();
     });
   });
@@ -1301,15 +2881,62 @@ function bindApp() {
     btn.addEventListener("click",()=>{ state.payment=btn.dataset.payment; render(); });
   });
 
+  // Obsequio toggle
+  document.getElementById("obsequio-toggle")?.addEventListener("change",e=>{ state.obsequio=e.target.checked; render(); });
+
   // Note
   document.getElementById("sale-note")?.addEventListener("input",e=>{ state.note=e.target.value; });
 
   // Sell button
   document.getElementById("sell-btn")?.addEventListener("click", handleSell);
 
+  // Edicion de ventas
+  document.querySelectorAll("[data-ev-edit]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.evEdit;
+      const sale = state.sales.find(s=>s.id===id);
+      if(!sale) return;
+      state.editingSale = id;
+      state.evEditPago = sale.pago;
+      state.evEditDescuento = sale.descuento||0;
+      state.evEditNota = sale.nota||"";
+      state.evEditItems = (sale.items||[]).map(it=>({...it}));
+      render();
+    });
+  });
+  document.getElementById("ev-edit-cancel")?.addEventListener("click",()=>{ state.editingSale=null; render(); });
+  document.getElementById("ev-edit-nota")?.addEventListener("input",e=>{ state.evEditNota=e.target.value; });
+  document.querySelectorAll("[data-ev-payment]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.evEditPago=btn.dataset.evPayment; render(); });
+  });
+  document.querySelectorAll("[data-ev-discount]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.evEditDescuento=parseInt(btn.dataset.evDiscount); render(); });
+  });
+  document.querySelectorAll("[data-ev-qty-minus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const idx=parseInt(btn.dataset.evQtyMinus);
+      state.evEditItems = state.evEditItems.map((it,i)=>i===idx?{...it,qty:Math.max(1,it.qty-1)}:it);
+      render();
+    });
+  });
+  document.querySelectorAll("[data-ev-qty-plus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const idx=parseInt(btn.dataset.evQtyPlus);
+      state.evEditItems = state.evEditItems.map((it,i)=>i===idx?{...it,qty:it.qty+1}:it);
+      render();
+    });
+  });
+  document.getElementById("ev-edit-save")?.addEventListener("click",e=>{ handleSaleEditSave(e.target.dataset.id||e.target.closest("[data-id]").dataset.id); });
+  document.getElementById("ev-edit-delete")?.addEventListener("click",e=>{
+    const id = e.target.dataset.id||e.target.closest("[data-id]").dataset.id;
+    if(confirm("¿Eliminar esta venta completa? Esto devolverá el stock al inventario.")) {
+      handleSaleDelete(id);
+    }
+  });
+
   // Inventory edit
   document.querySelectorAll("[data-edit-stock]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand; const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editStock; state.editingStock=id; const sId=getInvStandId(); const inv=state.inventory[sId]||{}; state.editStockVal=String(inv[id]||0); render(); });
   });
   document.querySelectorAll("[data-edit-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ const id=btn.dataset.editBodega; state.editingStock=id; const inv=state.inventory["bodega"]||{}; state.editStockVal=String(inv[id]||0); render(); });
@@ -1318,10 +2945,168 @@ function bindApp() {
   document.getElementById("inv-input")?.addEventListener("input",e=>{ state.editStockVal=e.target.value; });
 
   document.querySelectorAll("[data-save]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ const sId=(state.userInfo.role==="full"||state.userInfo.role==="asesor")?state.selectedStand:state.userInfo.stand; handleUpdateStock(sId, btn.dataset.save, parseInt(state.editStockVal)||0); });
+    btn.addEventListener("click",()=>{ const sId=getInvStandId(); handleUpdateStock(sId, btn.dataset.save, parseInt(state.editStockVal)||0); });
   });
   document.querySelectorAll("[data-save-bodega]").forEach(btn=>{
     btn.addEventListener("click",()=>{ handleUpdateStock("bodega", btn.dataset.saveBodega, parseInt(state.editStockVal)||0); });
+  });
+
+  // Cost edit
+  document.querySelectorAll("[data-edit-cost]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editCost; state.editingCost=id; state.editCostVal=String(getCost(id)||""); render(); });
+  });
+  document.getElementById("cost-cancel")?.addEventListener("click",()=>{ state.editingCost=null; render(); });
+  document.getElementById("cost-input")?.addEventListener("input",e=>{ state.editCostVal=e.target.value; });
+  document.querySelectorAll("[data-cost-save]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ handleUpdateCost(btn.dataset.costSave, parseFloat(state.editCostVal)||0); });
+  });
+
+  // Price edit
+  document.querySelectorAll("[data-edit-price]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.editPrice; state.editingPrice=id; state.editPriceVal=String(getPrice(id)||""); render(); });
+  });
+  document.getElementById("price-cancel")?.addEventListener("click",()=>{ state.editingPrice=null; render(); });
+  document.getElementById("price-input")?.addEventListener("input",e=>{ state.editPriceVal=e.target.value; });
+  document.querySelectorAll("[data-price-save]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ handleUpdatePrice(btn.dataset.priceSave, parseFloat(state.editPriceVal)||0); });
+  });
+
+  // Finanzas: filtros
+  document.querySelectorAll("[data-fin-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.finPeriod=btn.dataset.finPeriod; render(); });
+  });
+  document.querySelectorAll("[data-fin-store]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.finStore=btn.dataset.finStore; render(); });
+  });
+  document.querySelectorAll("[data-fin-tab]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.finTab=btn.dataset.finTab; render(); });
+  });
+
+  // Finanzas: form gasto
+  document.getElementById("gasto-fecha")?.addEventListener("change",e=>{ state.gastoFecha=e.target.value; });
+  document.getElementById("gasto-stand")?.addEventListener("change",e=>{ state.gastoStand=e.target.value; });
+  document.getElementById("gasto-cat")?.addEventListener("change",e=>{ state.gastoCat=e.target.value; });
+  document.getElementById("gasto-monto")?.addEventListener("input",e=>{ state.gastoMonto=e.target.value; });
+  document.getElementById("gasto-nota")?.addEventListener("input",e=>{ state.gastoNota=e.target.value; });
+  document.getElementById("gasto-save-btn")?.addEventListener("click", handleGastoSave);
+
+  // Historico: modo manual/archivo
+  document.querySelectorAll("[data-hist-mode]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histBulkMode = btn.dataset.histMode==="archivo"; render(); });
+  });
+
+  // Historico: form manual
+  document.getElementById("hist-fecha")?.addEventListener("change",e=>{ state.histFecha=e.target.value; });
+  document.getElementById("hist-stand")?.addEventListener("change",e=>{ state.histStand=e.target.value; });
+  document.querySelectorAll("[data-hist-cat]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histCatFilter=btn.dataset.histCat; render(); });
+  });
+  document.querySelectorAll("[data-hist-product]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id=btn.dataset.histProduct;
+      const p=CATALOG.find(c=>c.id===id);
+      if(!p) return;
+      const ex=state.histCart.find(i=>i.id===id);
+      if(ex) state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:i.qty+1}:i);
+      else state.histCart=[...state.histCart,{...p,price:getPrice(p.id),qty:1}];
+      render();
+    });
+  });
+  // Historico: rutinas
+  document.querySelectorAll("[data-hist-rutina-open]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histRutinaModal=btn.dataset.histRutinaOpen; render(); });
+  });
+  document.getElementById("close-hist-rutina-modal")?.addEventListener("click",()=>{ state.histRutinaModal=null; render(); });
+  document.querySelectorAll("[data-hist-add-rutina]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const rutinaId = btn.dataset.histAddRutina;
+      const varId = btn.dataset.variante;
+      const rutina = RUTINAS.find(r=>r.id===rutinaId);
+      const variante = rutina?.variantes.find(v=>v.id===varId);
+      if(!rutina||!variante) return;
+      const cartItem = {
+        id: varId,
+        rutinaId,
+        ref: rutina.id,
+        name: rutina.name,
+        sub: variante.label,
+        price: rutina.price,
+        qty: 1,
+        isRutina: true,
+        items: variante.items,
+      };
+      const ex = state.histCart.find(i=>i.id===varId);
+      if(ex) state.histCart = state.histCart.map(i=>i.id===varId?{...i,qty:i.qty+1}:i);
+      else state.histCart = [...state.histCart, cartItem];
+      state.histRutinaModal = null;
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-hist-qty-minus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.histQtyMinus; state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:Math.max(1,i.qty-1)}:i); render(); });
+  });
+  document.querySelectorAll("[data-hist-qty-plus]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ const id=btn.dataset.histQtyPlus; state.histCart=state.histCart.map(i=>i.id===id?{...i,qty:i.qty+1}:i); render(); });
+  });
+  document.querySelectorAll("[data-hist-qty-remove]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histCart=state.histCart.filter(i=>i.id!==btn.dataset.histQtyRemove); render(); });
+  });
+  document.querySelectorAll("[data-hist-discount]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histDiscount=parseInt(btn.dataset.histDiscount); render(); });
+  });
+  document.querySelectorAll("[data-hist-payment]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.histPayment=btn.dataset.histPayment; render(); });
+  });
+  document.getElementById("hist-note")?.addEventListener("input",e=>{ state.histNote=e.target.value; });
+  document.getElementById("hist-save-btn")?.addEventListener("click", handleHistSell);
+
+  // Historico: archivo CSV
+  document.getElementById("hist-file-input")?.addEventListener("change",e=>{
+    const file = e.target.files[0];
+    if(file) handleHistFileSelected(file);
+  });
+  document.getElementById("hist-file-save-btn")?.addEventListener("click", handleHistFileSave);
+  document.getElementById("hist-template-btn")?.addEventListener("click", downloadHistTemplate);
+
+  // Finanzas: editar gasto
+  document.querySelectorAll("[data-eg-edit]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.egEdit;
+      const g = (state.gastos||[]).find(x=>x.id===id);
+      if(!g) return;
+      state.editingGasto = id;
+      state.egEditFecha = g.fecha;
+      state.egEditStand = g.stand;
+      state.egEditCat = g.cat;
+      state.egEditMonto = String(g.monto);
+      state.egEditNota = g.nota||"";
+      render();
+    });
+  });
+  document.getElementById("eg-edit-fecha")?.addEventListener("change",e=>{ state.egEditFecha=e.target.value; });
+  document.getElementById("eg-edit-stand")?.addEventListener("change",e=>{ state.egEditStand=e.target.value; });
+  document.getElementById("eg-edit-cat")?.addEventListener("change",e=>{ state.egEditCat=e.target.value; });
+  document.getElementById("eg-edit-monto")?.addEventListener("input",e=>{ state.egEditMonto=e.target.value; });
+  document.getElementById("eg-edit-nota")?.addEventListener("input",e=>{ state.egEditNota=e.target.value; });
+  document.getElementById("eg-edit-cancel")?.addEventListener("click",()=>{ state.editingGasto=null; render(); });
+  document.getElementById("eg-edit-save")?.addEventListener("click",e=>{ handleGastoEditSave(e.target.dataset.id); });
+  document.getElementById("eg-edit-delete")?.addEventListener("click",e=>{
+    if(confirm("¿Eliminar este gasto?")) { handleGastoEditDelete(e.target.dataset.id); }
+  });
+
+  // Caja
+  document.getElementById("caja-stand")?.addEventListener("change",e=>{ state.cajaStand=e.target.value; render(); });
+  document.getElementById("caja-fecha")?.addEventListener("change",e=>{ state.cajaFecha=e.target.value; render(); });
+  document.getElementById("caja-ef-ini")?.addEventListener("input",e=>{ state.cajaEfectivoInicial=e.target.value; });
+  document.getElementById("caja-ef-fin")?.addEventListener("input",e=>{ state.cajaEfectivoFinal=e.target.value; });
+  document.getElementById("caja-bendo-banco")?.addEventListener("input",e=>{ state.cajaBendoBanco=e.target.value; });
+  document.getElementById("caja-trans-banco")?.addEventListener("input",e=>{ state.cajaTransferBanco=e.target.value; });
+  document.getElementById("caja-nota")?.addEventListener("input",e=>{ state.cajaNota=e.target.value; });
+  document.getElementById("caja-calcular-btn")?.addEventListener("click",()=>{ render(); });
+  document.getElementById("caja-cerrar-btn")?.addEventListener("click", handleCajaCerrar);
+  document.getElementById("caja-reabrir-btn")?.addEventListener("click",()=>{
+    if(confirm("¿Reabrir la caja de este día para editar?")) { handleCajaReabrir(); }
   });
 
   // Dispatch
@@ -1342,6 +3127,8 @@ function bindApp() {
       const rutina = RUTINAS.find(r=>r.id===rutinaId);
       const variante = rutina?.variantes.find(v=>v.id===varId);
       if(!rutina||!variante) return;
+      const invNow = state.inventory[getActiveInvSourceId()]||{};
+      if(!varianteDisponible(variante, invNow)) { showToast("Sin stock suficiente para esta variante","err"); return; }
       const cartItem = {
         id: varId,
         rutinaId,
@@ -1367,32 +3154,155 @@ function bindApp() {
   document.getElementById("kardex-obs")?.addEventListener("input",e=>{ state.kardexObs=e.target.value; });
   document.getElementById("kardex-save-btn")?.addEventListener("click", handleKardexEntrada);
   document.getElementById("kardex-filter")?.addEventListener("change",e=>{ state.kardexFilter=e.target.value; render(); });
+
+  document.querySelectorAll("[data-kx-edit]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.kxEdit;
+      const m = (state.kardexMovements||[]).find(x=>x.id===id);
+      if(!m) return;
+      state.editingKardex = id;
+      state.kxEditProduct = m.product;
+      state.kxEditQty = String(m.qty);
+      state.kxEditLote = m.lote||"";
+      state.kxEditObs = m.obs||"";
+      render();
+    });
+  });
+  document.getElementById("kx-edit-product")?.addEventListener("change",e=>{ state.kxEditProduct=e.target.value; });
+  document.getElementById("kx-edit-qty")?.addEventListener("input",e=>{ state.kxEditQty=e.target.value; });
+  document.getElementById("kx-edit-lote")?.addEventListener("input",e=>{ state.kxEditLote=e.target.value; });
+  document.getElementById("kx-edit-obs")?.addEventListener("input",e=>{ state.kxEditObs=e.target.value; });
+  document.getElementById("kx-edit-cancel")?.addEventListener("click",()=>{ state.editingKardex=null; render(); });
+  document.getElementById("kx-edit-save")?.addEventListener("click",e=>{ handleKardexEditSave(e.target.dataset.id); });
+  document.getElementById("kx-edit-delete")?.addEventListener("click",e=>{
+    if(confirm("¿Eliminar este movimiento? Esto ajustará el inventario de bodega.")) {
+      handleKardexEditDelete(e.target.dataset.id);
+    }
+  });
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────
+// ─── EDICION DE VENTAS ─────────────────────────────────────────
+// Aplica el delta de unidades (positivo=devuelve stock, negativo=descuenta) de una venta al inventario
+function applySaleInventoryDelta(invSourceId, items, sign) {
+  const inv = {...(state.inventory[invSourceId]||{})};
+  items.forEach(item=>{
+    if (item.isRutina && item.rutinaItems) {
+      item.rutinaItems.forEach(ri=>{
+        inv[ri.id] = Math.max(0, (inv[ri.id]||0) + sign*(ri.q||0)*(item.qty||0));
+      });
+    } else {
+      inv[item.id] = Math.max(0, (inv[item.id]||0) + sign*(item.qty||0));
+    }
+  });
+  return inv;
+}
+
+async function handleSaleEditSave(id) {
+  const sale = state.sales.find(s=>s.id===id);
+  if(!sale) { showToast("Venta no encontrada","err"); return; }
+
+  const newItems = state.evEditItems||[];
+  const subtotal = newItems.reduce((s,it)=>s+it.price*it.qty,0);
+  const discAmt = subtotal*(state.evEditDescuento||0)/100;
+  const total = subtotal - discAmt;
+
+  state.evEditSaving = true; render();
+  try {
+    const invSourceId = getInvSourceForStand(sale.stand);
+
+    // Revertir el efecto del inventario original (devolver stock segun cantidades viejas)
+    let inv = applySaleInventoryDelta(invSourceId, sale.items||[], +1);
+    // Aplicar el efecto del inventario nuevo (descontar segun cantidades nuevas)
+    newItems.forEach(item=>{
+      if (item.isRutina && item.rutinaItems) {
+        item.rutinaItems.forEach(ri=>{
+          inv[ri.id] = Math.max(0, (inv[ri.id]||0) - (ri.q||0)*(item.qty||0));
+        });
+      } else {
+        inv[item.id] = Math.max(0, (inv[item.id]||0) - (item.qty||0));
+      }
+    });
+
+    await db.collection("inventarios").doc(invSourceId).set(inv);
+
+    const updatedSale = {
+      ...sale,
+      items: newItems.map(it=>({...it, subtotal: it.price*it.qty})),
+      subtotal, descuento: state.evEditDescuento||0, descuentoAmt: discAmt, total,
+      pago: state.evEditPago, nota: state.evEditNota.trim(),
+      editadoPor: state.user.email,
+      editadoEn: new Date().toISOString(),
+    };
+    await db.collection("ventas").doc(id).set(updatedSale);
+
+    state.inventory[invSourceId] = inv;
+    state.sales = state.sales.map(s=>s.id===id?updatedSale:s);
+    state.editingSale = null;
+    state.evEditSaving = false;
+    showToast("✅ Venta actualizada");
+    render();
+  } catch(e) {
+    state.evEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleSaleDelete(id) {
+  const sale = state.sales.find(s=>s.id===id);
+  if(!sale) { showToast("Venta no encontrada","err"); return; }
+
+  state.evEditSaving = true; render();
+  try {
+    const invSourceId = getInvSourceForStand(sale.stand);
+    // Revertir inventario (devolver stock de todos los items)
+    const inv = applySaleInventoryDelta(invSourceId, sale.items||[], +1);
+    await db.collection("inventarios").doc(invSourceId).set(inv);
+
+    await db.collection("ventas").doc(id).delete();
+
+    state.inventory[invSourceId] = inv;
+    state.sales = state.sales.filter(s=>s.id!==id);
+    state.editingSale = null;
+    state.evEditSaving = false;
+    showToast("✅ Venta eliminada");
+    render();
+  } catch(e) {
+    state.evEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
 async function handleSell() {
   if (!state.cart.length) return;
   const subtotal = state.cart.reduce((s,i)=>s+i.price*i.qty,0);
   const discAmt = subtotal*state.discount/100;
-  const total = subtotal-discAmt;
+  const total = state.obsequio ? 0 : (subtotal-discAmt);
+  const cartCost = state.cart.reduce((s,i)=>{
+    if(i.isRutina && i.items) return s + i.items.reduce((s2,ri)=>s2+(getCost(ri.id)||0)*(ri.q||0)*(i.qty||0),0);
+    return s + (getCost(i.id)||0)*i.qty;
+  },0);
 
   const sale = {
     id: genId(),
     fecha: today(),
     timestamp: new Date().toISOString(),
-    stand: (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand,
+    stand: getActiveSaleStandId(),
     items: state.cart.map(i=>({id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null})),
-    subtotal, descuento:state.discount, descuentoAmt:discAmt, total,
-    pago: state.payment, nota: state.note
+    subtotal: state.obsequio?0:subtotal, descuento:state.discount, descuentoAmt:state.obsequio?0:discAmt, total,
+    pago: state.obsequio?"obsequio":state.payment, nota: state.note,
+    obsequio: !!state.obsequio
   };
 
   try {
     // Guardar venta
     await db.collection("ventas").doc(sale.id).set(sale);
 
-    // Actualizar inventario del stand
-    const standId = (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand;
-    const inv = {...(state.inventory[standId]||{})};
+    // Actualizar inventario (Oficina descuenta de Bodega Central)
+    const invSourceId = getInvSourceForStand(sale.stand);
+    const inv = {...(state.inventory[invSourceId]||{})};
     sale.items.forEach(item=>{
       if(item.isRutina && item.rutinaItems) {
         item.rutinaItems.forEach(ri=>{ inv[ri.id]=Math.max(0,(inv[ri.id]||0)-(ri.q*item.qty)); });
@@ -1400,13 +3310,48 @@ async function handleSell() {
         inv[item.id]=Math.max(0,(inv[item.id]||0)-item.qty);
       }
     });
-    await db.collection("inventarios").doc(standId).set(inv);
+    await db.collection("inventarios").doc(invSourceId).set(inv);
 
-    state.inventory[standId] = inv;
+    // Si es obsequio: registrar gasto de marketing por el costo
+    if (state.obsequio && cartCost > 0) {
+      const gasto = {
+        id: genId(),
+        fecha: sale.fecha,
+        timestamp: new Date().toISOString(),
+        stand: sale.stand,
+        cat: "marketing",
+        monto: Number(cartCost.toFixed(2)),
+        nota: `Obsequio · venta ${sale.id}`,
+      };
+      await db.collection("gastos").doc(gasto.id).set(gasto);
+      state.gastos = [...(state.gastos||[]), gasto];
+    }
+
+    // Si es tarjeta (debito/credito): registrar comision bancaria automatica
+    if (!state.obsequio) {
+      const comisionRate = getComisionRate(sale.pago);
+      if (comisionRate > 0) {
+        const comisionMonto = total * comisionRate;
+        const gastoCom = {
+          id: genId(),
+          fecha: sale.fecha,
+          timestamp: new Date().toISOString(),
+          stand: sale.stand,
+          cat: "comisiones",
+          monto: Number(comisionMonto.toFixed(2)),
+          nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta ${sale.id}`,
+        };
+        await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
+        state.gastos = [...(state.gastos||[]), gastoCom];
+      }
+    }
+
+    state.inventory[invSourceId] = inv;
     state.sales = [...state.sales, sale];
     state.cart = [];
     state.discount = 0;
     state.note = "";
+    state.obsequio = false;
     state.success = total;
     render();
     setTimeout(()=>{ state.success=null; render(); }, 2200);
@@ -1415,9 +3360,195 @@ async function handleSell() {
   }
 }
 
+// ─── HISTORICO DE VENTAS ────────────────────────────────────────
+async function handleHistSell() {
+  if (!state.histCart.length || state.histSaving) return;
+  state.histSaving = true; render();
+
+  const subtotal = state.histCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const discAmt = subtotal*state.histDiscount/100;
+  const total = subtotal - discAmt;
+
+  const sale = {
+    id: genId(),
+    fecha: state.histFecha,
+    timestamp: new Date(state.histFecha+"T12:00:00").toISOString(),
+    stand: state.histStand,
+    items: state.histCart.map(i=>({id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:i.price,subtotal:i.price*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null})),
+    subtotal, descuento:state.histDiscount, descuentoAmt:discAmt, total,
+    pago: state.histPayment, nota: state.histNote,
+    historica: true
+  };
+
+  try {
+    await db.collection("ventas").doc(sale.id).set(sale);
+
+    // Comision bancaria automatica (igual que venta normal)
+    const comisionRate = getComisionRate(sale.pago);
+    if (comisionRate > 0) {
+      const comisionMonto = total * comisionRate;
+      const gastoCom = {
+        id: genId(),
+        fecha: sale.fecha,
+        timestamp: new Date().toISOString(),
+        stand: sale.stand,
+        cat: "comisiones",
+        monto: Number(comisionMonto.toFixed(2)),
+        nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta histórica ${sale.id}`,
+      };
+      await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
+      state.gastos = [...(state.gastos||[]), gastoCom];
+    }
+
+    state.sales = [...state.sales, sale];
+    state.histCart = [];
+    state.histDiscount = 0;
+    state.histNote = "";
+    state.histSaving = false;
+    showToast("✅ Venta histórica registrada");
+    render();
+  } catch(e) {
+    state.histSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+// Parser simple de CSV (sin librerias externas). Soporta comas y campos sin comillas.
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+  if (lines.length===0) return [];
+  const headers = lines[0].split(",").map(h=>h.trim().toLowerCase());
+  return lines.slice(1).map(line=>{
+    const cols = line.split(",").map(c=>c.trim());
+    const row = {};
+    headers.forEach((h,i)=>{ row[h] = cols[i]!==undefined ? cols[i] : ""; });
+    return row;
+  });
+}
+
+const VALID_PUNTOS = PUNTOS_VENTA.map(p=>p.id);
+const VALID_PAGOS = PAYMENTS.map(p=>p.id);
+
+function handleHistFileSelected(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const rows = parseCSV(text);
+    const errors = [];
+    const ventasMap = {};
+
+    rows.forEach((row, idx) => {
+      const lineNum = idx+2; // +1 por header, +1 por 1-index
+      const ventaId = row["venta_id"];
+      const fecha = row["fecha"];
+      const stand = row["punto_venta"];
+      const productId = row["producto_id"];
+      const cantidad = parseFloat(row["cantidad"]);
+      const precio = parseFloat(row["precio_unitario"]);
+      const pago = row["metodo_pago"];
+      const descPct = row["descuento_pct"] ? parseFloat(row["descuento_pct"]) : 0;
+
+      if (!ventaId) { errors.push(`Fila ${lineNum}: falta venta_id`); return; }
+      if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { errors.push(`Fila ${lineNum}: fecha inválida "${fecha}" (usa YYYY-MM-DD)`); return; }
+      if (!VALID_PUNTOS.includes(stand)) { errors.push(`Fila ${lineNum}: punto_venta inválido "${stand}"`); return; }
+      const product = CATALOG.find(p=>p.id===productId);
+      if (!product) { errors.push(`Fila ${lineNum}: producto_id desconocido "${productId}"`); return; }
+      if (isNaN(cantidad) || cantidad<=0) { errors.push(`Fila ${lineNum}: cantidad inválida "${row["cantidad"]}"`); return; }
+      if (isNaN(precio) || precio<0) { errors.push(`Fila ${lineNum}: precio_unitario inválido "${row["precio_unitario"]}"`); return; }
+      if (!VALID_PAGOS.includes(pago)) { errors.push(`Fila ${lineNum}: metodo_pago inválido "${pago}" (usa: ${VALID_PAGOS.join(", ")})`); return; }
+
+      if (!ventasMap[ventaId]) {
+        ventasMap[ventaId] = {
+          id: "H-"+ventaId+"-"+genId(),
+          fecha, stand, pago,
+          descPct: isNaN(descPct)?0:descPct,
+          items: []
+        };
+      }
+      ventasMap[ventaId].items.push({
+        id: product.id, ref: product.ref, name: `${product.name} ${product.sub}`,
+        qty: cantidad, price: precio, subtotal: cantidad*precio,
+        isRutina: false, rutinaItems: null
+      });
+    });
+
+    const ventas = Object.values(ventasMap).map(v=>{
+      const subtotal = v.items.reduce((s,i)=>s+i.subtotal,0);
+      const descuentoAmt = subtotal * v.descPct/100;
+      return {
+        id: v.id, fecha: v.fecha, timestamp: new Date(v.fecha+"T12:00:00").toISOString(),
+        stand: v.stand, items: v.items,
+        subtotal, descuento: v.descPct, descuentoAmt, total: subtotal-descuentoAmt,
+        pago: v.pago, nota: "", historica: true
+      };
+    });
+
+    state.histFileRows = ventas;
+    state.histFileErrors = errors;
+    state.histFileResult = null;
+    render();
+  };
+  reader.readAsText(file);
+}
+
+async function handleHistFileSave() {
+  if (!state.histFileRows || !state.histFileRows.length || state.histFileSaving) return;
+  state.histFileSaving = true; render();
+
+  try {
+    let count = 0, total = 0;
+    for (const sale of state.histFileRows) {
+      await db.collection("ventas").doc(sale.id).set(sale);
+      state.sales = [...state.sales, sale];
+      count++; total += sale.total;
+
+      const comisionRate = getComisionRate(sale.pago);
+      if (comisionRate > 0) {
+        const comisionMonto = sale.total * comisionRate;
+        const gastoCom = {
+          id: genId(),
+          fecha: sale.fecha,
+          timestamp: new Date().toISOString(),
+          stand: sale.stand,
+          cat: "comisiones",
+          monto: Number(comisionMonto.toFixed(2)),
+          nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta histórica ${sale.id}`,
+        };
+        await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
+        state.gastos = [...(state.gastos||[]), gastoCom];
+      }
+    }
+    state.histFileResult = { count, total };
+    state.histFileRows = null;
+    state.histFileErrors = [];
+    state.histFileSaving = false;
+    showToast("✅ Ventas históricas registradas");
+    render();
+  } catch(e) {
+    state.histFileSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+function downloadHistTemplate() {
+  const csv = [
+    "venta_id,fecha,punto_venta,producto_id,cantidad,precio_unitario,metodo_pago,descuento_pct",
+    "H001,2026-03-05,quicentro,WMO30,1,19.55,efectivo,0",
+    "H001,2026-03-05,quicentro,WLBN6,2,5.95,efectivo,0",
+    "H002,2026-03-05,mercadito,WHT80,1,27.75,deuna,0",
+  ].join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "plantilla_ventas_historicas.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 async function handleUpdateStock(standId, productId, newStock) {
   try {
-    const inv = {...(state.inventory[standId]||{})};
     inv[productId] = newStock;
     await db.collection("inventarios").doc(standId).set(inv);
     state.inventory[standId] = inv;
@@ -1426,6 +3557,171 @@ async function handleUpdateStock(standId, productId, newStock) {
     render();
   } catch(e) {
     showToast("⚠️ Error: "+e.message, "err");
+  }
+}
+
+async function handleUpdateCost(productId, newCost) {
+  try {
+    const costs = {...(state.costs||{})};
+    costs[productId] = newCost;
+    await db.collection("config").doc("costos").set(costs);
+    state.costs = costs;
+    state.editingCost = null;
+    showToast("✅ Costo actualizado");
+    render();
+  } catch(e) {
+    showToast("⚠️ Error: "+e.message, "err");
+  }
+}
+
+async function handleUpdatePrice(productId, newPrice) {
+  try {
+    const prices = {...(state.prices||{})};
+    prices[productId] = newPrice;
+    await db.collection("config").doc("precios").set(prices);
+    state.prices = prices;
+    state.editingPrice = null;
+    showToast("✅ Precio actualizado");
+    render();
+  } catch(e) {
+    showToast("⚠️ Error: "+e.message, "err");
+  }
+}
+
+// ─── GASTOS ──────────────────────────────────────────────────
+async function handleGastoSave() {
+  if (state.gastoSaving) return;
+  const monto = parseFloat(state.gastoMonto)||0;
+  if (!state.gastoFecha || !state.gastoStand || !state.gastoCat || monto<=0) {
+    showToast("Completa fecha, local, categoría y monto","err"); return;
+  }
+  state.gastoSaving = true; render();
+  try {
+    const gasto = {
+      id: genId(),
+      fecha: state.gastoFecha,
+      timestamp: new Date().toISOString(),
+      stand: state.gastoStand,
+      cat: state.gastoCat,
+      monto,
+      nota: state.gastoNota.trim(),
+      registradoPor: state.user.email,
+    };
+    await db.collection("gastos").doc(gasto.id).set(gasto);
+    state.gastos = [gasto, ...(state.gastos||[])];
+    state.gastoMonto=""; state.gastoNota="";
+    state.gastoSaving=false;
+    showToast("✅ Gasto registrado");
+    render();
+  } catch(e) {
+    state.gastoSaving=false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleGastoEditSave(id) {
+  const gastos = state.gastos||[];
+  const original = gastos.find(g=>g.id===id);
+  if(!original) { showToast("Gasto no encontrado","err"); return; }
+  const monto = parseFloat(state.egEditMonto)||0;
+  if (!state.egEditFecha || !state.egEditStand || !state.egEditCat || monto<=0) {
+    showToast("Completa todos los campos","err"); return;
+  }
+  state.egEditSaving = true; render();
+  try {
+    const updated = {
+      ...original,
+      fecha: state.egEditFecha,
+      stand: state.egEditStand,
+      cat: state.egEditCat,
+      monto,
+      nota: state.egEditNota.trim(),
+      editadoPor: state.user.email,
+      editadoEn: new Date().toISOString(),
+    };
+    await db.collection("gastos").doc(id).set(updated);
+    state.gastos = gastos.map(g=>g.id===id?updated:g);
+    state.editingGasto = null;
+    state.egEditSaving = false;
+    showToast("✅ Gasto actualizado");
+    render();
+  } catch(e) {
+    state.egEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleGastoEditDelete(id) {
+  const gastos = state.gastos||[];
+  state.egEditSaving = true; render();
+  try {
+    await db.collection("gastos").doc(id).delete();
+    state.gastos = gastos.filter(g=>g.id!==id);
+    state.editingGasto = null;
+    state.egEditSaving = false;
+    showToast("✅ Gasto eliminado");
+    render();
+  } catch(e) {
+    state.egEditSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+// ─── CAJA ────────────────────────────────────────────────────
+async function handleCajaCerrar() {
+  if (state.cajaSaving) return;
+  const efIni = parseFloat(state.cajaEfectivoInicial);
+  const efFin = parseFloat(state.cajaEfectivoFinal);
+  if (isNaN(efIni) || isNaN(efFin)) {
+    showToast("Ingresa efectivo inicial y final","err"); return;
+  }
+  state.cajaSaving = true; render();
+  try {
+    const standId = state.cajaStand;
+    const fecha = state.cajaFecha;
+    const docId = cierreDocId(standId, fecha);
+    const cierre = {
+      id: docId,
+      stand: standId,
+      fecha,
+      efectivoInicial: efIni,
+      efectivoFinal: efFin,
+      bendoBanco: state.cajaBendoBanco!==""? (parseFloat(state.cajaBendoBanco)||0) : null,
+      transferBanco: state.cajaTransferBanco!==""? (parseFloat(state.cajaTransferBanco)||0) : null,
+      nota: state.cajaNota.trim(),
+      cerradoPor: state.user.email,
+      cerradoEn: new Date().toISOString(),
+    };
+    await db.collection("cierres_caja").doc(docId).set(cierre);
+    state.cierres = {...(state.cierres||{}), [docId]: cierre};
+    state.cajaEfectivoInicial=""; state.cajaEfectivoFinal=""; state.cajaBendoBanco=""; state.cajaTransferBanco=""; state.cajaNota="";
+    state.cajaSaving = false;
+    showToast("✅ Caja cerrada");
+    render();
+  } catch(e) {
+    state.cajaSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
+async function handleCajaReabrir() {
+  const standId = state.cajaStand;
+  const fecha = state.cajaFecha;
+  const docId = cierreDocId(standId, fecha);
+  try {
+    await db.collection("cierres_caja").doc(docId).delete();
+    const updated = {...(state.cierres||{})};
+    delete updated[docId];
+    state.cierres = updated;
+    showToast("🔓 Caja reabierta");
+    render();
+  } catch(e) {
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
   }
 }
 
@@ -1479,6 +3775,7 @@ async function handleDispatch() {
 
 
 async function handleKardexEntrada() {
+  if (state.kardexSaving) return; // evita doble-registro por doble click
   const product = state.kardexProduct;
   const qty = parseInt(state.kardexQty)||0;
   const lote = state.kardexLote.trim();
@@ -1549,6 +3846,34 @@ function setupListeners(userInfo) {
     state.kardexMovements = snap.docs.map(d=>d.data());
     render();
   });
+
+  // Costos listener
+  db.collection("config").doc("costos").onSnapshot(doc=>{
+    state.costs = doc.exists ? (doc.data()||{}) : {};
+    render();
+  });
+
+  // Precios listener
+  db.collection("config").doc("precios").onSnapshot(doc=>{
+    state.prices = doc.exists ? (doc.data()||{}) : {};
+    render();
+  });
+
+  // Gastos operativos listener
+  if (userInfo.canFinanzas) {
+    db.collection("gastos").orderBy("timestamp","desc").limit(1000).onSnapshot(snap=>{
+      state.gastos = snap.docs.map(d=>d.data());
+      render();
+    });
+
+    // Cierres de caja listener
+    db.collection("cierres_caja").onSnapshot(snap=>{
+      const map = {};
+      snap.forEach(doc=>{ map[doc.id] = doc.data(); });
+      state.cierres = map;
+      render();
+    });
+  }
 }
 
 // ─── AUTH LISTENER ────────────────────────────────────────────
@@ -1558,7 +3883,7 @@ auth.onAuthStateChanged(user=>{
     if(!userInfo) { auth.signOut(); state.loading=false; render(); return; }
     state.user = user;
     state.userInfo = userInfo;
-    state.tab = (userInfo.role==="full"||userInfo.role==="asesor")?"pos":"dashboard";
+    state.tab = (userInfo.role==="asesor")?"pos":(userInfo.role==="full")?"dashboard":"dashboard";
     state.loading = false;
     setupListeners(userInfo);
     render();
