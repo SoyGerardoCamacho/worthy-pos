@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY POS</title>
-<!-- v2026-06-14-responsive-y-consolidado-medios-pago -->
-<meta name="app-version" content="2026-06-14-05">
+<!-- v2026-06-14-responsive-iva-graficas-semana-calendario -->
+<meta name="app-version" content="2026-06-14-07">
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
@@ -341,6 +341,88 @@ textarea { width:100%; border-radius:12px; border:1.5px solid var(--lavender); p
 .ajuste-btns { display: flex; gap: 8px; margin-top: 8px; }
 body.modal-open { overflow: hidden; }
 
+/* RESUMEN FISCAL Y ANALITICA */
+.tax-summary {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.tax-summary-item {
+  min-width:0;
+  border-radius:10px;
+  padding:9px 8px;
+  background:var(--lavender-light);
+  text-align:center;
+}
+.tax-summary.dark .tax-summary-item { background:rgba(255,255,255,.12); }
+.tax-summary-label {
+  font-size:9px;
+  font-weight:800;
+  color:var(--gray);
+  text-transform:uppercase;
+  letter-spacing:.55px;
+}
+.tax-summary.dark .tax-summary-label { color:var(--lavender); }
+.tax-summary-value { font-size:15px;font-weight:900;color:var(--purple);margin-top:2px; }
+.tax-summary.dark .tax-summary-value { color:white; }
+.tax-summary-item.total .tax-summary-value { color:var(--lime-dark); }
+.tax-summary.dark .tax-summary-item.total .tax-summary-value { color:var(--lime); }
+.analytics-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:12px;
+}
+.analytics-grid .card { margin-bottom:0; }
+.chart-wrap { position:relative;width:100%;height:340px; }
+.chart-note { font-size:10px;color:var(--gray);line-height:1.4;margin-top:8px;text-align:center; }
+.sales-chart-scroll {
+  width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:2px 0 8px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--lavender) transparent;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+}
+.sales-chart-scroll::-webkit-scrollbar { height:6px; }
+.sales-chart-scroll::-webkit-scrollbar-thumb { background:var(--lavender);border-radius:99px; }
+.sales-chart-inner {
+  position:relative;
+  width:100%;
+  min-width:320px;
+  height:250px;
+}
+.sales-chart-legend {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:0 0 8px;
+  color:var(--purple);
+  font-size:11px;
+  font-weight:800;
+}
+.sales-chart-legend-line {
+  width:22px;
+  border-top:2px dashed rgba(45,27,105,.45);
+}
+@media (max-width: 899px) {
+  .analytics-grid { grid-template-columns:1fr; }
+  .chart-wrap { height:280px; }
+  .sales-chart-inner { height:260px; }
+}
+@media (max-width: 420px) {
+  .tax-summary { gap:5px; }
+  .tax-summary-item { padding:8px 4px; }
+  .tax-summary-value { font-size:13px; }
+  .chart-wrap { height:260px; }
+  .sales-chart-inner { height:270px; }
+  .sales-chart-legend { font-size:10px; }
+}
+
 /* RESPONSIVE */
 @media (max-width: 380px) {
   .product-grid { gap:6px; }
@@ -646,8 +728,11 @@ function getPaymentConsolidado(sales) {
     };
   });
 
+  const tax = getTaxBreakdown(total);
   return {
     total,
+    sinIva:tax.sinIva,
+    iva:tax.iva,
     count:rows.length,
     methods,
     groups,
@@ -670,6 +755,7 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
         <div style="font-size:10px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.7px;">Total cobrado</div>
         <div style="font-size:24px;font-weight:900;color:var(--purple);">${fmt(d.total)}</div>
         <div style="font-size:11px;color:var(--gray);">${d.count} transacciones</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:3px;">Sin IVA ${fmt(d.sinIva)} · IVA ${fmt(d.iva)}</div>
       </div>
     </div>
 
@@ -679,6 +765,7 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
           <div class="ps-label">${g.icon} ${g.label}</div>
           <div class="ps-value">${fmt(g.total)}</div>
           <div class="ps-meta">${g.count} tx · ${g.pct.toFixed(1)}% del total</div>
+          <div class="ps-meta">Sin IVA ${fmt(getTaxBreakdown(g.total).sinIva)} · IVA ${fmt(getTaxBreakdown(g.total).iva)}</div>
           ${g.id==="bendo"&&g.total>0?`
             <div class="ps-meta">Comisión estimada: -${fmt(g.commission)}</div>
             <div class="ps-meta"><strong>Neto esperado: ${fmt(g.net)}</strong></div>
@@ -710,7 +797,7 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
     </div>
 
     <div class="payment-total-check">
-      <span style="font-size:12px;font-weight:800;color:var(--purple);">✅ Control: suma de medios de pago</span>
+      <span style="font-size:12px;font-weight:800;color:var(--purple);">✅ Control: suma total con IVA de medios de pago</span>
       <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.accountedTotal)}</span>
     </div>
   </div>`;
@@ -850,7 +937,114 @@ const RUTINAS = [
 ];
 
 // ─── HELPERS ─────────────────────────────────────────────────
-const fmt = n => `$${Number(n).toFixed(2)}`;
+const fmt = n => `$${Number(n||0).toFixed(2)}`;
+const IVA_RATE = 0.15;
+
+function getTaxBreakdown(totalConIva) {
+  const total = Number(totalConIva||0);
+  const sinIva = total / (1 + IVA_RATE);
+  const iva = total - sinIva;
+  return { sinIva, iva, total };
+}
+
+function renderTaxSummary(totalConIva, dark=false) {
+  const t = getTaxBreakdown(totalConIva);
+  return `<div class="tax-summary ${dark?"dark":""}">
+    <div class="tax-summary-item">
+      <div class="tax-summary-label">Valor sin IVA</div>
+      <div class="tax-summary-value">${fmt(t.sinIva)}</div>
+    </div>
+    <div class="tax-summary-item">
+      <div class="tax-summary-label">IVA 15%</div>
+      <div class="tax-summary-value">${fmt(t.iva)}</div>
+    </div>
+    <div class="tax-summary-item total">
+      <div class="tax-summary-label">Valor total</div>
+      <div class="tax-summary-value">${fmt(t.total)}</div>
+    </div>
+  </div>`;
+}
+
+const SALES_CATEGORY_META = [
+  { id:"deo", label:"Desodorantes" },
+  { id:"tonico", label:"Tónicos" },
+  { id:"aceite", label:"Óleos" },
+  { id:"balm", label:"Bálsamos" },
+  { id:"shampoo", label:"Shampoo" },
+];
+
+// Descompone rutinas a SKU reales. En dólares distribuye el valor cobrado
+// proporcionalmente al PVP de sus componentes para conservar exactamente el total.
+function getSalesComposition(sales) {
+  const productMap = {};
+  const categoryMap = Object.fromEntries(SALES_CATEGORY_META.map(c=>[c.id,{...c,usd:0,units:0}]));
+
+  (sales||[]).filter(s=>!s.obsequio && Number(s.total||0)>0).forEach(sale=>{
+    const items = sale.items||[];
+    const grossItems = items.reduce((sum,item)=>{
+      const line = Number(item.subtotal);
+      return sum + (Number.isFinite(line) ? line : Number(item.price||0)*Number(item.qty||0));
+    },0);
+    const saleFactor = grossItems>0 ? Number(sale.total||0)/grossItems : 1;
+
+    items.forEach(item=>{
+      const lineGrossRaw = Number(item.subtotal);
+      const lineGross = Number.isFinite(lineGrossRaw) ? lineGrossRaw : Number(item.price||0)*Number(item.qty||0);
+      const lineUsd = lineGross * saleFactor;
+
+      const addComponent = (productId, qty, usd) => {
+        const p = CATALOG.find(c=>c.id===productId);
+        const name = p ? `${p.name} ${p.sub}` : (item.name||productId||"Producto");
+        const cat = p?.cat || "otros";
+        if(!productMap[productId]) productMap[productId] = { id:productId, name, usd:0, units:0, cat };
+        productMap[productId].usd += Number(usd||0);
+        productMap[productId].units += Number(qty||0);
+        if(categoryMap[cat]) {
+          categoryMap[cat].usd += Number(usd||0);
+          categoryMap[cat].units += Number(qty||0);
+        }
+      };
+
+      if(item.isRutina && Array.isArray(item.rutinaItems) && item.rutinaItems.length) {
+        const components = item.rutinaItems.map(ri=>{
+          const qty = Number(ri.q||0) * Number(item.qty||0);
+          const weight = Math.max(0, getPrice(ri.id) * qty);
+          return { id:ri.id, qty, weight };
+        });
+        const totalWeight = components.reduce((s,c)=>s+c.weight,0);
+        components.forEach(c=>{
+          const allocated = totalWeight>0 ? lineUsd*(c.weight/totalWeight) : lineUsd/components.length;
+          addComponent(c.id, c.qty, allocated);
+        });
+      } else {
+        addComponent(item.id, Number(item.qty||0), lineUsd);
+      }
+    });
+  });
+
+  return {
+    productsByUsd: Object.values(productMap).filter(r=>r.usd>0).sort((a,b)=>b.usd-a.usd),
+    productsByUnits: Object.values(productMap).filter(r=>r.units>0).sort((a,b)=>b.units-a.units),
+    categories: SALES_CATEGORY_META.map(c=>categoryMap[c.id]).filter(r=>r.usd>0),
+  };
+}
+
+function chartPayload(labels, values, valueType) {
+  return encodeURIComponent(JSON.stringify({ labels, values, valueType }));
+}
+
+function renderDonutCard(canvasId, title, rows, valueKey, valueType, note) {
+  if(!rows.length) return `<div class="card"><div class="section-title">${title}</div><div style="text-align:center;padding:50px 12px;color:var(--gray);font-size:13px;">Sin ventas para graficar</div></div>`;
+  const payload = chartPayload(rows.map(r=>r.name||r.label), rows.map(r=>Number(r[valueKey]||0)), valueType);
+  return `<div class="card">
+    <div class="section-title">${title}</div>
+    <div class="chart-wrap" data-donut-chart="${payload}">
+      <canvas id="${canvasId}" role="img" aria-label="${title}">${title}</canvas>
+    </div>
+    <div class="chart-note">${note}</div>
+  </div>`;
+}
+
 // Ecuador no usa horario de verano: UTC-5 fijo
 const today = () => {
   const d = new Date(Date.now() - 5*60*60*1000); // ajusta a hora Ecuador
@@ -896,8 +1090,36 @@ function getPrice(productId) {
 }
 
 // ─── HELPERS GENERICOS DE PERIODO ──────────────────────────────
-// period: "hoy" | "semana" | "mes" | "mesEspecifico" (con mesAno "YYYY-MM") | "rango" (con rangoDesde/rangoHasta)
-// Retorna {from,to} ISO inclusive
+const DAY_LETTERS = ["D","L","M","W","J","V","S"];
+
+function dateToIsoLocal(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth()+1).padStart(2,"0");
+  const d = String(date.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatDayMonth(date) {
+  return `${String(date.getDate()).padStart(2,"0")}/${String(date.getMonth()+1).padStart(2,"0")}`;
+}
+
+function getMonday(date) {
+  const d = new Date(date);
+  d.setHours(12,0,0,0);
+  const offset = (d.getDay()+6)%7;
+  d.setDate(d.getDate()-offset);
+  return d;
+}
+
+function getCalendarWeekLabel(date) {
+  const monday = getMonday(date);
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate()+6);
+  return `Semana ${formatDayMonth(monday)}–${formatDayMonth(sunday)}`;
+}
+
+// period: "hoy" | "semana" | "mes" | "mesEspecifico" | "rango" | "todo"
+// Retorna {from,to} ISO inclusive. Semana siempre es lunes a domingo calendario.
 function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
   const todayIso = today();
   const d = new Date(Date.now()-5*60*60*1000);
@@ -905,8 +1127,9 @@ function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
   if (period === "hoy") return { from: todayIso, to: todayIso };
 
   if (period === "semana") {
-    const d2 = new Date(d); d2.setDate(d2.getDate()-6);
-    return { from: d2.toISOString().slice(0,10), to: todayIso };
+    const monday = getMonday(d);
+    const sunday = new Date(monday); sunday.setDate(sunday.getDate()+6);
+    return { from: dateToIsoLocal(monday), to: dateToIsoLocal(sunday) };
   }
 
   if (period === "mes") {
@@ -929,51 +1152,90 @@ function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
     return from <= to ? { from, to } : { from: to, to: from };
   }
 
+  if (period === "todo") return { from: "0000-01-01", to: "9999-12-31" };
+
   // fallback
   return { from: todayIso, to: todayIso };
 }
 
-// Genera el desglose diario (o semanal si supera ~31 dias) de ventas entre from y to (inclusive)
-// salesForStand: array de ventas ya filtradas por punto de venta
-// Agrupa por semana calendario (lunes-domingo) entre from y to (inclusive)
+// Genera el desglose por semana calendario (lunes-domingo).
 function getWeeklyBreakdown(salesForStand, from, to) {
   const start = new Date(from+"T12:00:00");
   const end = new Date(to+"T12:00:00");
-  const dow = (start.getDay()+6)%7; // 0=lunes
-  const weekStart = new Date(start); weekStart.setDate(weekStart.getDate()-dow);
+  const firstMonday = getMonday(start);
   const weeks = [];
-  let cursor = new Date(weekStart);
+  let cursor = new Date(firstMonday);
+
   while (cursor <= end) {
     const wStart = new Date(cursor);
     const wEnd = new Date(cursor); wEnd.setDate(wEnd.getDate()+6);
-    const fromIso = wStart.toISOString().slice(0,10);
-    const toIso = wEnd.toISOString().slice(0,10);
-    const total = salesForStand.filter(s=>s.fecha>=fromIso && s.fecha<=toIso && s.fecha>=from && s.fecha<=to).reduce((s,v)=>s+Number(v.total),0);
-    const label = `${wStart.getDate()}/${wStart.getMonth()+1}`;
-    weeks.push({ label, total });
+    const fromIso = dateToIsoLocal(wStart);
+    const toIso = dateToIsoLocal(wEnd);
+    const total = salesForStand
+      .filter(s=>s.fecha>=fromIso && s.fecha<=toIso && s.fecha>=from && s.fecha<=to)
+      .reduce((sum,v)=>sum+Number(v.total),0);
+    weeks.push({
+      label:["SEM",`${formatDayMonth(wStart)}–${formatDayMonth(wEnd)}`],
+      total,
+      weekStart:fromIso,
+      weekEnd:toIso,
+      weekLabel:getCalendarWeekLabel(wStart)
+    });
     cursor.setDate(cursor.getDate()+7);
   }
   return weeks;
 }
 
-function getDailyBreakdown(salesForStand, from, to) {
+// Una barra por día. En periodos muy extensos se resume por semana calendario.
+function getDailyBreakdown(salesForStand, from, to, aggregateAfterDays=120) {
   const start = new Date(from+"T12:00:00");
   const end = new Date(to+"T12:00:00");
   const totalDays = Math.round((end-start)/86400000)+1;
 
-  if (totalDays > 31) return getWeeklyBreakdown(salesForStand, from, to);
+  if (totalDays > aggregateAfterDays) return getWeeklyBreakdown(salesForStand, from, to);
 
-  // Una barra por dia
+  const totalsByDate = {};
+  salesForStand.forEach(s=>{
+    if(s.fecha>=from && s.fecha<=to) totalsByDate[s.fecha]=(totalsByDate[s.fecha]||0)+Number(s.total||0);
+  });
+
   const days = [];
   let cursor = new Date(start);
   while (cursor <= end) {
-    const iso = cursor.toISOString().slice(0,10);
-    const total = salesForStand.filter(s=>s.fecha===iso).reduce((s,v)=>s+Number(v.total),0);
-    const label = cursor.toLocaleDateString("es-EC",{day:"2-digit",month:"2-digit"});
-    days.push({ label, total, iso });
+    const iso = dateToIsoLocal(cursor);
+    days.push({
+      label:[DAY_LETTERS[cursor.getDay()],formatDayMonth(cursor)],
+      total:totalsByDate[iso]||0,
+      iso,
+      dayLetter:DAY_LETTERS[cursor.getDay()],
+      isWeekStart:cursor.getDay()===1,
+      weekLabel:getCalendarWeekLabel(cursor)
+    });
     cursor.setDate(cursor.getDate()+1);
   }
   return days;
+}
+
+function getTrendChartMeta(points) {
+  const daily = points.some(p=>!!p.iso);
+  if(!daily) return { mode:points.some(p=>p.weekStart)?"weekly":"summary", weekStarts:[], weekLabels:[] };
+
+  const weekStarts = [];
+  const weekLabels = [];
+  points.forEach((p,index)=>{
+    if(index===0 || p.isWeekStart) {
+      weekStarts.push(index);
+      weekLabels.push(p.weekLabel||"Semana");
+    }
+  });
+  return { mode:"daily", weekStarts, weekLabels };
+}
+
+function getTrendChartMinWidth(points) {
+  const meta = getTrendChartMeta(points);
+  if(meta.mode==="daily") return Math.max(320, points.length*46);
+  if(meta.mode==="weekly") return Math.max(320, points.length*88);
+  return Math.max(320, points.length*94);
 }
 
 
@@ -997,7 +1259,7 @@ function getInicioFilteredSales() {
 // - Si inicioStand = especifico: evolucion temporal dentro del periodo
 //     hoy -> 1 barra (total del dia)
 //     semana -> 7 barras (una por dia)
-//     mes / mesEspecifico -> barras por semana calendario (lunes-domingo)
+//     mes / mesEspecifico -> barras diarias con separadores de semana calendario
 //     rango -> dias si <=31, semanas si es mas largo
 function getInicioTrend() {
   const { from, to } = getInicioDateRange();
@@ -1023,7 +1285,13 @@ function getInicioTrend() {
   }
 
   if (state.inicioPeriod === "mes" || state.inicioPeriod === "mesEspecifico") {
-    return getWeeklyBreakdown(salesForStand, from, to);
+    return getDailyBreakdown(salesForStand, from, to);
+  }
+
+  if (state.inicioPeriod === "todo") {
+    const dates = salesForStand.map(s=>s.fecha).filter(Boolean).sort();
+    if(!dates.length) return [];
+    return getDailyBreakdown(salesForStand, dates[0], dates[dates.length-1]);
   }
 
   // rango
@@ -1038,8 +1306,9 @@ function getFinDateRange() {
   const d = new Date(Date.now()-5*60*60*1000);
   if (state.finPeriod === "today") return { from: todayIso, to: todayIso };
   if (state.finPeriod === "week") {
-    const d2 = new Date(d); d2.setDate(d2.getDate()-6);
-    return { from: d2.toISOString().slice(0,10), to: todayIso };
+    const monday = getMonday(d);
+    const sunday = new Date(monday); sunday.setDate(sunday.getDate()+6);
+    return { from: dateToIsoLocal(monday), to: dateToIsoLocal(sunday) };
   }
   if (state.finPeriod === "month") {
     const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
@@ -1071,12 +1340,15 @@ function ventaCOGS(sale) {
 // ─── FINANZAS: P&G ─────────────────────────────────────────────
 function renderFinanzas() {
   const { from, to } = getFinDateRange();
-  const periodLabels = { today:"Hoy", week:"Últimos 7 días", month:"Este mes (P&G mensual)", all:"Todo el histórico" };
+  const periodLabels = { today:"Hoy", week:`Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`, month:"Este mes (P&G mensual)", all:"Todo el histórico" };
 
   const filteredSales = state.sales.filter(s=>inFinRange(s.fecha) && (state.finStore==="all" || s.stand===state.finStore));
   const filteredGastos = (state.gastos||[]).filter(g=>inFinRange(g.fecha) && (state.finStore==="all" || g.stand===state.finStore));
 
-  const ventas = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const ventasTotal = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const ventasTax = getTaxBreakdown(ventasTotal);
+  const ventas = ventasTax.sinIva;
+  const ivaVentas = ventasTax.iva;
   const cogs = filteredSales.reduce((s,v)=>s+ventaCOGS(v),0);
   const margenBruto = ventas - cogs;
   const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
@@ -1108,7 +1380,7 @@ function renderFinanzas() {
     <button class="filter-btn ${state.finTab==="historico"?"active":""}" data-fin-tab="historico">📜 Histórico</button>
   </div>
 
-  ${state.finTab==="pyg" ? renderPYG({ventas,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
+  ${state.finTab==="pyg" ? renderPYG({ventas,ivaVentas,ventasTotal,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
   ${state.finTab==="sku" ? renderMargenSKU(filteredSales) : ""}
   ${state.finTab==="gastos" ? renderGastosForm(filteredGastos) : ""}
   ${state.finTab==="caja" ? renderCaja() : ""}
@@ -1122,8 +1394,16 @@ function renderPYG(d) {
     <div class="section-title">${d.periodLabel} ${state.finStore==="all"?"· Todos los locales":"· "+PUNTOS_VENTA.find(s=>s.id===state.finStore)?.name}</div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
-      <span style="font-size:13px;font-weight:700;color:var(--purple);">Ventas (ingresos)</span>
+      <span style="font-size:13px;font-weight:700;color:var(--purple);">Ventas sin IVA (ingreso real)</span>
       <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.ventas)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
+      <span style="font-size:13px;font-weight:700;color:var(--gray);">IVA 15% cobrado</span>
+      <span style="font-size:14px;font-weight:800;color:var(--gray);">${fmt(d.ivaVentas)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:2px solid var(--purple);">
+      <span style="font-size:13px;font-weight:800;color:var(--purple);">Ventas totales cobradas</span>
+      <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.ventasTotal)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
       <span style="font-size:13px;font-weight:700;color:var(--gray);">(–) Costo de productos vendidos</span>
@@ -1195,15 +1475,22 @@ function renderMargenSKU(filteredSales) {
     rows[0].ventas += diferenciaVentas;
   }
 
-  rows = rows.map(r=>({
-    ...r,
-    margen:r.ventas-r.cogs,
-    margenPct:r.ventas>0?((r.ventas-r.cogs)/r.ventas*100):0
-  })).sort((a,b)=>b.ventas-a.ventas);
+  rows = rows.map(r=>{
+    const tax = getTaxBreakdown(r.ventas);
+    const margen = tax.sinIva-r.cogs;
+    return {
+      ...r,
+      ventasSinIva:tax.sinIva,
+      iva:tax.iva,
+      margen,
+      margenPct:tax.sinIva>0?(margen/tax.sinIva*100):0
+    };
+  }).sort((a,b)=>b.ventas-a.ventas);
 
   const totalVentas = ingresoNetoEsperado;
+  const totalTax = getTaxBreakdown(totalVentas);
   const totalCogs = rows.reduce((s,r)=>s+r.cogs,0);
-  const totalMargen = totalVentas-totalCogs;
+  const totalMargen = totalTax.sinIva-totalCogs;
 
   if(rows.length===0) return `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`;
 
@@ -1211,12 +1498,14 @@ function renderMargenSKU(filteredSales) {
   <div class="card">
     <div class="section-title">Margen por SKU/Rutina</div>
     <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:480px;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:680px;">
         <thead>
           <tr style="border-bottom:2px solid var(--lavender);">
             <th style="text-align:left;padding:6px 4px;color:var(--gray);font-weight:700;">Producto</th>
             <th style="text-align:center;padding:6px 4px;color:var(--gray);font-weight:700;">Uds</th>
-            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Ventas</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Sin IVA</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">IVA</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Total</th>
             <th style="text-align:right;padding:6px 4px;color:var(--gray);font-weight:700;">Costo</th>
             <th style="text-align:right;padding:6px 4px;color:var(--purple);font-weight:800;">Margen</th>
             <th style="text-align:right;padding:6px 4px;color:var(--purple);font-weight:800;">%</th>
@@ -1226,6 +1515,8 @@ function renderMargenSKU(filteredSales) {
           ${rows.map(r=>`<tr style="border-bottom:1px solid var(--lavender-light);">
             <td style="padding:6px 4px;font-weight:700;color:var(--purple);">${r.isRutina?"⭐ ":""}${r.name}</td>
             <td style="text-align:center;padding:6px 4px;color:var(--gray);">${r.qty}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.ventasSinIva)}</td>
+            <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.iva)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.ventas)}</td>
             <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.cogs)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:900;color:${r.margen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(r.margen)}</td>
@@ -1236,10 +1527,12 @@ function renderMargenSKU(filteredSales) {
           <tr style="border-top:2px solid var(--purple);">
             <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Total</td>
             <td></td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalTax.sinIva)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalTax.iva)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalVentas)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalCogs)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:900;color:${totalMargen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(totalMargen)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${totalVentas>0?(totalMargen/totalVentas*100).toFixed(0):0}%</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${totalTax.sinIva>0?(totalMargen/totalTax.sinIva*100).toFixed(0):0}%</td>
           </tr>
         </tfoot>
       </table>
@@ -1443,13 +1736,7 @@ function renderHistoricoManual(visible, subtotal, discAmt, total) {
         <span style="font-size:12px;color:var(--red);">Descuento ${state.histDiscount}%</span>
         <span style="font-size:12px;font-weight:700;color:var(--red);">-${fmt(discAmt)}</span>
       </div>`:""}
-      <div class="total-row">
-        <span class="total-label">TOTAL</span>
-        <div style="text-align:right;">
-          <div class="total-amount">${fmt(total)}</div>
-          <div class="total-iva">IVA 15% incluido</div>
-        </div>
-      </div>
+      ${renderTaxSummary(total)}
     </div>
   </div>
 
@@ -1514,9 +1801,9 @@ function renderHistoricoArchivo() {
       </div>`).join("")}
       ${rows.length>30?`<div style="text-align:center;padding:8px;font-size:11px;color:var(--gray);">...y ${rows.length-30} ventas más</div>`:""}
     </div>
-    <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid var(--purple);margin-top:8px;">
-      <span style="font-size:13px;font-weight:800;color:var(--purple);">Total a registrar</span>
-      <span style="font-size:16px;font-weight:900;color:var(--purple);">${fmt(rows.reduce((s,v)=>s+v.total,0))}</span>
+    <div style="padding-top:10px;border-top:2px solid var(--purple);margin-top:8px;">
+      <div style="font-size:13px;font-weight:800;color:var(--purple);">Total a registrar</div>
+      ${renderTaxSummary(rows.reduce((s,v)=>s+v.total,0))}
     </div>
   </div>
 
@@ -1526,7 +1813,7 @@ function renderHistoricoArchivo() {
 
   ${state.histFileResult?`<div class="card card-lavender" style="margin-top:12px;text-align:center;">
     <div style="font-size:13px;font-weight:700;color:var(--purple);">✅ ${state.histFileResult.count} ventas históricas registradas</div>
-    <div style="font-size:11px;color:var(--gray);margin-top:2px;">Total: ${fmt(state.histFileResult.total)}</div>
+    <div style="font-size:11px;color:var(--gray);margin-top:2px;">Sin IVA: ${fmt(getTaxBreakdown(state.histFileResult.total).sinIva)} · IVA: ${fmt(getTaxBreakdown(state.histFileResult.total).iva)} · Total: ${fmt(state.histFileResult.total)}</div>
   </div>`:""}
   `;
 }
@@ -1593,6 +1880,7 @@ function renderCaja() {
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Ventas del sistema · ${fmtDate(fecha)}</div>
     <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(esp.totalVentas)}</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${esp.txCount} transacciones</div>
+    ${renderTaxSummary(esp.totalVentas,true)}
     <div style="display:flex;gap:8px;margin-top:12px;">
       <div style="flex:1;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
         <div style="font-size:10px;color:var(--lavender);">💵 Efectivo</div>
@@ -2109,6 +2397,8 @@ function renderStandDashboard() {
   const last14 = getLastN(state.sales, 14);
   const chartLabels = JSON.stringify(last14.map(d=>d.label));
   const chartData = JSON.stringify(last14.map(d=>Number(d.total.toFixed(2))));
+  const chartMeta = encodeURIComponent(JSON.stringify(getTrendChartMeta(last14)));
+  const chartMinWidth = getTrendChartMinWidth(last14);
   const topMap={};
   todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
   const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -2121,7 +2411,8 @@ function renderStandDashboard() {
   <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
     <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Ventas hoy</div>
     <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
-    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones · IVA incluido</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones · Ticket promedio ${fmt(todaySales.length?todayTotal/todaySales.length:0)}</div>
+    ${renderTaxSummary(todayTotal,true)}
     <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
       ${byPay.filter(pt=>pt.t>0).map(pt=>`<div style="flex:1;min-width:70px;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
         <div style="font-size:10px;color:var(--lavender);font-weight:600;">${pt.icon} ${pt.label}</div>
@@ -2134,8 +2425,11 @@ function renderStandDashboard() {
 
   <div class="card">
     <div class="section-title">Tendencia · últimos 14 días</div>
-    <div style="position:relative;width:100%;height:160px;" data-trend-chart='${chartLabels}|||${chartData}'>
-      <canvas id="trendChart" role="img" aria-label="Gráfico de línea de ventas diarias de los últimos 14 días">Tendencia de ventas de los últimos 14 días.</canvas>
+    <div class="sales-chart-legend"><span class="sales-chart-legend-line"></span> Corte de semana: lunes a domingo</div>
+    <div class="sales-chart-scroll">
+      <div class="sales-chart-inner" style="min-width:${chartMinWidth}px;" data-trend-chart='${chartLabels}|||${chartData}|||${chartMeta}'>
+        <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas diarias de los últimos 14 días">Tendencia de ventas de los últimos 14 días.</canvas>
+      </div>
     </div>
   </div>
 
@@ -2198,10 +2492,11 @@ function renderAdminDashboard() {
     return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
   })();
   const periodLabel = state.inicioPeriod==="hoy" ? "Hoy"
-    : state.inicioPeriod==="semana" ? "Últimos 7 días"
+    : state.inicioPeriod==="semana" ? `Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.inicioPeriod==="mes" ? "Este mes"
     : state.inicioPeriod==="mesEspecifico" ? mesEspecificoLabel
     : state.inicioPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
+    : state.inicioPeriod==="todo" ? "Todo el histórico"
     : "Hoy";
 
   const periodTotal = filteredSales.reduce((s,v)=>s+Number(v.total),0);
@@ -2230,11 +2525,15 @@ function renderAdminDashboard() {
   }));
   const topByUsd = Object.values(rankMap).sort((a,b)=>b.total-a.total);
   const topByUnits = Object.values(rankMap).sort((a,b)=>b.qty-a.qty);
+  const composition = getSalesComposition(filteredSales);
 
   // Tendencia (siempre visible, independiente del filtro de periodo, respeta filtro de stand)
   const trend = getInicioTrend();
   const trendLabels = JSON.stringify(trend.map(d=>d.label));
   const trendData = JSON.stringify(trend.map(d=>Number(d.total.toFixed(2))));
+  const trendMetaObject = getTrendChartMeta(trend);
+  const trendMeta = encodeURIComponent(JSON.stringify(trendMetaObject));
+  const trendMinWidth = getTrendChartMinWidth(trend);
 
   return `
   <div class="store-selector">
@@ -2247,6 +2546,7 @@ function renderAdminDashboard() {
     <button class="period-btn ${state.inicioPeriod==="mes"?"active":""}" data-inicio-period="mes">Mes actual</button>
     <button class="period-btn ${state.inicioPeriod==="mesEspecifico"?"active":""}" data-inicio-period="mesEspecifico">📅 Mes</button>
     <button class="period-btn ${state.inicioPeriod==="rango"?"active":""}" data-inicio-period="rango">📅 Rango</button>
+    <button class="period-btn ${state.inicioPeriod==="todo"?"active":""}" data-inicio-period="todo">Todo</button>
   </div>
   ${state.inicioPeriod==="mesEspecifico"?`<div class="card" style="margin-bottom:12px;padding:10px;">
     <input type="month" class="dispatch-input" id="inicio-mes" value="${state.inicioMesAno}" max="${today().slice(0,7)}">
@@ -2269,13 +2569,14 @@ function renderAdminDashboard() {
           ${state.inicioStand==="all"?"Ventas consolidadas":PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name} · ${periodLabel}
         </div>
         <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(periodTotal)}</div>
-        <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${periodTx} transacciones · IVA incluido</div>
+        <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${periodTx} transacciones · Ticket promedio ${fmt(avgTicket)}</div>
       </div>
       ${state.inicioPeriod==="hoy"&&(yestTotal>0||periodTotal>0)?`<div style="text-align:right;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.12);">
         <div style="font-size:18px;font-weight:900;color:${pctChange>=0?"var(--lime)":"var(--red)"};">${pctChange>=0?"▲":"▼"} ${Math.abs(pctChange).toFixed(0)}%</div>
         <div style="font-size:9px;color:var(--lavender);">vs. ayer</div>
       </div>`:""}
     </div>
+    ${renderTaxSummary(periodTotal,true)}
   </div>
 
   <div class="stats-grid">
@@ -2292,10 +2593,19 @@ function renderAdminDashboard() {
   </div>
 
   <div class="card">
-    <div class="section-title">${state.inicioStand==="all"?`Ventas por punto de venta · ${periodLabel}`:`Tendencia · ${periodLabel} · ${PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name}`}</div>
-    <div style="position:relative;width:100%;height:200px;" data-trend-chart='${trendLabels}|||${trendData}'>
-      <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas">Gráfico de ventas.</canvas>
+    <div class="section-title">${state.inicioStand==="all"?`Ventas por punto de venta · ${periodLabel}`:`Tendencia diaria · ${periodLabel} · ${PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name}`}</div>
+    ${trendMetaObject.mode==="daily"?`<div class="sales-chart-legend"><span class="sales-chart-legend-line"></span> Cada línea separa una semana calendario · Lunes a domingo</div>`:""}
+    <div class="sales-chart-scroll">
+      <div class="sales-chart-inner" style="min-width:${trendMinWidth}px;" data-trend-chart='${trendLabels}|||${trendData}|||${trendMeta}'>
+        <canvas id="trendChart" role="img" aria-label="Gráfico de barras de ventas">Gráfico de ventas.</canvas>
+      </div>
     </div>
+  </div>
+
+  <div class="analytics-grid">
+    ${renderDonutCard("productUsdChart",`Participación por producto · USD · ${periodLabel}`,composition.productsByUsd,"usd","currency","Cada porción muestra el porcentaje del valor total vendido por producto.")}
+    ${renderDonutCard("productUnitsChart",`Participación por producto · Unidades · ${periodLabel}`,composition.productsByUnits,"units","units","Cada porción muestra el porcentaje de unidades vendidas por producto.")}
+    ${renderDonutCard("categoryUsdChart",`Participación por categoría · USD · ${periodLabel}`,composition.categories,"usd","currency","Agrupa Desodorantes, Tónicos, Óleos, Bálsamos y Shampoo.")}
   </div>
 
   ${renderPaymentConsolidado(filteredSales, `Consolidado por medio de pago · ${periodLabel}`)}
@@ -2306,7 +2616,10 @@ function renderAdminDashboard() {
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <div><span style="font-size:12px;font-weight:700;color:var(--purple);">${st.id==="oficina"?"🏢":"🏪"} ${st.name}</span>
         <span style="font-size:10px;color:var(--gray);"> · ${st.count} tx</span></div>
-        <span style="font-size:13px;font-weight:900;color:var(--purple);">${fmt(st.total)}</span>
+        <div style="text-align:right;">
+          <span style="font-size:13px;font-weight:900;color:var(--purple);">${fmt(st.total)}</span>
+          <div style="font-size:9px;color:var(--gray);">Sin IVA ${fmt(getTaxBreakdown(st.total).sinIva)} · IVA ${fmt(getTaxBreakdown(st.total).iva)}</div>
+        </div>
       </div>
       <div style="height:8px;border-radius:8px;background:var(--lavender-light);overflow:hidden;">
         <div style="height:100%;width:${(st.total/maxStand*100)}%;background:var(--purple);border-radius:8px;transition:width 0.3s;"></div>
@@ -2351,58 +2664,264 @@ function renderAdminDashboard() {
 }
 
 function renderBarChart(canvasId) {
-  const ctx = document.getElementById(canvasId);
-  if(!ctx) return;
-  const wrapper = ctx.parentElement;
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const wrapper = canvas.parentElement;
   const raw = wrapper?.dataset?.trendChart || "";
-  const [labelsJson, dataJson] = raw.split("|||");
+  const [labelsJson, dataJson, metaEncoded] = raw.split("|||");
   if(!labelsJson || !dataJson) return;
-  let labels, data;
-  try { labels = JSON.parse(labelsJson); data = JSON.parse(dataJson); } catch(e) { return; }
 
-  if(ctx._chartInstance) { ctx._chartInstance.destroy(); }
-  ctx._chartInstance = new Chart(ctx, {
+  let labels, data, chartMeta={mode:"summary",weekStarts:[],weekLabels:[]};
+  try {
+    labels = JSON.parse(labelsJson);
+    data = JSON.parse(dataJson);
+    if(metaEncoded) chartMeta = JSON.parse(decodeURIComponent(metaEncoded));
+  } catch(e) { return; }
+
+  const dailyMode = chartMeta.mode === "daily";
+  const weeklyMode = chartMeta.mode === "weekly";
+  const smallScreen = window.innerWidth <= 420;
+  const showValueLabels = data.length <= 14;
+  const topPadding = dailyMode && chartMeta.weekStarts?.length>1 ? 46 : 28;
+
+  if(canvas._chartInstance) canvas._chartInstance.destroy();
+  canvas._chartInstance = new Chart(canvas, {
     type: 'bar',
     data: {
-      labels: labels,
+      labels,
       datasets: [{
         label: 'Ventas',
-        data: data,
-        backgroundColor: '#8DC63F',
+        data,
+        backgroundColor: '#2D1B69',
+        borderColor: '#2D1B69',
+        borderWidth: 1,
         borderRadius: 6,
-        maxBarThickness: 40,
+        maxBarThickness: dailyMode ? 30 : 44,
+        categoryPercentage: dailyMode ? 0.78 : 0.72,
+        barPercentage: dailyMode ? 0.9 : 0.88,
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { top: 24 } },
+      animation: { duration: 300 },
+      layout: { padding: { top: topPadding, left: 4, right: 6, bottom: 2 } },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: function(c){ return '$' + c.parsed.y.toFixed(2); } } },
+        tooltip: {
+          callbacks: {
+            title(items) {
+              const label = items?.[0]?.label;
+              return Array.isArray(label) ? label.join(' · ') : label;
+            },
+            label(c){ return 'Ventas: $' + Number(c.parsed.y||0).toFixed(2); }
+          }
+        },
         datalabels: undefined
       },
       scales: {
-        y: { ticks: { callback: function(v){ return '$'+v; }, font:{size:9}, color:'#6B7280' }, grid:{ color:'rgba(108,114,128,0.08)'} },
-        x: { ticks: { font:{size:9}, color:'#6B7280', maxRotation:0 }, grid:{ display:false } }
+        y: {
+          beginAtZero:true,
+          ticks: {
+            callback(v){ return '$'+v; },
+            font:{size:9,weight:'700'},
+            color:'#6B7280',
+            maxTicksLimit:6
+          },
+          grid:{ color:'rgba(108,114,128,0.10)'},
+          border:{display:false}
+        },
+        x: {
+          offset:true,
+          ticks: {
+            font:{size:dailyMode?(smallScreen?10:11):10,weight:'800'},
+            color:'#2D1B69',
+            maxRotation:0,
+            minRotation:0,
+            autoSkip:dailyMode?false:true,
+            autoSkipPadding:weeklyMode?14:10,
+            padding:8
+          },
+          grid:{ display:false },
+          border:{ color:'rgba(45,27,105,.22)' }
+        }
       }
     },
-    plugins: [{
-      id: 'valueLabels',
-      afterDatasetsDraw(chart) {
-        const {ctx} = chart;
-        chart.data.datasets.forEach((dataset, i) => {
-          const meta = chart.getDatasetMeta(i);
-          meta.data.forEach((bar, idx) => {
-            const val = dataset.data[idx];
-            if (val === null || val === undefined) return;
+    plugins: [
+      {
+        id:'worthyWeekBands',
+        beforeDatasetsDraw(chart) {
+          if(!dailyMode || !chartMeta.weekStarts?.length) return;
+          const bars = chart.getDatasetMeta(0).data;
+          if(!bars.length) return;
+          const {ctx,chartArea} = chart;
+
+          // Fondo alternado muy suave para leer cada semana como un bloque.
+          chartMeta.weekStarts.forEach((startIndex,weekIndex)=>{
+            const nextStart = chartMeta.weekStarts[weekIndex+1] ?? bars.length;
+            const first = bars[startIndex];
+            const last = bars[Math.max(startIndex,nextStart-1)];
+            if(!first || !last) return;
+            const left = startIndex===0 ? chartArea.left : (bars[startIndex-1].x+first.x)/2;
+            const right = nextStart>=bars.length ? chartArea.right : (last.x+bars[nextStart].x)/2;
+            if(weekIndex%2===1) {
+              ctx.save();
+              ctx.fillStyle='rgba(200,184,232,.10)';
+              ctx.fillRect(left,chartArea.top,right-left,chartArea.bottom-chartArea.top);
+              ctx.restore();
+            }
+          });
+        },
+        afterDraw(chart) {
+          if(!dailyMode || !chartMeta.weekStarts?.length) return;
+          const bars = chart.getDatasetMeta(0).data;
+          if(!bars.length) return;
+          const {ctx,chartArea} = chart;
+
+          // Separador visible justo antes de cada lunes, excepto el primer bloque.
+          chartMeta.weekStarts.slice(1).forEach(startIndex=>{
+            const previous = bars[startIndex-1];
+            const current = bars[startIndex];
+            if(!previous || !current) return;
+            const x = (previous.x+current.x)/2;
             ctx.save();
-            ctx.fillStyle = '#2D1B69';
-            ctx.font = '700 9px system-ui, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('$'+Number(val).toFixed(0), bar.x, bar.y - 4);
+            ctx.strokeStyle='rgba(45,27,105,.48)';
+            ctx.lineWidth=2;
+            ctx.setLineDash([5,4]);
+            ctx.beginPath();
+            ctx.moveTo(x,chartArea.top-5);
+            ctx.lineTo(x,chartArea.bottom+2);
+            ctx.stroke();
             ctx.restore();
           });
+
+          // Encabezado de cada bloque semanal.
+          chartMeta.weekStarts.forEach((startIndex,weekIndex)=>{
+            const nextStart = chartMeta.weekStarts[weekIndex+1] ?? bars.length;
+            const first = bars[startIndex];
+            const last = bars[Math.max(startIndex,nextStart-1)];
+            if(!first || !last) return;
+            const left = startIndex===0 ? chartArea.left : (bars[startIndex-1].x+first.x)/2;
+            const right = nextStart>=bars.length ? chartArea.right : (last.x+bars[nextStart].x)/2;
+            ctx.save();
+            ctx.fillStyle='#2D1B69';
+            ctx.font=`800 ${smallScreen?9:10}px system-ui, sans-serif`;
+            ctx.textAlign='center';
+            ctx.textBaseline='middle';
+            ctx.fillText(chartMeta.weekLabels?.[weekIndex]||'Semana',(left+right)/2,chartArea.top-20);
+            ctx.restore();
+          });
+        }
+      },
+      {
+        id: 'valueLabels',
+        afterDatasetsDraw(chart) {
+          if(!showValueLabels) return;
+          const {ctx} = chart;
+          chart.data.datasets.forEach((dataset, i) => {
+            const meta = chart.getDatasetMeta(i);
+            meta.data.forEach((bar, idx) => {
+              const val = Number(dataset.data[idx]||0);
+              if(val<=0) return;
+              ctx.save();
+              ctx.fillStyle = '#2D1B69';
+              ctx.font = '800 9px system-ui, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('$'+val.toFixed(0), bar.x, bar.y - 5);
+              ctx.restore();
+            });
+          });
+        }
+      }
+    ]
+  });
+}
+
+
+function renderDoughnutChart(canvasId) {
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  const wrapper = ctx.parentElement;
+  const raw = wrapper?.dataset?.donutChart || "";
+  if(!raw) return;
+  let payload;
+  try { payload = JSON.parse(decodeURIComponent(raw)); } catch(e) { return; }
+  const labels = payload.labels||[];
+  const values = payload.values||[];
+  const total = values.reduce((s,v)=>s+Number(v||0),0);
+  if(!total) return;
+  const palette = ['#2D1B69','#8DC63F','#C8B8E8','#F59E0B','#0047AB','#8E4585','#FF6B6B','#0BDA51','#FFDE21','#6B7280','#D946EF','#14B8A6','#F97316','#3D2A85'];
+
+  if(ctx._chartInstance) ctx._chartInstance.destroy();
+  ctx._chartInstance = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels,
+      datasets:[{
+        data:values,
+        backgroundColor:labels.map((_,i)=>palette[i%palette.length]),
+        borderColor:'#FFFFFF',
+        borderWidth:2,
+        hoverOffset:7,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'48%',
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{
+            boxWidth:11,
+            boxHeight:11,
+            padding:10,
+            color:'#2D1B69',
+            font:{size:10,weight:'700'},
+            generateLabels(chart){
+              const ds=chart.data.datasets[0];
+              const sum=ds.data.reduce((s,v)=>s+Number(v||0),0);
+              return chart.data.labels.map((label,i)=>({
+                text:`${label} · ${sum>0?(Number(ds.data[i])/sum*100).toFixed(1):'0.0'}%`,
+                fillStyle:ds.backgroundColor[i],
+                strokeStyle:'#FFFFFF',
+                lineWidth:1,
+                hidden:false,
+                index:i,
+              }));
+            }
+          }
+        },
+        tooltip:{
+          callbacks:{
+            label(c){
+              const value=Number(c.raw||0);
+              const pct=total>0?value/total*100:0;
+              const formatted=payload.valueType==='currency'?fmt(value):`${Number(value.toFixed(2))} uds`;
+              return `${c.label}: ${formatted} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      }
+    },
+    plugins:[{
+      id:'slicePercentLabels',
+      afterDatasetsDraw(chart){
+        const ds=chart.data.datasets[0];
+        const sum=ds.data.reduce((s,v)=>s+Number(v||0),0);
+        const meta=chart.getDatasetMeta(0);
+        meta.data.forEach((arc,i)=>{
+          const pct=sum>0?Number(ds.data[i])/sum*100:0;
+          if(pct<5) return;
+          const pos=arc.tooltipPosition();
+          const c=chart.ctx;
+          c.save();
+          c.fillStyle='#FFFFFF';
+          c.font='800 10px system-ui, sans-serif';
+          c.textAlign='center';
+          c.textBaseline='middle';
+          c.fillText(`${pct.toFixed(0)}%`,pos.x,pos.y);
+          c.restore();
         });
       }
     }]
@@ -2412,6 +2931,9 @@ function renderBarChart(canvasId) {
 function renderTrendChart() {
   renderBarChart('trendChart');
   renderBarChart('ventasTrendChart');
+  renderDoughnutChart('productUsdChart');
+  renderDoughnutChart('productUnitsChart');
+  renderDoughnutChart('categoryUsdChart');
 }
 
 
@@ -2540,13 +3062,7 @@ function renderPOS() {
         <span style="font-size:12px;color:var(--red);">Descuento ${state.discount}%</span>
         <span style="font-size:12px;font-weight:700;color:var(--red);">-${fmt(discAmt)}</span>
       </div>`:""}
-      <div class="total-row">
-        <span class="total-label">TOTAL</span>
-        <div style="text-align:right;">
-          <div class="total-amount">${state.obsequio?fmt(0):fmt(total)}</div>
-          <div class="total-iva">IVA 15% incluido</div>
-        </div>
-      </div>
+      ${renderTaxSummary(state.obsequio?0:total)}
     </div>
   </div>
 
@@ -2795,15 +3311,22 @@ function renderVentas() {
     return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
   })();
   const periodLabel = state.ventasPeriod==="hoy" ? "Hoy"
-    : state.ventasPeriod==="semana" ? "Últimos 7 días"
+    : state.ventasPeriod==="semana" ? `Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.ventasPeriod==="mes" ? "Este mes"
     : state.ventasPeriod==="mesEspecifico" ? mesEspecificoLabel
     : state.ventasPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
+    : state.ventasPeriod==="todo" ? "Todo el histórico"
     : "Hoy";
 
-  const breakdown = getDailyBreakdown(filteredSales, from, to);
+  const breakdownDates = filteredSales.map(s=>s.fecha).filter(Boolean).sort();
+  const breakdownFrom = state.ventasPeriod==="todo" && breakdownDates.length ? breakdownDates[0] : from;
+  const breakdownTo = state.ventasPeriod==="todo" && breakdownDates.length ? breakdownDates[breakdownDates.length-1] : to;
+  const breakdown = state.ventasPeriod==="todo" && !breakdownDates.length ? [] : getDailyBreakdown(filteredSales, breakdownFrom, breakdownTo);
   const breakdownLabels = JSON.stringify(breakdown.map(d=>d.label));
   const breakdownData = JSON.stringify(breakdown.map(d=>Number(d.total.toFixed(2))));
+  const breakdownMetaObject = getTrendChartMeta(breakdown);
+  const breakdownMeta = encodeURIComponent(JSON.stringify(breakdownMetaObject));
+  const breakdownMinWidth = getTrendChartMinWidth(breakdown);
 
   return `
   ${canFilterStore?`<div class="store-selector">
@@ -2819,6 +3342,7 @@ function renderVentas() {
     <button class="period-btn ${state.ventasPeriod==="mes"?"active":""}" data-ventas-period="mes">Mes actual</button>
     <button class="period-btn ${state.ventasPeriod==="mesEspecifico"?"active":""}" data-ventas-period="mesEspecifico">📅 Mes</button>
     <button class="period-btn ${state.ventasPeriod==="rango"?"active":""}" data-ventas-period="rango">📅 Rango</button>
+    <button class="period-btn ${state.ventasPeriod==="todo"?"active":""}" data-ventas-period="todo">Todo</button>
   </div>
   ${state.ventasPeriod==="mesEspecifico"?`<div class="card" style="margin-bottom:12px;padding:10px;">
     <input type="month" class="dispatch-input" id="ventas-mes" value="${state.ventasMesAno}" max="${today().slice(0,7)}">
@@ -2834,21 +3358,20 @@ function renderVentas() {
     </div>
   </div>`:""}
 
-  <div class="stats-grid">
-    <div class="stat-card card-purple" style="border-radius:14px;">
-      <div class="stat-label" style="color:var(--lavender);">Ingresos · ${periodLabel}</div>
-      <div class="stat-value" style="color:var(--lime);">${fmt(totalRev)}</div>
-    </div>
-    <div class="stat-card card-lavender" style="border-radius:14px;">
-      <div class="stat-label" style="color:var(--purple);">Transacciones</div>
-      <div class="stat-value" style="color:var(--purple);">${filteredSales.length}</div>
-    </div>
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div class="section-title" style="color:var(--lavender);margin-bottom:4px;">Ingresos · ${periodLabel}</div>
+    <div style="font-size:30px;font-weight:900;color:var(--lime);">${fmt(totalRev)}</div>
+    <div style="font-size:11px;color:var(--lavender);">${filteredSales.length} transacciones · Ticket promedio ${fmt(filteredSales.length?totalRev/filteredSales.length:0)}</div>
+    ${renderTaxSummary(totalRev,true)}
   </div>
 
   <div class="card" style="margin-bottom:12px;">
-    <div class="section-title">Ventas por ${breakdown.length>0&&breakdown[0].iso?"día":"semana"} · ${periodLabel}</div>
-    <div style="position:relative;width:100%;height:200px;" data-trend-chart='${breakdownLabels}|||${breakdownData}'>
-      <canvas id="ventasTrendChart" role="img" aria-label="Gráfico de barras de ventas por periodo">Ventas por periodo.</canvas>
+    <div class="section-title">Ventas por ${breakdownMetaObject.mode==="daily"?"día":"semana calendario"} · ${periodLabel}</div>
+    ${breakdownMetaObject.mode==="daily"?`<div class="sales-chart-legend"><span class="sales-chart-legend-line"></span> Cada línea separa una semana calendario · Lunes a domingo</div>`:""}
+    <div class="sales-chart-scroll">
+      <div class="sales-chart-inner" style="min-width:${breakdownMinWidth}px;" data-trend-chart='${breakdownLabels}|||${breakdownData}|||${breakdownMeta}'>
+        <canvas id="ventasTrendChart" role="img" aria-label="Gráfico de barras de ventas por periodo">Ventas por periodo.</canvas>
+      </div>
     </div>
   </div>
 
@@ -2895,12 +3418,9 @@ function renderVentas() {
 
           <textarea id="ev-edit-nota" placeholder="Nota opcional..." style="margin-top:10px;">${state.evEditNota}</textarea>
 
-          <div class="total-row" style="margin-top:10px;">
-            <span class="total-label">TOTAL</span>
-            <div style="text-align:right;">
-              <div class="total-amount">${fmt(evTotal)}</div>
-              ${state.evEditDescuento>0?`<div class="total-iva">Descuento ${state.evEditDescuento}% incluido</div>`:""}
-            </div>
+          <div style="margin-top:10px;">
+            ${state.evEditDescuento>0?`<div class="total-iva" style="text-align:right;margin-bottom:4px;">Descuento ${state.evEditDescuento}% incluido</div>`:""}
+            ${renderTaxSummary(evTotal)}
           </div>
 
           <div style="display:flex;gap:8px;margin-top:12px;">
@@ -2919,7 +3439,7 @@ function renderVentas() {
         </div>
         <div style="text-align:right;margin-left:8px;">
           <div class="sale-amount">${fmt(sale.total)}</div>
-          <div style="font-size:12px;color:var(--gray);text-align:right;margin-top:2px;">Sub: ${fmt((sale.total||0)/1.15)} · IVA 15%: ${fmt((sale.total||0)/1.15*0.15)}</div>
+          <div style="font-size:11px;color:var(--gray);text-align:right;margin-top:2px;">Sin IVA: ${fmt(getTaxBreakdown(sale.total).sinIva)}<br>IVA 15%: ${fmt(getTaxBreakdown(sale.total).iva)}<br>Total: ${fmt(sale.total)}</div>
           <span class="badge badge-${sale.obsequio?"lime":sale.pago==="efectivo"?"green":PAYMENTS.find(p=>p.id===sale.pago)?.group==="bendo"?"purple":"amber"}">
             ${sale.obsequio?"🎁 Obsequio":`${PAYMENTS.find(p=>p.id===sale.pago)?.icon||""} ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago}`}
           </span>
@@ -3259,10 +3779,13 @@ function getLast7(sales) {
 function getLastN(sales, n) {
   return Array.from({length:n},(_,i)=>{
     const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-(n-1-i));
-    const iso=d.toISOString().slice(0,10);
+    const iso=dateToIsoLocal(d);
     return {
       iso,
-      label: d.toLocaleDateString("es-EC",{weekday:"short"}),
+      label:[DAY_LETTERS[d.getDay()],formatDayMonth(d)],
+      dayLetter:DAY_LETTERS[d.getDay()],
+      isWeekStart:d.getDay()===1,
+      weekLabel:getCalendarWeekLabel(d),
       total: sales.filter(s=>s.fecha===iso).reduce((s,v)=>s+Number(v.total),0),
       isToday: iso===today()
     };
