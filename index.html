@@ -910,6 +910,29 @@ body {
   color:var(--lavender);
 }
 
+.payment-summary-box {
+  background:linear-gradient(135deg, #2D1B69 0%, #49368A 100%);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 12px 26px rgba(21,10,61,.18);
+}
+
+.payment-summary-box .ps-label {
+  color:rgba(255,255,255,.9);
+}
+
+.payment-summary-box .ps-value {
+  color:var(--lime);
+}
+
+.payment-summary-box .ps-meta {
+  color:white;
+  font-weight:700;
+}
+
+.payment-summary-box .ps-meta strong {
+  color:var(--lime);
+}
+
 @keyframes worthySpin {
   from { transform:rotate(0deg); }
   to { transform:rotate(360deg); }
@@ -1015,7 +1038,8 @@ function getPaymentConsolidado(sales) {
       count: methodRows.length,
       commission,
       net: gross-commission,
-      pct: total>0 ? amount/total*100 : 0
+      pct: total>0 ? amount/total*100 : 0,
+      grossPct: grossTotal>0 ? gross/grossTotal*100 : 0
     };
   });
 
@@ -1045,7 +1069,8 @@ function getPaymentConsolidado(sales) {
       count,
       commission,
       net:gross-commission,
-      pct:total>0 ? amount/total*100 : 0
+      pct:total>0 ? amount/total*100 : 0,
+      grossPct:grossTotal>0 ? gross/grossTotal*100 : 0
     };
   });
 
@@ -1075,10 +1100,9 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
         <div style="font-size:11px;color:var(--gray);">Incluye ventas normales e históricas del filtro seleccionado</div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:10px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.7px;">Ventas sin IVA</div>
-        <div style="font-size:24px;font-weight:900;color:var(--purple);">${fmt(d.total)}</div>
+        <div style="font-size:10px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.7px;">Total ingresado</div>
+        <div style="font-size:24px;font-weight:900;color:var(--purple);">${fmt(d.grossTotal)}</div>
         <div style="font-size:11px;color:var(--gray);">${d.count} transacciones</div>
-        <div style="font-size:10px;color:var(--gray);margin-top:3px;">IVA ${fmt(d.iva)} · Total cobrado ${fmt(d.grossTotal)}</div>
       </div>
     </div>
 
@@ -1086,9 +1110,8 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
       ${d.groups.map(g=>`
         <div class="payment-summary-box">
           <div class="ps-label">${g.icon} ${g.label}</div>
-          <div class="ps-value">${fmt(g.total)}</div>
-          <div class="ps-meta">${g.count} tx · ${g.pct.toFixed(1)}% del total</div>
-          <div class="ps-meta">IVA ${fmt(getTaxBreakdown(g.gross).iva)} · Total cobrado ${fmt(g.gross)}</div>
+          <div class="ps-value">${fmt(g.gross)}</div>
+          <div class="ps-meta">${g.count} tx · ${g.grossPct.toFixed(1)}% del total ingresado</div>
           ${g.id==="bendo"&&g.total>0?`
             <div class="ps-meta">Comisión estimada: -${fmt(g.commission)}</div>
             <div class="ps-meta"><strong>Neto banco esperado: ${fmt(g.net)}</strong></div>
@@ -1099,22 +1122,22 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
 
     <div style="margin-top:14px;">
       <div class="payment-detail-row payment-detail-head">
-        <div>Método</div><div style="text-align:right;">Tx</div><div style="text-align:right;">Sin IVA</div><div style="text-align:right;">%</div>
+        <div>Método</div><div style="text-align:right;">Tx</div><div style="text-align:right;">Ingresado</div><div style="text-align:right;">%</div>
       </div>
       ${d.methods.map(m=>`
         <div class="payment-detail-row">
           <div class="payment-detail-name">${m.icon} ${m.label}</div>
           <div class="payment-detail-number">${m.count}</div>
-          <div class="payment-detail-number">${fmt(m.total)}</div>
-          <div class="payment-detail-number">${m.pct.toFixed(1)}%</div>
+          <div class="payment-detail-number">${fmt(m.gross)}</div>
+          <div class="payment-detail-number">${m.grossPct.toFixed(1)}%</div>
         </div>
       `).join("")}
       ${d.unidentifiedCount>0?`
         <div class="payment-detail-row" style="background:#FEE2E2;padding-left:6px;padding-right:6px;border-radius:8px;">
           <div class="payment-detail-name" style="color:var(--red);">⚠️ Sin método identificado</div>
           <div class="payment-detail-number" style="color:var(--red);">${d.unidentifiedCount}</div>
-          <div class="payment-detail-number" style="color:var(--red);">${fmt(d.unidentifiedTotal)}</div>
-          <div class="payment-detail-number" style="color:var(--red);">${d.total>0?(d.unidentifiedTotal/d.total*100).toFixed(1):"0.0"}%</div>
+          <div class="payment-detail-number" style="color:var(--red);">${fmt(d.unidentifiedGross)}</div>
+          <div class="payment-detail-number" style="color:var(--red);">${d.grossTotal>0?(d.unidentifiedGross/d.grossTotal*100).toFixed(1):"0.0"}%</div>
         </div>
       `:""}
     </div>
