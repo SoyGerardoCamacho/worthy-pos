@@ -346,29 +346,55 @@ body.modal-open { overflow: hidden; }
 .tax-summary {
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:8px;
-  margin-top:10px;
+  gap:10px;
+  margin-top:16px;
 }
 .tax-summary-item {
   min-width:0;
-  border-radius:10px;
-  padding:9px 8px;
-  background:var(--lavender-light);
+  min-height:74px;
+  border-radius:8px;
+  padding:12px 10px;
+  background:linear-gradient(135deg, var(--purple) 0%, #49368A 100%);
+  box-shadow:0 10px 22px rgba(45,27,105,.13);
   text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
 }
-.tax-summary.dark .tax-summary-item { background:rgba(255,255,255,.12); }
+.tax-summary-item:nth-child(2) {
+  background:linear-gradient(135deg, #D6C9EE 0%, #EEE6FF 100%);
+}
+.tax-summary-item.total {
+  background:linear-gradient(135deg, var(--lime) 0%, #A4D94F 100%);
+}
+.tax-summary.dark .tax-summary-item,
+.tax-summary.dark .tax-summary-item:nth-child(2),
+.tax-summary.dark .tax-summary-item.total {
+  background:linear-gradient(135deg, #2D1B69 0%, #49368A 100%);
+  box-shadow:0 12px 26px rgba(21,10,61,.22);
+}
 .tax-summary-label {
-  font-size:9px;
-  font-weight:800;
-  color:var(--gray);
+  font-size:10.5px;
+  font-weight:900;
+  color:rgba(255,255,255,.82);
   text-transform:uppercase;
-  letter-spacing:.55px;
+  letter-spacing:.45px;
+  line-height:1.15;
 }
-.tax-summary.dark .tax-summary-label { color:var(--lavender); }
-.tax-summary-value { font-size:15px;font-weight:900;color:var(--purple);margin-top:2px; }
-.tax-summary.dark .tax-summary-value { color:white; }
-.tax-summary-item.total .tax-summary-value { color:var(--lime-dark); }
-.tax-summary.dark .tax-summary-item.total .tax-summary-value { color:var(--lime); }
+.tax-summary.dark .tax-summary-label { color:rgba(255,255,255,.86); }
+.tax-summary-value { font-size:18px;font-weight:900;color:white;margin-top:7px;line-height:1; }
+.tax-summary-item:nth-child(2) .tax-summary-label,
+.tax-summary-item.total .tax-summary-label { color:rgba(45,27,105,.72); }
+.tax-summary.dark .tax-summary-item:nth-child(2) .tax-summary-label,
+.tax-summary.dark .tax-summary-item.total .tax-summary-label { color:rgba(255,255,255,.86); }
+.tax-summary-item:nth-child(2) .tax-summary-value,
+.tax-summary-item.total .tax-summary-value { color:var(--purple); }
+.tax-summary.dark .tax-summary-value,
+.tax-summary.dark .tax-summary-item:nth-child(2) .tax-summary-value,
+.tax-summary.dark .tax-summary-item.total .tax-summary-value {
+  color:var(--lime);
+}
 .analytics-grid {
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -416,9 +442,10 @@ body.modal-open { overflow: hidden; }
   .sales-chart-inner { height:260px; }
 }
 @media (max-width: 420px) {
-  .tax-summary { gap:5px; }
-  .tax-summary-item { padding:8px 4px; }
-  .tax-summary-value { font-size:13px; }
+  .tax-summary { gap:7px; margin-top:14px; }
+  .tax-summary-item { min-height:72px; padding:10px 6px; }
+  .tax-summary-label { font-size:9.5px; letter-spacing:.3px; }
+  .tax-summary-value { font-size:17px; margin-top:6px; }
   .chart-wrap { height:260px; }
   .sales-chart-inner { height:270px; }
   .sales-chart-legend { font-size:10px; }
@@ -747,11 +774,11 @@ button {
 
 .tax-summary-item {
   border-radius:8px;
-  border:1px solid rgba(214,201,238,.55);
+  border:0;
 }
 
 .tax-summary.dark .tax-summary-item {
-  border-color:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.12);
 }
 
 .bottom-nav {
@@ -872,6 +899,15 @@ body {
 .alert-card {
   background:rgba(255,255,255,.96);
   backdrop-filter:blur(8px);
+}
+
+.card.card-purple {
+  background:linear-gradient(135deg, #2D1B69 0%, #3C2780 100%);
+  color:white;
+}
+
+.card.card-purple .section-title {
+  color:var(--lavender);
 }
 
 @keyframes worthySpin {
@@ -2983,18 +3019,13 @@ function renderAdminDashboard() {
   </div>`:""}
 
   <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
       <div>
-        <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">
+        <div style="font-size:12px;color:var(--lavender);font-weight:900;letter-spacing:1.2px;text-transform:uppercase;">
           ${state.inicioStand==="all"?"Ventas consolidadas":PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name} · ${periodLabel}
         </div>
-        <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(periodTotal)}</div>
-        <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${periodTx} transacciones · Ticket promedio ${fmt(avgTicket)}</div>
+        <div style="font-size:44px;font-weight:900;color:var(--lime);margin-top:8px;line-height:1;">${fmt(periodTotal)}</div>
       </div>
-      ${state.inicioPeriod==="hoy"&&(yestTotal>0||periodTotal>0)?`<div style="text-align:right;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.12);">
-        <div style="font-size:18px;font-weight:900;color:${pctChange>=0?"var(--lime)":"var(--red)"};">${pctChange>=0?"▲":"▼"} ${Math.abs(pctChange).toFixed(0)}%</div>
-        <div style="font-size:9px;color:var(--lavender);">vs. ayer</div>
-      </div>`:""}
     </div>
     ${renderTaxSummary(periodGross,true)}
   </div>
