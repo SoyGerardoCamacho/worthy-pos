@@ -1802,9 +1802,14 @@ function renderPYG(d) {
 }
 
 function renderMargenSKU(filteredSales) {
-  // Acumular ventas/COGS por producto (expandiendo rutinas a sus componentes para COGS,
-  // pero el margen de la rutina se reporta sobre la fila de la rutina misma)
-  const bySku = {};
+  const skuRows = {};
+  const rutinas = {};
+  const productLabel = (id, fallback) => {
+    const p = CATALOG.find(c=>c.id===id);
+    if (p) return `${p.ref || p.id} · ${p.name} ${p.sub}`;
+    return fallback || id || "SKU";
+  };
+
   filteredSales.filter(sale=>!sale.obsequio).forEach(sale=>{
     const saleItems = sale.items||[];
     // Distribuye descuentos proporcionalmente entre los SKU para que la suma
@@ -1814,18 +1819,44 @@ function renderMargenSKU(filteredSales) {
     const netFactor = grossItemsTotal>0 ? netSaleTotal/grossItemsTotal : 0;
 
     saleItems.forEach(item=>{
-      const key = item.isRutina ? ("RUTINA:"+(item.ref||item.name)) : item.id;
-      if(!bySku[key]) bySku[key] = { name:item.name, qty:0, ventas:0, cogs:0, isRutina:!!item.isRutina };
-      bySku[key].qty += item.qty;
-      bySku[key].ventas += Number(item.subtotal||0) * netFactor;
       if (item.isRutina && item.rutinaItems) {
-        item.rutinaItems.forEach(ri=>{ bySku[key].cogs += (getCost(ri.id)||0)*(ri.q||0)*(item.qty||0); });
+        const rutinaId = item.ref || item.rutinaId || item.name;
+        const rutinaInfo = RUTINAS.find(r=>r.id===rutinaId);
+        const key = rutinaId || item.name;
+        if(!rutinas[key]) {
+          rutinas[key] = {
+            id:key,
+            name:rutinaInfo ? `${rutinaInfo.id} · ${rutinaInfo.name}` : item.name,
+            qty:0,
+            ventas:0,
+            cogs:0,
+            components:{}
+          };
+        }
+        rutinas[key].qty += Number(item.qty||0);
+        rutinas[key].ventas += Number(item.subtotal||0) * netFactor;
+        item.rutinaItems.forEach(ri=>{
+          const units = Number(ri.q||0) * Number(item.qty||0);
+          const componentCost = (getCost(ri.id)||0) * units;
+          rutinas[key].cogs += componentCost;
+          if(!rutinas[key].components[ri.id]) {
+            rutinas[key].components[ri.id] = { id:ri.id, name:productLabel(ri.id), qty:0, cogs:0 };
+          }
+          rutinas[key].components[ri.id].qty += units;
+          rutinas[key].components[ri.id].cogs += componentCost;
+        });
       } else {
-        bySku[key].cogs += (getCost(item.id)||0)*item.qty;
+        const key = item.id || item.name;
+        if(!skuRows[key]) skuRows[key] = { id:key, name:productLabel(item.id, item.name), qty:0, ventas:0, cogs:0 };
+        skuRows[key].qty += Number(item.qty||0);
+        skuRows[key].ventas += Number(item.subtotal||0) * netFactor;
+        skuRows[key].cogs += (getCost(item.id)||0) * Number(item.qty||0);
       }
     });
   });
-  let rows = Object.values(bySku).sort((a,b)=>b.ventas-a.ventas);
+
+  let individuales = Object.values(skuRows).sort((a,b)=>b.ventas-a.ventas);
+  let rutinasRows = Object.values(rutinas).sort((a,b)=>b.ventas-a.ventas);
 
   // Control contable: la columna Ventas debe coincidir exactamente con el ingreso neto
   // usado en Ventas y P&G para el mismo filtro. Corrige residuos de redondeo o datos
@@ -1833,17 +1864,19 @@ function renderMargenSKU(filteredSales) {
   const ingresoNetoEsperado = filteredSales
     .filter(sale=>!sale.obsequio)
     .reduce((sum,sale)=>sum+saleNet(sale),0);
-  const ingresoSkuCalculado = rows.reduce((sum,r)=>sum+Number(r.ventas||0),0);
+  const ingresoSkuCalculado = individuales.reduce((sum,r)=>sum+Number(r.ventas||0),0) +
+    rutinasRows.reduce((sum,r)=>sum+Number(r.ventas||0),0);
   const diferenciaVentas = ingresoNetoEsperado - ingresoSkuCalculado;
-  if (rows.length && Math.abs(diferenciaVentas) > 0.000001) {
-    rows[0].ventas += diferenciaVentas;
+  if (Math.abs(diferenciaVentas) > 0.000001) {
+    if (individuales.length) individuales[0].ventas += diferenciaVentas;
+    else if (rutinasRows.length) rutinasRows[0].ventas += diferenciaVentas;
   }
 
-  rows = rows.map(r=>{
+  const calculateRow = r => {
     const ventasSinIva = Number(r.ventas||0);
     const iva = ventasSinIva * IVA_RATE;
     const totalCobrado = ventasSinIva + iva;
-    const margen = ventasSinIva-r.cogs;
+    const margen = ventasSinIva - Number(r.cogs||0);
     return {
       ...r,
       ventasSinIva,
@@ -1852,21 +1885,97 @@ function renderMargenSKU(filteredSales) {
       margen,
       margenPct:ventasSinIva>0?(margen/ventasSinIva*100):0
     };
+  };
+  individuales = individuales.map(calculateRow).sort((a,b)=>b.ventas-a.ventas);
+  rutinasRows = rutinasRows.map(r=>{
+    const calculated = calculateRow(r);
+    calculated.components = Object.values(r.components||{}).sort((a,b)=>b.qty-a.qty);
+    return calculated;
   }).sort((a,b)=>b.ventas-a.ventas);
+
+  const sumRows = rows => {
+    const ventasSinIva = rows.reduce((s,r)=>s+Number(r.ventasSinIva||0),0);
+    const iva = rows.reduce((s,r)=>s+Number(r.iva||0),0);
+    const totalCobrado = rows.reduce((s,r)=>s+Number(r.totalCobrado||0),0);
+    const cogs = rows.reduce((s,r)=>s+Number(r.cogs||0),0);
+    const margen = ventasSinIva - cogs;
+    return {
+      qty: rows.reduce((s,r)=>s+Number(r.qty||0),0),
+      ventasSinIva,
+      iva,
+      totalCobrado,
+      cogs,
+      margen,
+      margenPct: ventasSinIva>0 ? (margen/ventasSinIva*100) : 0
+    };
+  };
+  const subtotalSku = sumRows(individuales);
+  const subtotalRutinas = sumRows(rutinasRows);
 
   const totalVentas = ingresoNetoEsperado;
   const totalIva = totalVentas * IVA_RATE;
   const totalCobrado = totalVentas + totalIva;
-  const totalCogs = rows.reduce((s,r)=>s+r.cogs,0);
+  const totalCogs = subtotalSku.cogs + subtotalRutinas.cogs;
   const totalMargen = totalVentas-totalCogs;
+  const granTotal = {
+    qty: subtotalSku.qty + subtotalRutinas.qty,
+    ventasSinIva: totalVentas,
+    iva: totalIva,
+    totalCobrado,
+    cogs: totalCogs,
+    margen: totalMargen,
+    margenPct: totalVentas>0?(totalMargen/totalVentas*100):0
+  };
 
-  if(rows.length===0) return `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`;
+  if(individuales.length===0 && rutinasRows.length===0) return `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`;
+
+  const moneyCell = value => `<td style="text-align:right;padding:7px 6px;font-weight:800;color:var(--purple);">${fmt(value)}</td>`;
+  const mutedMoneyCell = value => `<td style="text-align:right;padding:7px 6px;color:var(--gray);">${fmt(value)}</td>`;
+  const marginCell = value => `<td style="text-align:right;padding:7px 6px;font-weight:900;color:${value>=0?"var(--lime-dark)":"var(--red)"};">${fmt(value)}</td>`;
+  const pctCell = value => `<td style="text-align:right;padding:7px 6px;font-weight:800;color:${value>=0?"var(--purple)":"var(--red)"};">${value.toFixed(0)}%</td>`;
+  const dataRow = (r, icon="") => `<tr style="border-bottom:1px solid var(--lavender-light);">
+    <td style="padding:7px 6px;font-weight:800;color:var(--purple);">${icon}${r.name}</td>
+    <td style="text-align:center;padding:7px 6px;font-weight:800;color:var(--gray);">${r.qty}</td>
+    ${moneyCell(r.ventasSinIva)}
+    ${mutedMoneyCell(r.iva)}
+    ${moneyCell(r.totalCobrado)}
+    ${mutedMoneyCell(r.cogs)}
+    ${marginCell(r.margen)}
+    ${pctCell(r.margenPct)}
+  </tr>`;
+  const subtotalRow = (label, total, kind="subtotal") => {
+    const isGrand = kind === "grand";
+    const bg = isGrand ? "var(--purple)" : "var(--lavender-light)";
+    const fg = isGrand ? "var(--white)" : "var(--purple)";
+    const valueFg = isGrand ? "var(--lime)" : "var(--purple)";
+    return `<tr style="background:${bg};border-top:2px solid var(--purple);">
+      <td style="padding:9px 6px;font-weight:900;color:${fg};">${label}</td>
+      <td style="text-align:center;padding:9px 6px;font-weight:900;color:${fg};">${total.qty}</td>
+      <td style="text-align:right;padding:9px 6px;font-weight:900;color:${valueFg};">${fmt(total.ventasSinIva)}</td>
+      <td style="text-align:right;padding:9px 6px;font-weight:900;color:${fg};">${fmt(total.iva)}</td>
+      <td style="text-align:right;padding:9px 6px;font-weight:900;color:${valueFg};">${fmt(total.totalCobrado)}</td>
+      <td style="text-align:right;padding:9px 6px;font-weight:900;color:${fg};">${fmt(total.cogs)}</td>
+      <td style="text-align:right;padding:9px 6px;font-weight:900;color:${isGrand ? (total.margen>=0?"var(--lime)":"#FCA5A5") : (total.margen>=0?"var(--lime-dark)":"var(--red)")};">${fmt(total.margen)}</td>
+      <td style="text-align:right;padding:9px 6px;font-weight:900;color:${fg};">${total.margenPct.toFixed(0)}%</td>
+    </tr>`;
+  };
+  const sectionRow = label => `<tr><td colspan="8" style="padding:10px 8px;background:var(--purple);color:var(--white);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">${label}</td></tr>`;
+  const componentRow = c => `<tr style="border-bottom:1px solid var(--lavender-light);background:#FBFAFF;">
+    <td style="padding:6px 6px 6px 24px;color:var(--gray);font-weight:700;">SKU incluido: ${c.name}</td>
+    <td style="text-align:center;padding:6px;color:var(--purple);font-weight:800;">${c.qty}</td>
+    <td style="text-align:right;padding:6px;color:var(--gray);">-</td>
+    <td style="text-align:right;padding:6px;color:var(--gray);">-</td>
+    <td style="text-align:right;padding:6px;color:var(--gray);">-</td>
+    <td style="text-align:right;padding:6px;color:var(--gray);">${fmt(c.cogs)}</td>
+    <td style="text-align:right;padding:6px;color:var(--gray);">-</td>
+    <td style="text-align:right;padding:6px;color:var(--gray);">-</td>
+  </tr>`;
 
   return `
   <div class="card">
     <div class="section-title">Margen por SKU/Rutina</div>
     <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:680px;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:820px;">
         <thead>
           <tr style="border-bottom:2px solid var(--lavender);">
             <th style="text-align:left;padding:6px 4px;color:var(--gray);font-weight:700;">Producto</th>
@@ -1880,28 +1989,11 @@ function renderMargenSKU(filteredSales) {
           </tr>
         </thead>
         <tbody>
-          ${rows.map(r=>`<tr style="border-bottom:1px solid var(--lavender-light);">
-            <td style="padding:6px 4px;font-weight:700;color:var(--purple);">${r.isRutina?"⭐ ":""}${r.name}</td>
-            <td style="text-align:center;padding:6px 4px;color:var(--gray);">${r.qty}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.ventasSinIva)}</td>
-            <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.iva)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.totalCobrado)}</td>
-            <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.cogs)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:${r.margen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(r.margen)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:700;color:${r.margenPct>=0?"var(--gray)":"var(--red)"};">${r.margenPct.toFixed(0)}%</td>
-          </tr>`).join("")}
+          ${individuales.length ? `${sectionRow("SKU individuales sin rutina")}${individuales.map(r=>dataRow(r)).join("")}${subtotalRow("Subtotal SKU individuales", subtotalSku)}` : ""}
+          ${rutinasRows.length ? `${sectionRow("Rutinas")}${rutinasRows.map(r=>`${dataRow(r, "⭐ ")}${r.components.map(componentRow).join("")}`).join("")}${subtotalRow("Subtotal rutinas", subtotalRutinas)}` : ""}
         </tbody>
         <tfoot>
-          <tr style="border-top:2px solid var(--purple);">
-            <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Total</td>
-            <td></td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalVentas)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalIva)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalCobrado)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalCogs)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:${totalMargen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(totalMargen)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${totalVentas>0?(totalMargen/totalVentas*100).toFixed(0):0}%</td>
-          </tr>
+          ${subtotalRow("Gran total", granTotal, "grand")}
         </tfoot>
       </table>
     </div>
