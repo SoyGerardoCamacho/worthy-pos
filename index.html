@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2080,14 +2081,61 @@ let state = {
 };
 
 // ─── RENDER ───────────────────────────────────────────────────
-function exportToExcel() {
+async function getCollectionRows(collectionName) {
+  const snap = await db.collection(collectionName).get();
+  return snap.docs.map(doc=>({ _docId: doc.id, ...(doc.data()||{}) }));
+}
+
+function sheetFromObjects(rows, headers) {
+  const data = [headers.map(h=>h.label)];
+  rows.forEach(row=>{
+    data.push(headers.map(h=>{
+      const value = typeof h.value === "function" ? h.value(row) : row[h.key];
+      if (Array.isArray(value)) return value.join("; ");
+      if (value && typeof value === "object") return JSON.stringify(value);
+      return value ?? "";
+    }));
+  });
+  return XLSX.utils.aoa_to_sheet(data);
+}
+
+async function exportToExcel() {
   try {
+    showToast("Preparando backup completo...");
+
+    const [ventas, inventarios, kardexRows, gastosRows, cierresRows, despachosRows, costosDoc, preciosDoc] = await Promise.all([
+      getCollectionRows("ventas"),
+      getCollectionRows("inventarios"),
+      getCollectionRows("kardex"),
+      getCollectionRows("gastos"),
+      getCollectionRows("cierres_caja"),
+      getCollectionRows("despachos"),
+      db.collection("config").doc("costos").get(),
+      db.collection("config").doc("precios").get(),
+    ]);
+
+    const costos = costosDoc.exists ? (costosDoc.data()||{}) : {};
+    const precios = preciosDoc.exists ? (preciosDoc.data()||{}) : {};
     const wb = XLSX.utils.book_new();
+
+    const metaData = [
+      ["Campo","Valor"],
+      ["Generado", new Date().toLocaleString("es-EC")],
+      ["Usuario", state.user?.email||""],
+      ["Ventas", ventas.length],
+      ["Inventarios", inventarios.length],
+      ["Kardex", kardexRows.length],
+      ["Gastos", gastosRows.length],
+      ["Cierres de caja", cierresRows.length],
+      ["Despachos", despachosRows.length],
+      ["Nota", "Backup completo consultado directamente desde Firebase"],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(metaData), "Resumen");
 
     // Hoja 1: Ventas
     const ventasData = [
-      ["ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago","Descuento%","Nota","Por"],
-      ...(state.ventas||state.sales||[]).map(v=>{
+      ["ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago","Descuento%","Obsequio","Histórica","Nota","Por","Editado por","Editado en"],
+      ...ventas.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))).map(v=>{
         const hora = v.timestamp ? new Date(v.timestamp).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : "";
         const subtotalSinIva = (v.total||0)/1.15;
         const iva = subtotalSinIva*0.15;
@@ -2100,8 +2148,12 @@ function exportToExcel() {
           v.total||0,
           PAYMENTS.find(p=>p.id===v.pago)?.label||v.pago||"",
           v.descuento||0,
+          v.obsequio ? "Sí" : "No",
+          v.historica ? "Sí" : "No",
           v.nota||"",
-          v.vendedor||""
+          v.vendedor||v.registradoPor||"",
+          v.editadoPor||"",
+          v.editadoEn||""
         ];
       })
     ];
@@ -2109,39 +2161,67 @@ function exportToExcel() {
     XLSX.utils.book_append_sheet(wb, wsVentas, "Ventas");
 
     // Hoja 2: Inventario
-    const invData = [["SKU","Nombre","Sub","Quicentro","San Francisco","Mercadito","Bodega","Precio PVP"]];
+    const invMap = {};
+    inventarios.forEach(inv=>{ invMap[inv._docId] = inv; });
+    const invData = [["SKU","Nombre","Sub","Quicentro","San Francisco","Mercadito","Oficina","Bodega","Precio PVP","Costo"]];
     CATALOG.forEach(p=>{
       invData.push([
         p.ref, p.name, p.sub,
-        state.inventory["quicentro"]?.[p.id]||0,
-        state.inventory["sanfrancisco"]?.[p.id]||0,
-        state.inventory["mercadito"]?.[p.id]||0,
-        state.inventory["bodega"]?.[p.id]||0,
-        p.price
+        invMap["quicentro"]?.[p.id]||0,
+        invMap["sanfrancisco"]?.[p.id]||0,
+        invMap["mercadito"]?.[p.id]||0,
+        invMap["oficina"]?.[p.id]||0,
+        invMap["bodega"]?.[p.id]||0,
+        precios[p.id] ?? p.price,
+        costos[p.id] ?? ""
       ]);
     });
     const wsInv = XLSX.utils.aoa_to_sheet(invData);
     XLSX.utils.book_append_sheet(wb, wsInv, "Inventario");
 
     // Hoja 3: Kardex
-    const kardexData = [["ID","Fecha","Hora","Tipo","Producto","Cantidad","Stock Anterior","Stock Nuevo","Lote","Nota","Por"]];
-    (state.kardexMovements||[]).forEach(m=>{
+    const kardexData = [["ID","Doc ID","Fecha","Hora","Tipo","Producto","Cantidad","Stock Anterior","Stock Nuevo","Stand","Destino","Lote","Nota","Por"]];
+    kardexRows.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))).forEach(m=>{
       const hora = m.timestamp ? new Date(m.timestamp).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : "";
       const p = CATALOG.find(c=>c.id===m.product);
       kardexData.push([
-        m.id, m.fecha, hora,
+        m.id, m._docId, m.fecha, hora,
         m.type?.toUpperCase()||"",
         p ? `${p.name} ${p.sub}` : m.product,
         m.qty, m.stockAnterior||"", m.stockNuevo||"",
+        m.standId||"", m.to||"",
         m.lote||"", m.obs||"", m.registradoPor||""
       ]);
     });
     const wsKardex = XLSX.utils.aoa_to_sheet(kardexData);
     XLSX.utils.book_append_sheet(wb, wsKardex, "Kardex");
 
+    XLSX.utils.book_append_sheet(wb, sheetFromObjects(gastosRows.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))), [
+      {label:"ID", key:"id"}, {label:"Doc ID", key:"_docId"}, {label:"Fecha", key:"fecha"}, {label:"Timestamp", key:"timestamp"},
+      {label:"Stand", key:"stand"}, {label:"Categoría", key:"cat"}, {label:"Monto", key:"monto"}, {label:"Nota", key:"nota"},
+      {label:"Registrado por", key:"registradoPor"}, {label:"Editado por", key:"editadoPor"}, {label:"Editado en", key:"editadoEn"}
+    ]), "Gastos");
+
+    XLSX.utils.book_append_sheet(wb, sheetFromObjects(cierresRows.sort((a,b)=>String(a.fecha||"").localeCompare(String(b.fecha||""))), [
+      {label:"ID", key:"id"}, {label:"Doc ID", key:"_docId"}, {label:"Stand", key:"stand"}, {label:"Fecha", key:"fecha"},
+      {label:"Efectivo inicial", key:"efectivoInicial"}, {label:"Efectivo final", key:"efectivoFinal"},
+      {label:"Bendo banco", key:"bendoBanco"}, {label:"Transfer banco", key:"transferBanco"},
+      {label:"Nota", key:"nota"}, {label:"Cerrado por", key:"cerradoPor"}, {label:"Cerrado en", key:"cerradoEn"}
+    ]), "Cierres Caja");
+
+    XLSX.utils.book_append_sheet(wb, sheetFromObjects(despachosRows.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))), [
+      {label:"Doc ID", key:"_docId"}, {label:"Fecha", key:"fecha"}, {label:"Timestamp", key:"timestamp"}, {label:"Producto", key:"product"},
+      {label:"Producto nombre", key:"productName"}, {label:"Cantidad", key:"qty"}, {label:"Desde", key:"from"}, {label:"Hacia", key:"to"}
+    ]), "Despachos");
+
+    const preciosCostosData = [["SKU","Nombre","Sub","Precio actual","Costo actual"]];
+    CATALOG.forEach(p=>preciosCostosData.push([p.ref,p.name,p.sub,precios[p.id] ?? p.price,costos[p.id] ?? ""]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(preciosCostosData), "Precios Costos");
+
     const fecha = today().replace(/-/g,"");
-    XLSX.writeFile(wb, `WORTHY_POS_Backup_${fecha}.xlsx`);
-    showToast("✅ Excel descargado correctamente");
+    const hora = new Date().toTimeString().slice(0,5).replace(":","");
+    XLSX.writeFile(wb, `WORTHY_POS_Backup_COMPLETO_${fecha}_${hora}.xlsx`);
+    showToast("✅ Backup completo descargado");
   } catch(e) {
     showToast("⚠️ Error al exportar: "+e.message,"err");
   }
