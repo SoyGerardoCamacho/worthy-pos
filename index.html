@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -686,25 +685,29 @@ function getComisionRate(pagoId) {
 // Incluye ventas históricas porque usan la misma colección state.sales.
 function getPaymentConsolidado(sales) {
   const rows = (sales||[]).filter(s=>!s.obsequio && Number(s.total||0)>0);
-  const total = rows.reduce((sum,s)=>sum+Number(s.total||0),0);
+  const grossTotal = salesGrossTotal(rows);
+  const total = salesNetTotal(rows);
 
   const methods = PAYMENTS.map(pt=>{
     const methodRows = rows.filter(s=>s.pago===pt.id);
-    const amount = methodRows.reduce((sum,s)=>sum+Number(s.total||0),0);
-    const commission = methodRows.reduce((sum,s)=>sum+Number(s.total||0)*getComisionRate(s.pago),0);
+    const gross = salesGrossTotal(methodRows);
+    const amount = salesNetTotal(methodRows);
+    const commission = methodRows.reduce((sum,s)=>sum+saleGross(s)*getComisionRate(s.pago),0);
     return {
       ...pt,
       total: amount,
+      gross,
       count: methodRows.length,
       commission,
-      net: amount-commission,
+      net: gross-commission,
       pct: total>0 ? amount/total*100 : 0
     };
   });
 
   const knownIds = new Set(PAYMENTS.map(p=>p.id));
   const unidentifiedRows = rows.filter(s=>!knownIds.has(s.pago));
-  const unidentifiedTotal = unidentifiedRows.reduce((sum,s)=>sum+Number(s.total||0),0);
+  const unidentifiedTotal = salesNetTotal(unidentifiedRows);
+  const unidentifiedGross = salesGrossTotal(unidentifiedRows);
 
   const groupMeta = {
     efectivo:      { icon:"💵", label:"Efectivo" },
@@ -715,6 +718,7 @@ function getPaymentConsolidado(sales) {
   const groups = PAYMENT_GROUPS.map(g=>{
     const groupMethods = methods.filter(m=>m.group===g.id);
     const amount = groupMethods.reduce((sum,m)=>sum+m.total,0);
+    const gross = groupMethods.reduce((sum,m)=>sum+m.gross,0);
     const count = groupMethods.reduce((sum,m)=>sum+m.count,0);
     const commission = groupMethods.reduce((sum,m)=>sum+m.commission,0);
     return {
@@ -722,24 +726,27 @@ function getPaymentConsolidado(sales) {
       label:groupMeta[g.id]?.label||g.label,
       icon:groupMeta[g.id]?.icon||"💰",
       total:amount,
+      gross,
       count,
       commission,
-      net:amount-commission,
+      net:gross-commission,
       pct:total>0 ? amount/total*100 : 0
     };
   });
 
-  const tax = getTaxBreakdown(total);
+  const tax = getTaxBreakdown(grossTotal);
   return {
     total,
+    grossTotal,
     sinIva:tax.sinIva,
     iva:tax.iva,
     count:rows.length,
     methods,
     groups,
     unidentifiedTotal,
+    unidentifiedGross,
     unidentifiedCount:unidentifiedRows.length,
-    accountedTotal:methods.reduce((sum,m)=>sum+m.total,0)+unidentifiedTotal
+    accountedTotal:methods.reduce((sum,m)=>sum+m.gross,0)+unidentifiedGross
   };
 }
 
@@ -753,10 +760,10 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
         <div style="font-size:11px;color:var(--gray);">Incluye ventas normales e históricas del filtro seleccionado</div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:10px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.7px;">Total cobrado</div>
+        <div style="font-size:10px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.7px;">Ventas sin IVA</div>
         <div style="font-size:24px;font-weight:900;color:var(--purple);">${fmt(d.total)}</div>
         <div style="font-size:11px;color:var(--gray);">${d.count} transacciones</div>
-        <div style="font-size:10px;color:var(--gray);margin-top:3px;">Sin IVA ${fmt(d.sinIva)} · IVA ${fmt(d.iva)}</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:3px;">IVA ${fmt(d.iva)} · Total cobrado ${fmt(d.grossTotal)}</div>
       </div>
     </div>
 
@@ -766,10 +773,10 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
           <div class="ps-label">${g.icon} ${g.label}</div>
           <div class="ps-value">${fmt(g.total)}</div>
           <div class="ps-meta">${g.count} tx · ${g.pct.toFixed(1)}% del total</div>
-          <div class="ps-meta">Sin IVA ${fmt(getTaxBreakdown(g.total).sinIva)} · IVA ${fmt(getTaxBreakdown(g.total).iva)}</div>
+          <div class="ps-meta">IVA ${fmt(getTaxBreakdown(g.gross).iva)} · Total cobrado ${fmt(g.gross)}</div>
           ${g.id==="bendo"&&g.total>0?`
             <div class="ps-meta">Comisión estimada: -${fmt(g.commission)}</div>
-            <div class="ps-meta"><strong>Neto esperado: ${fmt(g.net)}</strong></div>
+            <div class="ps-meta"><strong>Neto banco esperado: ${fmt(g.net)}</strong></div>
           `:""}
         </div>
       `).join("")}
@@ -777,7 +784,7 @@ function renderPaymentConsolidado(sales, title="Consolidado por medio de pago") 
 
     <div style="margin-top:14px;">
       <div class="payment-detail-row payment-detail-head">
-        <div>Método</div><div style="text-align:right;">Tx</div><div style="text-align:right;">Valor</div><div style="text-align:right;">%</div>
+        <div>Método</div><div style="text-align:right;">Tx</div><div style="text-align:right;">Sin IVA</div><div style="text-align:right;">%</div>
       </div>
       ${d.methods.map(m=>`
         <div class="payment-detail-row">
@@ -948,6 +955,19 @@ function getTaxBreakdown(totalConIva) {
   return { sinIva, iva, total };
 }
 
+const saleGross = sale => Number(sale?.total||0);
+const saleNet = sale => getTaxBreakdown(saleGross(sale)).sinIva;
+const salesGrossTotal = sales => (sales||[]).reduce((sum,sale)=>sum+saleGross(sale),0);
+const salesNetTotal = sales => (sales||[]).reduce((sum,sale)=>sum+saleNet(sale),0);
+
+function renderSalesTaxDetail(totalConIva, dark=false) {
+  const t = getTaxBreakdown(totalConIva);
+  const color = dark ? "var(--lavender)" : "var(--gray)";
+  return `<div style="font-size:11px;color:${color};line-height:1.35;margin-top:4px;">
+    Sin IVA ${fmt(t.sinIva)} · IVA ${fmt(t.iva)} · Total cobrado ${fmt(t.total)}
+  </div>`;
+}
+
 function renderTaxSummary(totalConIva, dark=false) {
   const t = getTaxBreakdown(totalConIva);
   return `<div class="tax-summary ${dark?"dark":""}">
@@ -986,7 +1006,7 @@ function getSalesComposition(sales) {
       const line = Number(item.subtotal);
       return sum + (Number.isFinite(line) ? line : Number(item.price||0)*Number(item.qty||0));
     },0);
-    const saleFactor = grossItems>0 ? Number(sale.total||0)/grossItems : 1;
+    const saleFactor = grossItems>0 ? saleNet(sale)/grossItems : 1;
 
     items.forEach(item=>{
       const lineGrossRaw = Number(item.subtotal);
@@ -1174,7 +1194,7 @@ function getWeeklyBreakdown(salesForStand, from, to) {
     const toIso = dateToIsoLocal(wEnd);
     const total = salesForStand
       .filter(s=>s.fecha>=fromIso && s.fecha<=toIso && s.fecha>=from && s.fecha<=to)
-      .reduce((sum,v)=>sum+Number(v.total),0);
+      .reduce((sum,v)=>sum+saleNet(v),0);
     weeks.push({
       label:["SEM",`${formatDayMonth(wStart)}–${formatDayMonth(wEnd)}`],
       total,
@@ -1197,7 +1217,7 @@ function getDailyBreakdown(salesForStand, from, to, aggregateAfterDays=120) {
 
   const totalsByDate = {};
   salesForStand.forEach(s=>{
-    if(s.fecha>=from && s.fecha<=to) totalsByDate[s.fecha]=(totalsByDate[s.fecha]||0)+Number(s.total||0);
+    if(s.fecha>=from && s.fecha<=to) totalsByDate[s.fecha]=(totalsByDate[s.fecha]||0)+saleNet(s);
   });
 
   const days = [];
@@ -1268,7 +1288,7 @@ function getInicioTrend() {
   if (state.inicioStand === "all") {
     // Comparacion entre puntos de venta
     return PUNTOS_VENTA.map(st=>{
-      const total = state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id).reduce((s,v)=>s+Number(v.total),0);
+      const total = salesNetTotal(state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id));
       return { label: st.id==="oficina"?"🏢 "+st.name:st.name, total };
     });
   }
@@ -1276,7 +1296,7 @@ function getInicioTrend() {
   const salesForStand = state.sales.filter(s=>s.stand===state.inicioStand);
 
   if (state.inicioPeriod === "hoy") {
-    const total = salesForStand.filter(s=>s.fecha===from).reduce((s,v)=>s+Number(v.total),0);
+    const total = salesNetTotal(salesForStand.filter(s=>s.fecha===from));
     const label = new Date(from+"T12:00:00").toLocaleDateString("es-EC",{day:"2-digit",month:"2-digit"});
     return [{ label, total }];
   }
@@ -1346,7 +1366,7 @@ function renderFinanzas() {
   const filteredSales = state.sales.filter(s=>inFinRange(s.fecha) && (state.finStore==="all" || s.stand===state.finStore));
   const filteredGastos = (state.gastos||[]).filter(g=>inFinRange(g.fecha) && (state.finStore==="all" || g.stand===state.finStore));
 
-  const ventasTotal = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const ventasTotal = salesGrossTotal(filteredSales);
   const ventasTax = getTaxBreakdown(ventasTotal);
   const ventas = ventasTax.sinIva;
   const ivaVentas = ventasTax.iva;
@@ -1447,7 +1467,7 @@ function renderMargenSKU(filteredSales) {
     // Distribuye descuentos proporcionalmente entre los SKU para que la suma
     // de Margen por SKU coincida exactamente con el ingreso neto de la venta.
     const grossItemsTotal = saleItems.reduce((sum,item)=>sum+Number(item.subtotal||0),0);
-    const netSaleTotal = Number(sale.total||0);
+    const netSaleTotal = saleNet(sale);
     const netFactor = grossItemsTotal>0 ? netSaleTotal/grossItemsTotal : 0;
 
     saleItems.forEach(item=>{
@@ -1469,7 +1489,7 @@ function renderMargenSKU(filteredSales) {
   // históricos cuyo subtotal por ítem no coincida perfectamente con el total cobrado.
   const ingresoNetoEsperado = filteredSales
     .filter(sale=>!sale.obsequio)
-    .reduce((sum,sale)=>sum+Number(sale.total||0),0);
+    .reduce((sum,sale)=>sum+saleNet(sale),0);
   const ingresoSkuCalculado = rows.reduce((sum,r)=>sum+Number(r.ventas||0),0);
   const diferenciaVentas = ingresoNetoEsperado - ingresoSkuCalculado;
   if (rows.length && Math.abs(diferenciaVentas) > 0.000001) {
@@ -1477,21 +1497,25 @@ function renderMargenSKU(filteredSales) {
   }
 
   rows = rows.map(r=>{
-    const tax = getTaxBreakdown(r.ventas);
-    const margen = tax.sinIva-r.cogs;
+    const ventasSinIva = Number(r.ventas||0);
+    const iva = ventasSinIva * IVA_RATE;
+    const totalCobrado = ventasSinIva + iva;
+    const margen = ventasSinIva-r.cogs;
     return {
       ...r,
-      ventasSinIva:tax.sinIva,
-      iva:tax.iva,
+      ventasSinIva,
+      iva,
+      totalCobrado,
       margen,
-      margenPct:tax.sinIva>0?(margen/tax.sinIva*100):0
+      margenPct:ventasSinIva>0?(margen/ventasSinIva*100):0
     };
   }).sort((a,b)=>b.ventas-a.ventas);
 
   const totalVentas = ingresoNetoEsperado;
-  const totalTax = getTaxBreakdown(totalVentas);
+  const totalIva = totalVentas * IVA_RATE;
+  const totalCobrado = totalVentas + totalIva;
   const totalCogs = rows.reduce((s,r)=>s+r.cogs,0);
-  const totalMargen = totalTax.sinIva-totalCogs;
+  const totalMargen = totalVentas-totalCogs;
 
   if(rows.length===0) return `<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`;
 
@@ -1518,7 +1542,7 @@ function renderMargenSKU(filteredSales) {
             <td style="text-align:center;padding:6px 4px;color:var(--gray);">${r.qty}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.ventasSinIva)}</td>
             <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.iva)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.ventas)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:700;color:var(--purple);">${fmt(r.totalCobrado)}</td>
             <td style="text-align:right;padding:6px 4px;color:var(--gray);">${fmt(r.cogs)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:900;color:${r.margen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(r.margen)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:700;color:${r.margenPct>=0?"var(--gray)":"var(--red)"};">${r.margenPct.toFixed(0)}%</td>
@@ -1528,12 +1552,12 @@ function renderMargenSKU(filteredSales) {
           <tr style="border-top:2px solid var(--purple);">
             <td style="padding:6px 4px;font-weight:800;color:var(--purple);">Total</td>
             <td></td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalTax.sinIva)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalTax.iva)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalVentas)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalIva)}</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${fmt(totalCobrado)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:800;color:var(--gray);">${fmt(totalCogs)}</td>
             <td style="text-align:right;padding:6px 4px;font-weight:900;color:${totalMargen>=0?"var(--lime-dark)":"var(--red)"};">${fmt(totalMargen)}</td>
-            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${totalTax.sinIva>0?(totalMargen/totalTax.sinIva*100).toFixed(0):0}%</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:900;color:var(--purple);">${totalVentas>0?(totalMargen/totalVentas*100).toFixed(0):0}%</td>
           </tr>
         </tfoot>
       </table>
@@ -1794,8 +1818,9 @@ function renderHistoricoArchivo() {
       ${rows.slice(0,30).map(v=>`<div style="border-bottom:1px solid var(--lavender-light);padding:8px 0;">
         <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--purple);">
           <span>${v.id} · ${fmtDate(v.fecha)} · ${PUNTOS_VENTA.find(p=>p.id===v.stand)?.name||v.stand}</span>
-          <span>${fmt(v.total)}</span>
+          <span>${fmt(getTaxBreakdown(v.total).sinIva)}</span>
         </div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px;">IVA ${fmt(getTaxBreakdown(v.total).iva)} · Total cobrado ${fmt(v.total)}</div>
         <div style="font-size:11px;color:var(--gray);margin-top:2px;">
           ${v.items.map(i=>`${i.name} ×${i.qty}`).join(" · ")} · ${PAYMENTS.find(p=>p.id===v.pago)?.label||v.pago}
         </div>
@@ -1878,7 +1903,7 @@ function renderCaja() {
   </div>
 
   <div class="card card-purple" style="margin-top:12px;padding:16px;">
-    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Ventas del sistema · ${fmtDate(fecha)}</div>
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Total cobrado del sistema · ${fmtDate(fecha)}</div>
     <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(esp.totalVentas)}</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${esp.txCount} transacciones</div>
     ${renderTaxSummary(esp.totalVentas,true)}
@@ -2025,6 +2050,17 @@ let state = {
   kxEditLote: "",
   kxEditObs: "",
   kxEditSaving: false,
+  // Materias primas y materiales
+  materials: [],
+  materialNombre: "",
+  materialCategoria: "materia_prima",
+  materialUnidad: "unidad",
+  materialStock: "",
+  materialMinimo: "",
+  materialCosto: "",
+  materialNota: "",
+  materialSaving: false,
+  editingMaterial: null,
   // Finanzas
   gastos: [],
   finPeriod: "today",
@@ -2062,6 +2098,7 @@ let state = {
   evEditSaving: false,
   unsubInventory: null,
   unsubSales: null,
+  unsubMaterials: null,
   // Carga de ventas historicas
   histCart: [],
   histCustomPrices: {},
@@ -2103,13 +2140,14 @@ async function exportToExcel() {
   try {
     showToast("Preparando backup completo...");
 
-    const [ventas, inventarios, kardexRows, gastosRows, cierresRows, despachosRows, costosDoc, preciosDoc] = await Promise.all([
+    const [ventas, inventarios, kardexRows, gastosRows, cierresRows, despachosRows, materiasRows, costosDoc, preciosDoc] = await Promise.all([
       getCollectionRows("ventas"),
       getCollectionRows("inventarios"),
       getCollectionRows("kardex"),
       getCollectionRows("gastos"),
       getCollectionRows("cierres_caja"),
       getCollectionRows("despachos"),
+      getCollectionRows("materias_primas"),
       db.collection("config").doc("costos").get(),
       db.collection("config").doc("precios").get(),
     ]);
@@ -2128,6 +2166,7 @@ async function exportToExcel() {
       ["Gastos", gastosRows.length],
       ["Cierres de caja", cierresRows.length],
       ["Despachos", despachosRows.length],
+      ["Materias primas y materiales", materiasRows.length],
       ["Nota", "Backup completo consultado directamente desde Firebase"],
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(metaData), "Resumen");
@@ -2213,6 +2252,13 @@ async function exportToExcel() {
       {label:"Doc ID", key:"_docId"}, {label:"Fecha", key:"fecha"}, {label:"Timestamp", key:"timestamp"}, {label:"Producto", key:"product"},
       {label:"Producto nombre", key:"productName"}, {label:"Cantidad", key:"qty"}, {label:"Desde", key:"from"}, {label:"Hacia", key:"to"}
     ]), "Despachos");
+
+    XLSX.utils.book_append_sheet(wb, sheetFromObjects(materiasRows.sort((a,b)=>String(a.nombre||"").localeCompare(String(b.nombre||""))), [
+      {label:"ID", key:"id"}, {label:"Doc ID", key:"_docId"}, {label:"Nombre", key:"nombre"}, {label:"Categoría", key:"categoria"},
+      {label:"Unidad", key:"unidad"}, {label:"Stock", key:"stock"}, {label:"Stock mínimo", key:"minimo"},
+      {label:"Costo unitario", key:"costoUnitario"}, {label:"Valor stock", value:m=>Number(m.stock||0)*Number(m.costoUnitario||0)},
+      {label:"Nota", key:"nota"}, {label:"Actualizado por", key:"actualizadoPor"}, {label:"Actualizado en", key:"actualizadoEn"}
+    ]), "Materiales");
 
     const preciosCostosData = [["SKU","Nombre","Sub","Precio actual","Costo actual"]];
     CATALOG.forEach(p=>preciosCostosData.push([p.ref,p.name,p.sub,precios[p.id] ?? p.price,costos[p.id] ?? ""]));
@@ -2359,7 +2405,7 @@ function bindLogin() {
 // ─── MAIN APP ─────────────────────────────────────────────────
 function renderApp() {
   const u = state.userInfo;
-  const todayTotal = state.sales.filter(s=>s.fecha===today()).reduce((s,v)=>s+Number(v.total),0);
+  const todayTotal = salesNetTotal(state.sales.filter(s=>s.fecha===today()));
   const tabs = getTabsForRole(u.role);
 
   return `
@@ -2409,6 +2455,7 @@ function getTabsForRole(role) {
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"inventario",icon:"📦",label:"Bodega"},
+    {id:"materiales",icon:"🧾",label:"Materiales"},
     {id:"despachar",icon:"🚚",label:"Despachar"},
     {id:"kardex",icon:"📒",label:"Kardex"},
     {id:"cambiar",icon:"🔄",label:"Cambiar"},
@@ -2420,6 +2467,7 @@ function getTabsForRole(role) {
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"inventario",icon:"📦",label:"Stock"},
+    {id:"materiales",icon:"🧾",label:"Materiales"},
     {id:"bodega",icon:"🏭",label:"Bodega"},
     {id:"kardex",icon:"📒",label:"Kardex"},
     ...(u.canFinanzas?[{id:"finanzas",icon:"💰",label:"Finanzas"}]:[]),
@@ -2460,6 +2508,7 @@ function renderTab() {
     case "dashboard":  return (role==="admin"||role==="full") ? renderAdminDashboard() : role==="bodega" ? renderBodegaDashboard() : renderStandDashboard();
     case "pos":        return renderPOS();
     case "inventario": return renderInventario();
+    case "materiales": return (role==="full"||role==="bodega") ? renderMateriales() : "<p>No autorizado</p>";
     case "ventas":     return renderVentas();
     case "despachar":  return renderDespachar();
     case "bodega":     return renderAdminBodega();
@@ -2472,8 +2521,9 @@ function renderTab() {
 // ─── STAND DASHBOARD ─────────────────────────────────────────
 function renderStandDashboard() {
   const todaySales = state.sales.filter(s=>s.fecha===today());
-  const todayTotal = todaySales.reduce((s,v)=>s+Number(v.total),0);
-  const byPay = PAYMENTS.map(pt=>({...pt,t:todaySales.filter(s=>s.pago===pt.id).reduce((s,v)=>s+Number(v.total),0)}));
+  const todayGross = salesGrossTotal(todaySales);
+  const todayTotal = salesNetTotal(todaySales);
+  const byPay = PAYMENTS.map(pt=>({...pt,t:salesNetTotal(todaySales.filter(s=>s.pago===pt.id)),g:salesGrossTotal(todaySales.filter(s=>s.pago===pt.id))}));
   const last14 = getLastN(state.sales, 14);
   const chartLabels = JSON.stringify(last14.map(d=>d.label));
   const chartData = JSON.stringify(last14.map(d=>Number(d.total.toFixed(2))));
@@ -2492,11 +2542,12 @@ function renderStandDashboard() {
     <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Ventas hoy</div>
     <div style="font-size:40px;font-weight:900;color:var(--lime);margin-top:4px;line-height:1;">${fmt(todayTotal)}</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${todaySales.length} transacciones · Ticket promedio ${fmt(todaySales.length?todayTotal/todaySales.length:0)}</div>
-    ${renderTaxSummary(todayTotal,true)}
+    ${renderTaxSummary(todayGross,true)}
     <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
       ${byPay.filter(pt=>pt.t>0).map(pt=>`<div style="flex:1;min-width:70px;background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;">
         <div style="font-size:10px;color:var(--lavender);font-weight:600;">${pt.icon} ${pt.label}</div>
         <div style="font-size:13px;font-weight:800;color:white;margin-top:3px;">${fmt(pt.t)}</div>
+        <div style="font-size:9px;color:var(--lavender);margin-top:2px;">Cobrado ${fmt(pt.g)}</div>
       </div>`).join("")}
     </div>
   </div>
@@ -2504,7 +2555,7 @@ function renderStandDashboard() {
   ${renderPaymentConsolidado(todaySales, "Consolidado por medio de pago · Hoy")}
 
   <div class="card">
-    <div class="section-title">Tendencia · últimos 14 días</div>
+    <div class="section-title">Tendencia sin IVA · últimos 14 días</div>
     <div class="sales-chart-legend"><span class="sales-chart-legend-line"></span> Corte de semana: lunes a domingo</div>
     <div class="sales-chart-scroll">
       <div class="sales-chart-inner" style="min-width:${chartMinWidth}px;" data-trend-chart='${chartLabels}|||${chartData}|||${chartMeta}'>
@@ -2579,30 +2630,35 @@ function renderAdminDashboard() {
     : state.inicioPeriod==="todo" ? "Todo el histórico"
     : "Hoy";
 
-  const periodTotal = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const periodGross = salesGrossTotal(filteredSales);
+  const periodTotal = salesNetTotal(filteredSales);
   const periodTx = filteredSales.length;
   const avgTicket = periodTx>0 ? periodTotal/periodTx : 0;
 
   // Comparacion vs ayer (solo tiene sentido si periodo = hoy)
   const yestIso = (()=>{ const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
   const salesForStand = state.inicioStand==="all" ? state.sales : state.sales.filter(s=>s.stand===state.inicioStand);
-  const yestTotal = salesForStand.filter(s=>s.fecha===yestIso).reduce((s,v)=>s+Number(v.total),0);
+  const yestTotal = salesNetTotal(salesForStand.filter(s=>s.fecha===yestIso));
   const pctChange = yestTotal>0 ? ((periodTotal-yestTotal)/yestTotal*100) : (periodTotal>0?100:0);
 
   // Ventas por stand - segun filtro de periodo (todos los stands, independiente del filtro de stand)
   const standTotals = PUNTOS_VENTA.map(st=>{
     const stSales = state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id);
-    return { ...st, total: stSales.reduce((s,v)=>s+Number(v.total),0), count: stSales.length };
+    return { ...st, total: salesNetTotal(stSales), gross: salesGrossTotal(stSales), count: stSales.length };
   });
   const maxStand = Math.max(...standTotals.map(s=>s.total),1);
 
   // Ranking de productos (USD y unidades) - segun filtro
   const rankMap = {};
-  filteredSales.forEach(s=>s.items&&s.items.forEach(i=>{
+  filteredSales.forEach(s=>{
+    const grossItems = (s.items||[]).reduce((sum,i)=>sum+Number(i.subtotal||0),0);
+    const netFactor = grossItems>0 ? saleNet(s)/grossItems : 1;
+    s.items&&s.items.forEach(i=>{
     if(!rankMap[i.id]) rankMap[i.id] = { id:i.id, name:i.name, qty:0, total:0 };
     rankMap[i.id].qty += i.qty;
-    rankMap[i.id].total += i.subtotal;
-  }));
+    rankMap[i.id].total += Number(i.subtotal||0)*netFactor;
+  });
+  });
   const topByUsd = Object.values(rankMap).sort((a,b)=>b.total-a.total);
   const topByUnits = Object.values(rankMap).sort((a,b)=>b.qty-a.qty);
   const composition = getSalesComposition(filteredSales);
@@ -2656,7 +2712,7 @@ function renderAdminDashboard() {
         <div style="font-size:9px;color:var(--lavender);">vs. ayer</div>
       </div>`:""}
     </div>
-    ${renderTaxSummary(periodTotal,true)}
+    ${renderTaxSummary(periodGross,true)}
   </div>
 
   <div class="stats-grid">
@@ -2673,7 +2729,7 @@ function renderAdminDashboard() {
   </div>
 
   <div class="card">
-    <div class="section-title">${state.inicioStand==="all"?`Ventas por punto de venta · ${periodLabel}`:`Tendencia diaria · ${periodLabel} · ${PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name}`}</div>
+    <div class="section-title">${state.inicioStand==="all"?`Ventas sin IVA por punto de venta · ${periodLabel}`:`Tendencia diaria sin IVA · ${periodLabel} · ${PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name}`}</div>
     ${trendMetaObject.mode==="daily"?`<div class="sales-chart-legend"><span class="sales-chart-legend-line"></span> Cada línea separa una semana calendario · Lunes a domingo</div>`:""}
     <div class="sales-chart-scroll">
       <div class="sales-chart-inner" style="min-width:${trendMinWidth}px;" data-trend-chart='${trendLabels}|||${trendData}|||${trendMeta}'>
@@ -2683,22 +2739,22 @@ function renderAdminDashboard() {
   </div>
 
   <div class="analytics-grid">
-    ${renderDonutCard("productUsdChart",`Participación por producto · USD · ${periodLabel}`,composition.productsByUsd,"usd","currency","Cada porción muestra el porcentaje del valor total vendido por producto.")}
+    ${renderDonutCard("productUsdChart",`Participación por producto · USD sin IVA · ${periodLabel}`,composition.productsByUsd,"usd","currency","Cada porción muestra el porcentaje del valor vendido sin IVA por producto.")}
     ${renderDonutCard("productUnitsChart",`Participación por producto · Unidades · ${periodLabel}`,composition.productsByUnits,"units","units","Cada porción muestra el porcentaje de unidades vendidas por producto.")}
-    ${renderDonutCard("categoryUsdChart",`Participación por categoría · USD · ${periodLabel}`,composition.categories,"usd","currency","Agrupa Desodorantes, Tónicos, Óleos, Bálsamos y Shampoo.")}
+    ${renderDonutCard("categoryUsdChart",`Participación por categoría · USD sin IVA · ${periodLabel}`,composition.categories,"usd","currency","Agrupa Desodorantes, Tónicos, Óleos, Bálsamos y Shampoo sin IVA.")}
   </div>
 
   ${renderPaymentConsolidado(filteredSales, `Consolidado por medio de pago · ${periodLabel}`)}
 
   <div class="card">
-    <div class="section-title">Ventas por local · ${periodLabel}</div>
+    <div class="section-title">Ventas sin IVA por local · ${periodLabel}</div>
     ${standTotals.map(st=>`<div style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <div><span style="font-size:12px;font-weight:700;color:var(--purple);">${st.id==="oficina"?"🏢":"🏪"} ${st.name}</span>
         <span style="font-size:10px;color:var(--gray);"> · ${st.count} tx</span></div>
         <div style="text-align:right;">
           <span style="font-size:13px;font-weight:900;color:var(--purple);">${fmt(st.total)}</span>
-          <div style="font-size:9px;color:var(--gray);">Sin IVA ${fmt(getTaxBreakdown(st.total).sinIva)} · IVA ${fmt(getTaxBreakdown(st.total).iva)}</div>
+          <div style="font-size:9px;color:var(--gray);">IVA ${fmt(getTaxBreakdown(st.gross).iva)} · Total ${fmt(st.gross)}</div>
         </div>
       </div>
       <div style="height:8px;border-radius:8px;background:var(--lavender-light);overflow:hidden;">
@@ -2708,7 +2764,7 @@ function renderAdminDashboard() {
   </div>
 
   ${topByUsd.length>0?`<div class="card">
-    <div class="section-title">Ranking productos · ${periodLabel} · USD (${topByUsd.length})</div>
+    <div class="section-title">Ranking productos · ${periodLabel} · USD sin IVA (${topByUsd.length})</div>
     <div style="max-height:420px;overflow-y:auto;">
     ${topByUsd.map((r,idx)=>{const p=CATALOG.find(c=>c.id===r.id);const maxUsd=topByUsd[0].total;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
       <span style="font-size:11px;font-weight:800;color:var(--gray);min-width:14px;">${idx+1}</span>
@@ -2772,8 +2828,8 @@ function renderBarChart(canvasId) {
       datasets: [{
         label: 'Ventas',
         data,
-        backgroundColor: '#2D1B69',
-        borderColor: '#2D1B69',
+        backgroundColor: '#8DC63F',
+        borderColor: '#6fa030',
         borderWidth: 1,
         borderRadius: 6,
         maxBarThickness: dailyMode ? 30 : 44,
@@ -2794,7 +2850,7 @@ function renderBarChart(canvasId) {
               const label = items?.[0]?.label;
               return Array.isArray(label) ? label.join(' · ') : label;
             },
-            label(c){ return 'Ventas: $' + Number(c.parsed.y||0).toFixed(2); }
+            label(c){ return 'Ventas sin IVA: $' + Number(c.parsed.y||0).toFixed(2); }
           }
         },
         datalabels: undefined
@@ -2905,7 +2961,7 @@ function renderBarChart(canvasId) {
               if(val<=0) return;
               ctx.save();
               ctx.fillStyle = '#2D1B69';
-              ctx.font = '800 9px system-ui, sans-serif';
+              ctx.font = '800 10px system-ui, sans-serif';
               ctx.textAlign = 'center';
               ctx.fillText('$'+val.toFixed(0), bar.x, bar.y - 5);
               ctx.restore();
@@ -3175,6 +3231,81 @@ function renderPOS() {
 }
 
 // ─── INVENTARIO ──────────────────────────────────────────────
+function renderMateriales() {
+  const rows = [...(state.materials||[])].sort((a,b)=>String(a.nombre||"").localeCompare(String(b.nombre||"")));
+  const totalValue = rows.reduce((sum,m)=>sum+Number(m.stock||0)*Number(m.costoUnitario||0),0);
+  const lowRows = rows.filter(m=>Number(m.minimo||0)>0 && Number(m.stock||0)<=Number(m.minimo||0));
+
+  return `
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Materias primas y materiales</div>
+    <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(totalValue)}</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${rows.length} ítems registrados · valor estimado al costo</div>
+  </div>
+
+  ${lowRows.length>0?`<div class="alert-card alert-amber">
+    <div class="section-title">Stock bajo de materiales</div>
+    ${lowRows.map(m=>`<div class="alert-item alert-item-amber">${m.nombre} — ${Number(m.stock||0)} ${m.unidad||""} / mínimo ${Number(m.minimo||0)}</div>`).join("")}
+  </div>`:""}
+
+  <div class="card">
+    <div class="section-title">${state.editingMaterial?"Editar material":"Nuevo material"}</div>
+    <div class="dispatch-form">
+      <input type="text" class="dispatch-input" id="material-nombre" placeholder="Nombre del material" value="${state.materialNombre}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <select class="dispatch-select" id="material-categoria">
+          ${[
+            ["materia_prima","Materia prima"],
+            ["envase","Envase"],
+            ["etiqueta","Etiqueta"],
+            ["empaque","Empaque"],
+            ["insumo","Insumo"]
+          ].map(([id,label])=>`<option value="${id}" ${state.materialCategoria===id?"selected":""}>${label}</option>`).join("")}
+        </select>
+        <input type="text" class="dispatch-input" id="material-unidad" placeholder="Unidad: kg, g, ml, und" value="${state.materialUnidad}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <input type="number" class="dispatch-input" id="material-stock" min="0" step="0.01" placeholder="Stock" value="${state.materialStock}">
+        <input type="number" class="dispatch-input" id="material-minimo" min="0" step="0.01" placeholder="Mínimo" value="${state.materialMinimo}">
+        <input type="number" class="dispatch-input" id="material-costo" min="0" step="0.0001" placeholder="Costo unit." value="${state.materialCosto}">
+      </div>
+      <textarea id="material-nota" placeholder="Nota opcional">${state.materialNota}</textarea>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-lime" style="flex:1;" id="material-save-btn" ${state.materialSaving?"disabled":""}>${state.materialSaving?"Guardando...":state.editingMaterial?"Guardar cambios":"Agregar material"}</button>
+        ${state.editingMaterial?`<button class="btn-ghost" style="flex:1;" id="material-cancel-btn">Cancelar</button>`:""}
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Inventario de materiales (${rows.length})</div>
+  ${rows.length===0?`<div class="card" style="text-align:center;color:var(--gray);font-size:13px;">Aún no hay materiales registrados.</div>`:
+  rows.map(m=>{
+    const stock = Number(m.stock||0);
+    const minimo = Number(m.minimo||0);
+    const value = stock * Number(m.costoUnitario||0);
+    const level = minimo>0 && stock<=minimo ? "amber" : "green";
+    return `<div class="card" style="margin-bottom:8px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="font-size:20px;">🧾</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:800;color:var(--purple);">${m.nombre||"Material"}</div>
+          <div style="font-size:11px;color:var(--gray);">${m.categoria||"materia_prima"} · Costo ${fmt(m.costoUnitario||0)} / ${m.unidad||"unidad"}</div>
+          ${m.nota?`<div style="font-size:11px;color:var(--gray);margin-top:3px;">${m.nota}</div>`:""}
+        </div>
+        <div style="text-align:right;">
+          <span class="badge badge-${level}">${stock} ${m.unidad||""}</span>
+          <div style="font-size:11px;color:var(--gray);margin-top:4px;">Valor ${fmt(value)}</div>
+          ${minimo>0?`<div style="font-size:10px;color:var(--gray);">Mín. ${minimo}</div>`:""}
+        </div>
+      </div>
+      <div style="margin-top:8px;text-align:right;">
+        <button class="btn-ghost" data-material-edit="${m.id}" style="font-size:11px;padding:4px 10px;">Editar</button>
+      </div>
+    </div>`;
+  }).join("")}
+  `;
+}
+
 const GASTO_CATS = [
   { id:"arriendo",     label:"Arriendo",      icon:"🏢" },
   { id:"personal",     label:"Personal",      icon:"👥" },
@@ -3384,7 +3515,8 @@ function renderVentas() {
   let filteredSales = baseSales.filter(s=>s.fecha>=from && s.fecha<=to);
 
   filteredSales = [...filteredSales].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
-  const totalRev = filteredSales.reduce((s,v)=>s+Number(v.total),0);
+  const totalGross = salesGrossTotal(filteredSales);
+  const totalRev = salesNetTotal(filteredSales);
   const mesEspecificoLabel = (() => {
     const [y,m] = (state.ventasMesAno||"").split("-").map(Number);
     if(!y||!m) return "";
@@ -3442,11 +3574,11 @@ function renderVentas() {
     <div class="section-title" style="color:var(--lavender);margin-bottom:4px;">Ingresos · ${periodLabel}</div>
     <div style="font-size:30px;font-weight:900;color:var(--lime);">${fmt(totalRev)}</div>
     <div style="font-size:11px;color:var(--lavender);">${filteredSales.length} transacciones · Ticket promedio ${fmt(filteredSales.length?totalRev/filteredSales.length:0)}</div>
-    ${renderTaxSummary(totalRev,true)}
+    ${renderTaxSummary(totalGross,true)}
   </div>
 
   <div class="card" style="margin-bottom:12px;">
-    <div class="section-title">Ventas por ${breakdownMetaObject.mode==="daily"?"día":"semana calendario"} · ${periodLabel}</div>
+    <div class="section-title">Ventas sin IVA por ${breakdownMetaObject.mode==="daily"?"día":"semana calendario"} · ${periodLabel}</div>
     ${breakdownMetaObject.mode==="daily"?`<div class="sales-chart-legend"><span class="sales-chart-legend-line"></span> Cada línea separa una semana calendario · Lunes a domingo</div>`:""}
     <div class="sales-chart-scroll">
       <div class="sales-chart-inner" style="min-width:${breakdownMinWidth}px;" data-trend-chart='${breakdownLabels}|||${breakdownData}|||${breakdownMeta}'>
@@ -3518,8 +3650,8 @@ function renderVentas() {
           ${sale.nota?`<div class="sale-note">📝 ${sale.nota}</div>`:""}
         </div>
         <div style="text-align:right;margin-left:8px;">
-          <div class="sale-amount">${fmt(sale.total)}</div>
-          <div style="font-size:11px;color:var(--gray);text-align:right;margin-top:2px;">Sin IVA: ${fmt(getTaxBreakdown(sale.total).sinIva)}<br>IVA 15%: ${fmt(getTaxBreakdown(sale.total).iva)}<br>Total: ${fmt(sale.total)}</div>
+          <div class="sale-amount">${fmt(saleNet(sale))}</div>
+          <div style="font-size:11px;color:var(--gray);text-align:right;margin-top:2px;">IVA 15%: ${fmt(getTaxBreakdown(sale.total).iva)}<br>Total cobrado: ${fmt(sale.total)}</div>
           <span class="badge badge-${sale.obsequio?"lime":sale.pago==="efectivo"?"green":PAYMENTS.find(p=>p.id===sale.pago)?.group==="bendo"?"purple":"amber"}">
             ${sale.obsequio?"🎁 Obsequio":`${PAYMENTS.find(p=>p.id===sale.pago)?.icon||""} ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago}`}
           </span>
@@ -3866,7 +3998,7 @@ function getLastN(sales, n) {
       dayLetter:DAY_LETTERS[d.getDay()],
       isWeekStart:d.getDay()===1,
       weekLabel:getCalendarWeekLabel(d),
-      total: sales.filter(s=>s.fecha===iso).reduce((s,v)=>s+Number(v.total),0),
+      total: sales.filter(s=>s.fecha===iso).reduce((s,v)=>s+saleNet(v),0),
       isToday: iso===today()
     };
   });
@@ -4312,6 +4444,32 @@ function bindApp() {
     if(confirm("¿Eliminar este movimiento? Esto ajustará el inventario de bodega.")) {
       handleKardexEditDelete(e.target.dataset.id);
     }
+  });
+
+  // Materias primas y materiales
+  document.getElementById("material-nombre")?.addEventListener("input",e=>{ state.materialNombre=e.target.value; });
+  document.getElementById("material-categoria")?.addEventListener("change",e=>{ state.materialCategoria=e.target.value; });
+  document.getElementById("material-unidad")?.addEventListener("input",e=>{ state.materialUnidad=e.target.value; });
+  document.getElementById("material-stock")?.addEventListener("input",e=>{ state.materialStock=e.target.value; });
+  document.getElementById("material-minimo")?.addEventListener("input",e=>{ state.materialMinimo=e.target.value; });
+  document.getElementById("material-costo")?.addEventListener("input",e=>{ state.materialCosto=e.target.value; });
+  document.getElementById("material-nota")?.addEventListener("input",e=>{ state.materialNota=e.target.value; });
+  document.getElementById("material-save-btn")?.addEventListener("click",handleMaterialSave);
+  document.getElementById("material-cancel-btn")?.addEventListener("click",()=>{ resetMaterialForm(); render(); });
+  document.querySelectorAll("[data-material-edit]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const mat = (state.materials||[]).find(m=>m.id===btn.dataset.materialEdit);
+      if(!mat) return;
+      state.editingMaterial = mat.id;
+      state.materialNombre = mat.nombre||"";
+      state.materialCategoria = mat.categoria||"materia_prima";
+      state.materialUnidad = mat.unidad||"unidad";
+      state.materialStock = String(mat.stock ?? "");
+      state.materialMinimo = String(mat.minimo ?? "");
+      state.materialCosto = String(mat.costoUnitario ?? "");
+      state.materialNota = mat.nota||"";
+      render();
+    });
   });
 }
 
@@ -5022,6 +5180,53 @@ async function handleKardexEntrada() {
   }
 }
 
+function resetMaterialForm() {
+  state.editingMaterial = null;
+  state.materialNombre = "";
+  state.materialCategoria = "materia_prima";
+  state.materialUnidad = "unidad";
+  state.materialStock = "";
+  state.materialMinimo = "";
+  state.materialCosto = "";
+  state.materialNota = "";
+}
+
+async function handleMaterialSave() {
+  if (state.materialSaving) return;
+  const nombre = state.materialNombre.trim();
+  if (!nombre) { showToast("Ingresa el nombre del material","err"); return; }
+
+  const material = {
+    id: state.editingMaterial || genId(),
+    nombre,
+    categoria: state.materialCategoria || "materia_prima",
+    unidad: (state.materialUnidad || "unidad").trim(),
+    stock: parseFloat(state.materialStock)||0,
+    minimo: parseFloat(state.materialMinimo)||0,
+    costoUnitario: parseFloat(state.materialCosto)||0,
+    nota: state.materialNota.trim(),
+    actualizadoPor: state.user?.email||"",
+    actualizadoEn: new Date().toISOString(),
+  };
+
+  state.materialSaving = true; render();
+  try {
+    await db.collection("materias_primas").doc(material.id).set(material);
+    state.materials = [
+      material,
+      ...(state.materials||[]).filter(m=>m.id!==material.id)
+    ];
+    resetMaterialForm();
+    state.materialSaving = false;
+    showToast("✅ Material guardado");
+    render();
+  } catch(e) {
+    state.materialSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
 function showToast(msg, type="ok") {
   state.toast={msg,type};
   render();
@@ -5033,6 +5238,7 @@ function setupListeners(userInfo) {
   // Unsubscribe previous
   if(state.unsubInventory) state.unsubInventory();
   if(state.unsubSales) state.unsubSales();
+  if(state.unsubMaterials) state.unsubMaterials();
 
   // Listen to all inventories
   state.unsubInventory = db.collection("inventarios").onSnapshot(snap=>{
@@ -5067,6 +5273,13 @@ function setupListeners(userInfo) {
     render();
   });
 
+  if (userInfo.role==="full" || userInfo.role==="bodega") {
+    state.unsubMaterials = db.collection("materias_primas").onSnapshot(snap=>{
+      state.materials = snap.docs.map(doc=>({ ...(doc.data()||{}), id:doc.id }));
+      render();
+    });
+  }
+
   // Gastos operativos listener
   if (userInfo.canFinanzas) {
     db.collection("gastos").orderBy("timestamp","desc").limit(1000).onSnapshot(snap=>{
@@ -5098,8 +5311,9 @@ auth.onAuthStateChanged(user=>{
   } else {
     if(state.unsubInventory) state.unsubInventory();
     if(state.unsubSales) state.unsubSales();
+    if(state.unsubMaterials) state.unsubMaterials();
     state.user=null; state.userInfo=null;
-    state.inventory={}; state.sales=[];
+    state.inventory={}; state.sales=[]; state.materials=[];
     state.loading=false;
     render();
   }
