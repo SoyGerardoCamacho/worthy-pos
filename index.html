@@ -976,7 +976,8 @@ const db = firebase.firestore();
 // ─── USUARIOS DEL SISTEMA ────────────────────────────────────
 const USERS = {
   "admin@worthy.com":   { role:"admin",   name:"Administrador", emoji:"👑", canKardex:false, canSell:false, canBodega:false, canFinanzas:false },
-  "bodega@worthy.com":  { role:"bodega",  name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:false, canBodega:true,  canFinanzas:false },
+  "bodega@worthy.com":  { role:"full",    name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
+  "bodgas@worthy.com":  { role:"full",    name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "gerardo@worthy.com": { role:"full",    name:"Gerardo",       emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
@@ -1158,6 +1159,7 @@ const STANDS = [
   { id:"quicentro",    name:"Quicentro Norte" },
   { id:"sanfrancisco", name:"San Francisco" },
   { id:"mercadito",    name:"El Mercadito" },
+  { id:"parque_cumbaya", name:"Parque Cumbayá" },
 ];
 
 // Puntos de venta para el POS (incluye Oficina, que vende desde el inventario de Bodega Central)
@@ -1586,13 +1588,16 @@ function getTrendChartMeta(points) {
 
   const weekStarts = [];
   const weekLabels = [];
+  const weekTotals = [];
   points.forEach((p,index)=>{
     if(index===0 || p.isWeekStart) {
       weekStarts.push(index);
       weekLabels.push(p.weekLabel||"Semana");
+      weekTotals.push(0);
     }
+    weekTotals[weekTotals.length-1] += Number(p.total||0);
   });
-  return { mode:"daily", weekStarts, weekLabels };
+  return { mode:"daily", weekStarts, weekLabels, weekTotals };
 }
 
 function getTrendChartMinWidth(points) {
@@ -1678,6 +1683,14 @@ function getFinDateRange() {
     const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
     return { from: d2.toISOString().slice(0,10), to: todayIso };
   }
+  if (state.finPeriod === "monthSpecific") {
+    const [year, month] = (state.finMesAno||todayIso.slice(0,7)).split("-").map(Number);
+    if (year && month) {
+      const first = new Date(year, month-1, 1);
+      const last = new Date(year, month, 0);
+      return { from: dateToIsoLocal(first), to: dateToIsoLocal(last) };
+    }
+  }
   // "all"
   return { from: "0000-01-01", to: "9999-12-31" };
 }
@@ -1704,7 +1717,12 @@ function ventaCOGS(sale) {
 // ─── FINANZAS: P&G ─────────────────────────────────────────────
 function renderFinanzas() {
   const { from, to } = getFinDateRange();
-  const periodLabels = { today:"Hoy", week:`Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`, month:"Este mes (P&G mensual)", all:"Todo el histórico" };
+  const finMesLabel = (() => {
+    const [y,m] = (state.finMesAno||"").split("-").map(Number);
+    if(!y||!m) return "Mes elegido";
+    return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
+  })();
+  const periodLabels = { today:"Hoy", week:`Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`, month:"Este mes", monthSpecific:finMesLabel, all:"Todo el histórico" };
 
   const filteredSales = state.sales.filter(s=>inFinRange(s.fecha) && (state.finStore==="all" || s.stand===state.finStore));
   const filteredGastos = (state.gastos||[]).filter(g=>inFinRange(g.fecha) && (state.finStore==="all" || g.stand===state.finStore));
@@ -1728,9 +1746,12 @@ function renderFinanzas() {
     <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Información privada — Gerardo y Rosita</div>
   </div>
 
-  <div class="period-filter">
-    ${[["today","Hoy"],["week","7 días"],["month","Mes"],["all","Todo"]].map(([k,l])=>`<button class="period-btn ${state.finPeriod===k?"active":""}" data-fin-period="${k}">${l}</button>`).join("")}
+  <div class="period-filter" style="flex-wrap:wrap;">
+    ${[["today","Hoy"],["week","7 días"],["month","Mes actual"],["monthSpecific","📅 Mes"],["all","Todo"]].map(([k,l])=>`<button class="period-btn ${state.finPeriod===k?"active":""}" data-fin-period="${k}">${l}</button>`).join("")}
   </div>
+  ${state.finPeriod==="monthSpecific"?`<div class="card" style="margin-bottom:12px;padding:10px;">
+    <input type="month" class="dispatch-input" id="fin-mes" value="${state.finMesAno}" max="${today().slice(0,7)}">
+  </div>`:""}
 
   <div class="store-selector">
     ${[{id:"all",name:"Todos"},...PUNTOS_VENTA].map(s=>`<button class="store-btn ${state.finStore===s.id?"active":""}" data-fin-store="${s.id}">${s.name}</button>`).join("")}
@@ -1744,7 +1765,7 @@ function renderFinanzas() {
     <button class="filter-btn ${state.finTab==="historico"?"active":""}" data-fin-tab="historico">📜 Histórico</button>
   </div>
 
-  ${state.finTab==="pyg" ? renderPYG({ventas,ivaVentas,ventasTotal,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
+  ${state.finTab==="pyg" ? renderPYG({ventas,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
   ${state.finTab==="sku" ? renderMargenSKU(filteredSales) : ""}
   ${state.finTab==="gastos" ? renderGastosForm(filteredGastos) : ""}
   ${state.finTab==="caja" ? renderCaja() : ""}
@@ -1758,16 +1779,8 @@ function renderPYG(d) {
     <div class="section-title">${d.periodLabel} ${state.finStore==="all"?"· Todos los locales":"· "+PUNTOS_VENTA.find(s=>s.id===state.finStore)?.name}</div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
-      <span style="font-size:13px;font-weight:700;color:var(--purple);">Ventas sin IVA (ingreso real)</span>
+      <span style="font-size:13px;font-weight:700;color:var(--purple);">Ingresos por ventas</span>
       <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.ventas)}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
-      <span style="font-size:13px;font-weight:700;color:var(--gray);">IVA 15% cobrado</span>
-      <span style="font-size:14px;font-weight:800;color:var(--gray);">${fmt(d.ivaVentas)}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:2px solid var(--purple);">
-      <span style="font-size:13px;font-weight:800;color:var(--purple);">Ventas totales cobradas</span>
-      <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.ventasTotal)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
       <span style="font-size:13px;font-weight:700;color:var(--gray);">(–) Costo de productos vendidos</span>
@@ -1911,14 +1924,31 @@ function renderMargenSKU(filteredSales) {
   };
   const subtotalSku = sumRows(individuales);
   const subtotalRutinas = sumRows(rutinasRows);
+  const skuRutinaRows = {};
+  rutinasRows.forEach(r=>{
+    (r.components||[]).forEach(c=>{
+      if(!skuRutinaRows[c.id]) skuRutinaRows[c.id] = { id:c.id, name:c.name, qty:0, cogs:0 };
+      skuRutinaRows[c.id].qty += Number(c.qty||0);
+      skuRutinaRows[c.id].cogs += Number(c.cogs||0);
+    });
+  });
+  const subtotalSkuRutinas = {
+    qty: Object.values(skuRutinaRows).reduce((s,r)=>s+Number(r.qty||0),0),
+    ventasSinIva: 0,
+    iva: 0,
+    totalCobrado: 0,
+    cogs: Object.values(skuRutinaRows).reduce((s,r)=>s+Number(r.cogs||0),0),
+    margen: 0,
+    margenPct: 0
+  };
 
   const totalVentas = ingresoNetoEsperado;
   const totalIva = totalVentas * IVA_RATE;
   const totalCobrado = totalVentas + totalIva;
-  const totalCogs = subtotalSku.cogs + subtotalRutinas.cogs;
+  const totalCogs = subtotalSku.cogs + subtotalSkuRutinas.cogs;
   const totalMargen = totalVentas-totalCogs;
   const granTotal = {
-    qty: subtotalSku.qty + subtotalRutinas.qty,
+    qty: subtotalSku.qty + subtotalSkuRutinas.qty,
     ventasSinIva: totalVentas,
     iva: totalIva,
     totalCobrado,
@@ -1960,6 +1990,16 @@ function renderMargenSKU(filteredSales) {
     </tr>`;
   };
   const sectionRow = label => `<tr><td colspan="8" style="padding:10px 8px;background:var(--purple);color:var(--white);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">${label}</td></tr>`;
+  const movedSkuSubtotalRow = total => `<tr style="background:#FBFAFF;border-top:2px solid var(--lavender);">
+      <td style="padding:9px 6px;font-weight:900;color:var(--purple);">Subtotal SKU rotados dentro de rutinas</td>
+      <td style="text-align:center;padding:9px 6px;font-weight:900;color:var(--purple);">${total.qty}</td>
+      <td style="text-align:right;padding:9px 6px;color:var(--gray);">-</td>
+      <td style="text-align:right;padding:9px 6px;color:var(--gray);">-</td>
+      <td style="text-align:right;padding:9px 6px;color:var(--gray);">-</td>
+      <td style="text-align:right;padding:9px 6px;font-weight:900;color:var(--purple);">${fmt(total.cogs)}</td>
+      <td style="text-align:right;padding:9px 6px;color:var(--gray);">-</td>
+      <td style="text-align:right;padding:9px 6px;color:var(--gray);">-</td>
+    </tr>`;
   const componentRow = c => `<tr style="border-bottom:1px solid var(--lavender-light);background:#FBFAFF;">
     <td style="padding:6px 6px 6px 24px;color:var(--gray);font-weight:700;">SKU incluido: ${c.name}</td>
     <td style="text-align:center;padding:6px;color:var(--purple);font-weight:800;">${c.qty}</td>
@@ -1990,10 +2030,10 @@ function renderMargenSKU(filteredSales) {
         </thead>
         <tbody>
           ${individuales.length ? `${sectionRow("SKU individuales sin rutina")}${individuales.map(r=>dataRow(r)).join("")}${subtotalRow("Subtotal SKU individuales", subtotalSku)}` : ""}
-          ${rutinasRows.length ? `${sectionRow("Rutinas")}${rutinasRows.map(r=>`${dataRow(r, "⭐ ")}${r.components.map(componentRow).join("")}`).join("")}${subtotalRow("Subtotal rutinas", subtotalRutinas)}` : ""}
+          ${rutinasRows.length ? `${sectionRow("Rutinas")}${rutinasRows.map(r=>`${dataRow(r, "⭐ ")}${r.components.map(componentRow).join("")}`).join("")}${subtotalRow("Subtotal rutinas vendidas", subtotalRutinas)}${movedSkuSubtotalRow(subtotalSkuRutinas)}` : ""}
         </tbody>
         <tfoot>
-          ${subtotalRow("Gran total", granTotal, "grand")}
+          ${subtotalRow("Gran total SKU individuales + SKU rotados", granTotal, "grand")}
         </tfoot>
       </table>
     </div>
@@ -2228,7 +2268,7 @@ function renderHistoricoArchivo() {
       Una fila = un producto de una venta. Filas con el mismo <strong>venta_id</strong> se agrupan en una sola venta.<br>
       Columnas (en este orden, con encabezado):<br>
       <code>venta_id,fecha,punto_venta,producto_id,cantidad,precio_unitario,metodo_pago,descuento_pct</code><br><br>
-      <strong>punto_venta:</strong> quicentro / sanfrancisco / mercadito / oficina<br>
+      <strong>punto_venta:</strong> quicentro / sanfrancisco / mercadito / parque_cumbaya / oficina<br>
       <strong>metodo_pago:</strong> efectivo / td / tc / deuna / produbanco / pichincha<br>
       <strong>producto_id:</strong> SKU del catálogo (ej. WMO30, WLBN6...)<br>
       <strong>fecha:</strong> formato YYYY-MM-DD
@@ -2499,6 +2539,7 @@ let state = {
   // Finanzas
   gastos: [],
   finPeriod: "today",
+  finMesAno: today().slice(0,7),
   finStore: "quicentro",
   finTab: "pyg",
   gastoFecha: today(),
@@ -2637,14 +2678,11 @@ async function exportToExcel() {
     // Hoja 2: Inventario
     const invMap = {};
     inventarios.forEach(inv=>{ invMap[inv._docId] = inv; });
-    const invData = [["SKU","Nombre","Sub","Quicentro","San Francisco","Mercadito","Oficina","Bodega","Precio PVP","Costo"]];
+    const invData = [["SKU","Nombre","Sub",...PUNTOS_VENTA.map(s=>s.name),"Bodega","Precio PVP","Costo"]];
     CATALOG.forEach(p=>{
       invData.push([
         p.ref, p.name, p.sub,
-        invMap["quicentro"]?.[p.id]||0,
-        invMap["sanfrancisco"]?.[p.id]||0,
-        invMap["mercadito"]?.[p.id]||0,
-        invMap["oficina"]?.[p.id]||0,
+        ...PUNTOS_VENTA.map(s=>invMap[s.id]?.[p.id]||0),
         invMap["bodega"]?.[p.id]||0,
         precios[p.id] ?? p.price,
         costos[p.id] ?? ""
@@ -2843,6 +2881,12 @@ function bindLogin() {
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────
+function renderGlobalDownloadButton() {
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+    <button onclick="exportToExcel()" style="background:var(--purple);color:var(--lime);border:none;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(45,27,105,.18);">📥 Descargar toda la información</button>
+  </div>`;
+}
+
 function renderApp() {
   const u = state.userInfo;
   const todayTotal = salesNetTotal(state.sales.filter(s=>s.fecha===today()));
@@ -2864,6 +2908,7 @@ function renderApp() {
     </div>
 
     <div class="content">
+      ${renderGlobalDownloadButton()}
       ${renderTab()}
     </div>
 
@@ -3050,6 +3095,90 @@ function renderBodegaDashboard() {
   </div>`;
 }
 
+const DAILY_SALES_GOAL = 134;
+
+function countDaysInclusive(from, to) {
+  const start = new Date(from+"T12:00:00");
+  const end = new Date(to+"T12:00:00");
+  return Math.max(1, Math.round((end-start)/86400000)+1);
+}
+
+function salesNetForGoal(from, to, standId) {
+  return salesNetTotal(state.sales.filter(s=>
+    s.fecha>=from && s.fecha<=to &&
+    (standId==="all" || s.stand===standId)
+  ));
+}
+
+function getGoalProgressMetrics() {
+  const now = new Date(Date.now()-5*60*60*1000);
+  const todayIso = today();
+  const weekStart = dateToIsoLocal(getMonday(now));
+  const monthStart = dateToIsoLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+  const standId = state.inicioStand || "all";
+  const makeMetric = (label, from, to) => {
+    const days = countDaysInclusive(from, to);
+    const goal = DAILY_SALES_GOAL * days;
+    const real = salesNetForGoal(from, to, standId);
+    return { label, days, goal, real, pct: goal>0 ? (real/goal*100) : 0 };
+  };
+  return [
+    makeMetric("Diario", todayIso, todayIso),
+    makeMetric("Semana", weekStart, todayIso),
+    makeMetric("Mes acumulado", monthStart, todayIso),
+  ];
+}
+
+function renderGoalGauge(m) {
+  const pct = Number(m.pct||0);
+  const capped = Math.min(pct, 130);
+  const color = pct>=100 ? "#8DC63F" : pct>=75 ? "#F59E0B" : "#EF4444";
+  const status = pct>=100 ? "META" : pct>=75 ? "CERCA" : "ACELERAR";
+  const deg = Math.round(capped/130*360);
+  return `<div style="background:rgba(255,255,255,.96);border:1.5px solid var(--lavender);border-radius:14px;padding:14px;box-shadow:0 4px 14px rgba(45,27,105,.12);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
+      <div style="font-size:14px;color:var(--purple);font-weight:900;letter-spacing:.4px;text-transform:uppercase;">${m.label}</div>
+      <div style="font-size:11px;color:${color};font-weight:900;border:1.5px solid ${color};background:${pct>=100?"rgba(141,198,63,.12)":pct>=75?"rgba(245,158,11,.12)":"rgba(239,68,68,.10)"};border-radius:999px;padding:3px 8px;">${status}</div>
+    </div>
+    <div style="width:124px;height:124px;margin:0 auto;border-radius:50%;background:conic-gradient(${color} 0deg ${deg}deg, var(--lavender-light) ${deg}deg 360deg);padding:10px;position:relative;">
+      <div style="height:100%;border-radius:50%;background:var(--purple);display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px solid white;box-shadow:inset 0 0 0 1px rgba(200,184,232,.45);">
+        <div style="font-size:34px;line-height:1;font-weight:1000;color:${color};font-family:system-ui,sans-serif;">${pct.toFixed(0)}%</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px;">
+      <div>
+        <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">Real</div>
+        <div style="font-size:17px;color:var(--purple);font-weight:1000;">${fmt(m.real)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">Objetivo</div>
+        <div style="font-size:17px;color:var(--lime-dark);font-weight:1000;">${fmt(m.goal)}</div>
+      </div>
+    </div>
+    <div style="height:7px;background:var(--lavender-light);border-radius:99px;margin-top:10px;overflow:hidden;">
+      <div style="height:100%;width:${Math.min(pct,100).toFixed(0)}%;background:${color};border-radius:99px;"></div>
+    </div>
+    <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:8px;text-align:center;">Cuota ${fmt(DAILY_SALES_GOAL)} por día · ${m.days} día${m.days===1?"":"s"}</div>
+  </div>`;
+}
+
+function renderGoalProgressPanel() {
+  const metrics = getGoalProgressMetrics();
+  const standLabel = state.inicioStand==="all" ? "Todos los puntos" : (PUNTOS_VENTA.find(s=>s.id===state.inicioStand)?.name||state.inicioStand);
+  return `<div class="card" style="background:linear-gradient(135deg,var(--purple) 0%,#9504FB 100%);border:1px solid rgba(200,184,232,.55);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;">
+      <div>
+        <div class="section-title" style="color:#FFFFFF;margin-bottom:2px;font-size:15px;">Avance vs cuota</div>
+        <div style="font-size:13px;color:#F4EDFF;font-weight:800;">${standLabel} · ventas reales contra objetivo</div>
+      </div>
+      <div style="font-size:12px;color:var(--purple);font-weight:1000;background:var(--lime);border-radius:999px;padding:5px 9px;">SIN IVA</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;">
+      ${metrics.map(renderGoalGauge).join("")}
+    </div>
+  </div>`;
+}
+
 // ─── ADMIN DASHBOARD ─────────────────────────────────────────
 function renderAdminDashboard() {
   const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
@@ -3173,6 +3302,8 @@ function renderAdminDashboard() {
     </div>
   </div>
 
+  ${renderGoalProgressPanel()}
+
   <div class="analytics-grid">
     ${renderDonutCard("productUsdChart",`Participación por producto · USD sin IVA · ${periodLabel}`,composition.productsByUsd,"usd","currency","Cada porción muestra el porcentaje del valor vendido sin IVA por producto.")}
     ${renderDonutCard("productUnitsChart",`Participación por producto · Unidades · ${periodLabel}`,composition.productsByUnits,"units","units","Cada porción muestra el porcentaje de unidades vendidas por producto.")}
@@ -3252,8 +3383,8 @@ function renderBarChart(canvasId) {
   const dailyMode = chartMeta.mode === "daily";
   const weeklyMode = chartMeta.mode === "weekly";
   const smallScreen = window.innerWidth <= 420;
-  const showValueLabels = data.length <= 14;
-  const topPadding = dailyMode && chartMeta.weekStarts?.length>1 ? 46 : 28;
+  const showValueLabels = data.length <= 45;
+  const topPadding = dailyMode && chartMeta.weekStarts?.length>1 ? 60 : 34;
 
   if(canvas._chartInstance) canvas._chartInstance.destroy();
   canvas._chartInstance = new Chart(canvas, {
@@ -3366,7 +3497,7 @@ function renderBarChart(canvasId) {
             ctx.restore();
           });
 
-          // Encabezado de cada bloque semanal.
+          // Encabezado de cada bloque semanal con total sin IVA.
           chartMeta.weekStarts.forEach((startIndex,weekIndex)=>{
             const nextStart = chartMeta.weekStarts[weekIndex+1] ?? bars.length;
             const first = bars[startIndex];
@@ -3379,7 +3510,11 @@ function renderBarChart(canvasId) {
             ctx.font=`800 ${smallScreen?9:10}px system-ui, sans-serif`;
             ctx.textAlign='center';
             ctx.textBaseline='middle';
-            ctx.fillText(chartMeta.weekLabels?.[weekIndex]||'Semana',(left+right)/2,chartArea.top-20);
+            const center = (left+right)/2;
+            ctx.fillText(chartMeta.weekLabels?.[weekIndex]||'Semana',center,chartArea.top-34);
+            ctx.fillStyle='#6fa030';
+            ctx.font=`900 ${smallScreen?10:11}px system-ui, sans-serif`;
+            ctx.fillText('$'+Number(chartMeta.weekTotals?.[weekIndex]||0).toFixed(0),center,chartArea.top-19);
             ctx.restore();
           });
         }
@@ -3396,9 +3531,9 @@ function renderBarChart(canvasId) {
               if(val<=0) return;
               ctx.save();
               ctx.fillStyle = '#2D1B69';
-              ctx.font = '800 10px system-ui, sans-serif';
+              ctx.font = `900 ${smallScreen?11:12}px system-ui, sans-serif`;
               ctx.textAlign = 'center';
-              ctx.fillText('$'+val.toFixed(0), bar.x, bar.y - 5);
+              ctx.fillText('$'+val.toFixed(0), bar.x, bar.y - 6);
               ctx.restore();
             });
           });
@@ -3756,6 +3891,7 @@ const STOCK_POINTS = [
   { id:"quicentro",    name:"Quicentro Norte", emoji:"🏪" },
   { id:"sanfrancisco", name:"San Francisco",   emoji:"🏪" },
   { id:"mercadito",    name:"El Mercadito",    emoji:"🏪" },
+  { id:"parque_cumbaya", name:"Parque Cumbayá", emoji:"🏪" },
   { id:"bodega",       name:"Bodega Central",  emoji:"🏭" },
 ];
 
@@ -4647,6 +4783,7 @@ function bindApp() {
   document.querySelectorAll("[data-fin-period]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.finPeriod=btn.dataset.finPeriod; render(); });
   });
+  document.getElementById("fin-mes")?.addEventListener("change",e=>{ state.finMesAno=e.target.value; render(); });
   document.querySelectorAll("[data-fin-store]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.finStore=btn.dataset.finStore; render(); });
   });
@@ -5285,6 +5422,7 @@ function downloadHistTemplate() {
     "H001,2026-03-05,quicentro,WMO30,1,19.55,efectivo,0",
     "H001,2026-03-05,quicentro,WLBN6,2,5.95,efectivo,0",
     "H002,2026-03-05,mercadito,WHT80,1,27.75,deuna,0",
+    "H003,2026-03-05,parque_cumbaya,WDS30,1,9.50,efectivo,0",
   ].join("\n");
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
