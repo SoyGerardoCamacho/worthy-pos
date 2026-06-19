@@ -1681,7 +1681,7 @@ function getFinDateRange() {
   }
   if (state.finPeriod === "month") {
     const d2 = new Date(d.getFullYear(), d.getMonth(), 1);
-    return { from: d2.toISOString().slice(0,10), to: todayIso };
+    return { from: dateToIsoLocal(d2), to: todayIso };
   }
   if (state.finPeriod === "monthSpecific") {
     const [year, month] = (state.finMesAno||todayIso.slice(0,7)).split("-").map(Number);
@@ -1698,6 +1698,69 @@ function getFinDateRange() {
 function inFinRange(fecha) {
   const { from, to } = getFinDateRange();
   return fecha >= from && fecha <= to;
+}
+
+function iterateIsoDates(from, to) {
+  const dates = [];
+  const start = new Date(from+"T12:00:00");
+  const end = new Date(to+"T12:00:00");
+  let cursor = new Date(start);
+  while (cursor <= end) {
+    dates.push(dateToIsoLocal(cursor));
+    cursor.setDate(cursor.getDate()+1);
+  }
+  return dates;
+}
+
+function getQuicentroMonthlyRentBase(dateIso) {
+  if (dateIso >= "2026-07-01") return 800;
+  if (dateIso >= "2026-06-01") return 1100;
+  return 1100;
+}
+
+function clampAutoCostRange(from, to) {
+  const min = "2026-06-01";
+  const max = today();
+  const safeFrom = from < min ? min : from;
+  const safeTo = to > max ? max : to;
+  if (safeFrom > safeTo) return null;
+  return { from:safeFrom, to:safeTo };
+}
+
+function getAutomaticRentForRange(from, to, store) {
+  if (store !== "all" && store !== "quicentro") return 0;
+  const safeFrom = from < "2026-06-01" ? "2026-06-01" : from;
+  if (safeFrom > to) return 0;
+  return iterateIsoDates(safeFrom,to).reduce((sum,iso)=>{
+    const [y,m] = iso.split("-").map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    return sum + (getQuicentroMonthlyRentBase(iso) / daysInMonth);
+  },0);
+}
+
+function getSellerPayForRange(sales, from, to, store) {
+  const safe = clampAutoCostRange(from,to);
+  if (!safe) return { base:0, variable:0, total:0 };
+  const dates = iterateIsoDates(safe.from,safe.to);
+  const stores = store === "all" ? PUNTOS_VENTA.map(s=>s.id) : [store];
+  let base = 0;
+  let variable = 0;
+  stores.forEach(standId=>{
+    dates.forEach(iso=>{
+      const dayNet = salesNetTotal(sales.filter(s=>s.fecha===iso && s.stand===standId));
+      base += 15;
+      variable += Math.max(dayNet - 100, 0) * 0.10;
+    });
+  });
+  return { base, variable, total:base+variable };
+}
+
+function getAutomaticTransportForRange(from, to, store) {
+  const safe = clampAutoCostRange(from,to);
+  if (!safe) return 0;
+  const days = iterateIsoDates(safe.from,safe.to).length;
+  const storeCount = store === "all" ? PUNTOS_VENTA.length : 1;
+  return days * storeCount * 8;
 }
 
 // COGS de una venta: suma de (cantidad * costo unitario) de cada item, expandiendo rutinas
@@ -1722,7 +1785,7 @@ function renderFinanzas() {
     if(!y||!m) return "Mes elegido";
     return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
   })();
-  const periodLabels = { today:"Hoy", week:`Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`, month:"Este mes", monthSpecific:finMesLabel, all:"Todo el histórico" };
+  const periodLabels = { today:"Hoy", week:`Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`, month:`Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`, monthSpecific:finMesLabel, all:"Todo el histórico" };
 
   const filteredSales = state.sales.filter(s=>inFinRange(s.fecha) && (state.finStore==="all" || s.stand===state.finStore));
   const filteredGastos = (state.gastos||[]).filter(g=>inFinRange(g.fecha) && (state.finStore==="all" || g.stand===state.finStore));
@@ -1735,7 +1798,17 @@ function renderFinanzas() {
   const margenBruto = ventas - cogs;
   const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
 
-  const gastosByCat = GASTO_CATS.map(c=>({...c, total: filteredGastos.filter(g=>g.cat===c.id).reduce((s,g)=>s+Number(g.monto),0)}));
+  const autoRent = getAutomaticRentForRange(from, to, state.finStore);
+  const sellerPay = getSellerPayForRange(filteredSales, from, to, state.finStore);
+  const paymentInfo = getPaymentConsolidado(filteredSales);
+  const bankCommission = paymentInfo.groups.find(g=>g.id==="bendo")?.commission || 0;
+  const gastosByCat = GASTO_CATS.map(c=>{
+    let total = filteredGastos.filter(g=>g.cat===c.id).reduce((s,g)=>s+Number(g.monto),0);
+    if (c.id === "arriendo" && autoRent > 0) total = autoRent;
+    if (c.id === "personal") total += sellerPay.total;
+    if (c.id === "comisiones") total += bankCommission;
+    return {...c,total};
+  });
   const totalGastos = gastosByCat.reduce((s,c)=>s+c.total,0);
   const utilidadOperativa = margenBruto - totalGastos;
   const utilidadPct = ventas>0 ? (utilidadOperativa/ventas*100) : 0;
@@ -2510,6 +2583,7 @@ let state = {
   loading: true,
   toast: null,
   dispatching: false,
+  dispatchMode: "bodega_punto",
   dispatchProduct: "",
   dispatchQty: "",
   dispatchTarget: "quicentro",
@@ -2542,6 +2616,10 @@ let state = {
   finMesAno: today().slice(0,7),
   finStore: "quicentro",
   finTab: "pyg",
+  rentStore: "quicentro",
+  rentPeriod: "day",
+  rentRangoDesde: today(),
+  rentRangoHasta: today(),
   gastoFecha: today(),
   gastoStand: "quicentro",
   gastoCat: "arriendo",
@@ -2924,6 +3002,10 @@ function renderApp() {
   </div>`;
 }
 
+function canUseDespachos() {
+  return ["gerardo@worthy.com","rosita@worthy.com","bodega@worthy.com","bodgas@worthy.com"].includes((state.user?.email||"").toLowerCase());
+}
+
 function getTabsForRole(role) {
   const u = state.userInfo;
 
@@ -2941,18 +3023,20 @@ function getTabsForRole(role) {
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"inventario",icon:"📦",label:"Bodega"},
     {id:"materiales",icon:"🧾",label:"Materiales"},
-    {id:"despachar",icon:"🚚",label:"Despachar"},
+    {id:"despachar",icon:"🚚",label:"Despachos"},
     {id:"kardex",icon:"📒",label:"Kardex"},
     {id:"cambiar",icon:"🔄",label:"Cambiar"},
   ];
 
   // Full (gerardo, rosita) - todo
   if (role === "full") return [
+    ...(u.canFinanzas?[{id:"rentabilidad",icon:"📈",label:"Dashboard"}]:[]),
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"materiales",icon:"🧾",label:"Materiales"},
+    ...(canUseDespachos()?[{id:"despachar",icon:"🚚",label:"Despachos"}]:[]),
     {id:"bodega",icon:"🏭",label:"Bodega"},
     {id:"kardex",icon:"📒",label:"Kardex"},
     ...(u.canFinanzas?[{id:"finanzas",icon:"💰",label:"Finanzas"}]:[]),
@@ -2995,10 +3079,11 @@ function renderTab() {
     case "inventario": return renderInventario();
     case "materiales": return (role==="full"||role==="bodega") ? renderMateriales() : "<p>No autorizado</p>";
     case "ventas":     return renderVentas();
-    case "despachar":  return renderDespachar();
+    case "despachar":  return canUseDespachos() ? renderDespachar() : "<p>No autorizado</p>";
     case "bodega":     return renderAdminBodega();
     case "kardex":     return renderKardex();
     case "finanzas":   return state.userInfo?.canFinanzas ? renderFinanzas() : "<p>No autorizado</p>";
+    case "rentabilidad": return state.userInfo?.canFinanzas ? renderRentabilidadDashboard() : "<p>No autorizado</p>";
     default:           return "<p>Tab no encontrado</p>";
   }
 }
@@ -3179,6 +3264,307 @@ function renderGoalProgressPanel() {
   </div>`;
 }
 
+const RENT_STAGES = [
+  { id:"riesgo", label:"Riesgo", min:0, max:77, color:"#D96C6C" },
+  { id:"equilibrio", label:"Equilibrio", min:78, max:91, color:"#E8C66A" },
+  { id:"crecimiento", label:"Crecimiento", min:92, max:119, color:"#DFA36B" },
+  { id:"consolidacion", label:"Consolidación", min:120, max:149, color:"#A8DCAB" },
+  { id:"escalabilidad", label:"Escalabilidad", min:150, max:999999, color:"#39FF14" },
+];
+
+function getRentStage(value, days=1, thresholds=null) {
+  if (thresholds) {
+    return thresholds.find(s=>value >= s.min && value <= s.max) || thresholds[0];
+  }
+  const safeDays = Math.max(1, days||1);
+  return RENT_STAGES.find(s=>value >= s.min*safeDays && value <= s.max*safeDays) || RENT_STAGES[0];
+}
+
+function buildDynamicRentStages(d) {
+  const days = Math.max(1, d.days||1);
+  const marginRate = d.ventas > 0 ? Math.max(d.margenBruto / d.ventas, 0.01) : 0.64;
+  const fixedToCover = Math.max(d.arriendo + d.sellerCommission + d.bankAndManualCommission, 0);
+  const breakEven = fixedToCover / marginRate;
+  const periodBreakEven = Math.max(breakEven, 78 * days);
+  return [
+    { id:"riesgo", label:"Riesgo", min:0, max:Math.max(periodBreakEven-0.01,0), color:"#D96C6C" },
+    { id:"equilibrio", label:"Equilibrio", min:periodBreakEven, max:periodBreakEven*1.15, color:"#E8C66A" },
+    { id:"crecimiento", label:"Crecimiento", min:periodBreakEven*1.15, max:periodBreakEven*1.50, color:"#DFA36B" },
+    { id:"consolidacion", label:"Consolidación", min:periodBreakEven*1.50, max:periodBreakEven*1.90, color:"#A8DCAB" },
+    { id:"escalabilidad", label:"Escalabilidad", min:periodBreakEven*1.90, max:999999999, color:"#39FF14" },
+  ];
+}
+
+function getMonthToDateRange() {
+  const now = new Date(Date.now()-5*60*60*1000);
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  return {
+    from: dateToIsoLocal(first),
+    to: today()
+  };
+}
+
+function getRentDateRange() {
+  const now = new Date(Date.now()-5*60*60*1000);
+  const todayIso = today();
+  if (state.rentPeriod === "week") {
+    return { from:dateToIsoLocal(getMonday(now)), to:todayIso };
+  }
+  if (state.rentPeriod === "month") return getMonthToDateRange();
+  if (state.rentPeriod === "range") {
+    const from = state.rentRangoDesde || todayIso;
+    const to = state.rentRangoHasta || todayIso;
+    return { from: from <= to ? from : to, to: from <= to ? to : from };
+  }
+  return { from:todayIso, to:todayIso };
+}
+
+function getRentFilteredSales(from, to, store) {
+  return state.sales.filter(s=>s.fecha>=from && s.fecha<=to && (store==="all" || s.stand===store));
+}
+
+function getRentFilteredGastos(from, to, store) {
+  return (state.gastos||[]).filter(g=>g.fecha>=from && g.fecha<=to && (store==="all" || g.stand===store));
+}
+
+function sumGastosByIds(gastos, ids) {
+  return gastos.filter(g=>ids.includes(g.cat)).reduce((s,g)=>s+Number(g.monto||0),0);
+}
+
+function getRentData() {
+  const store = state.rentStore || "quicentro";
+  const range = getRentDateRange();
+  const days = countDaysInclusive(range.from, range.to);
+  const rangeSales = getRentFilteredSales(range.from, range.to, store);
+  const rangeGastos = getRentFilteredGastos(range.from, range.to, store);
+  const ventas = salesNetTotal(rangeSales);
+  const cogs = rangeSales.reduce((s,v)=>s+ventaCOGS(v),0);
+  const margenBruto = ventas - cogs;
+  const payment = getPaymentConsolidado(rangeSales);
+  const bankCommission = payment.groups.find(g=>g.id==="bendo")?.commission || 0;
+  const sellerPay = getSellerPayForRange(rangeSales, range.from, range.to, store);
+  const autoRent = getAutomaticRentForRange(range.from, range.to, store);
+  const arriendo = autoRent > 0 ? autoRent : sumGastosByIds(rangeGastos, ["arriendo"]);
+  const atencion = 0;
+  const transporte = 0;
+  const sellerCommission = sellerPay.total;
+  const bankAndManualCommission = sumGastosByIds(rangeGastos, ["comisiones"]) + bankCommission;
+  const comisiones = sellerCommission + bankAndManualCommission;
+  const reinversion = cogs;
+  const gastosOperativos = arriendo + atencion + transporte + comisiones;
+  const utilidadOperativa = margenBruto - gastosOperativos;
+  const utilidadNeta = ventas - arriendo - atencion - transporte - comisiones - reinversion;
+  const data = {
+    store,
+    range,
+    days,
+    dailyValue: days>0 ? ventas/days : ventas,
+    periodValue: ventas,
+    ventas,
+    cogs,
+    margenBruto,
+    arriendo,
+    atencion,
+    transporte,
+    comisiones,
+    sellerBase: sellerPay.base,
+    sellerVariable: sellerPay.variable,
+    sellerCommission,
+    bankAndManualCommission,
+    reinversion,
+    gastosOperativos,
+    utilidadOperativa,
+    utilidadNeta,
+  };
+  const periodStages = buildDynamicRentStages(data);
+  const dailyStages = periodStages.map(s=>({
+    ...s,
+    min:s.min / Math.max(days,1),
+    max:s.max / Math.max(days,1)
+  }));
+  data.dynamicStages = periodStages;
+  data.dynamicDailyStages = dailyStages;
+  data.breakEvenPeriod = periodStages.find(s=>s.id==="equilibrio")?.min || 0;
+  data.breakEvenDaily = data.breakEvenPeriod / Math.max(days,1);
+  data.dailyStage = getRentStage(data.dailyValue,1,dailyStages);
+  data.periodStage = getRentStage(ventas,days,periodStages);
+  return data;
+}
+
+function renderRentGauge(title, value, days, subtitle, stages=null) {
+  const stage = getRentStage(value, days, stages);
+  const max = stages ? Math.max(stages[stages.length-1].min * 1.15, value, 1) : 170 * Math.max(1, days||1);
+  const ratio = Math.min(value / max, 1);
+  const angle = -90 + ratio * 180;
+  return `<div style="background:#0B0B16;border-radius:16px;padding:16px;border:1px solid rgba(200,184,232,.35);box-shadow:0 6px 20px rgba(11,11,22,.28);">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:15px;color:#FFFFFF;font-weight:1000;text-transform:uppercase;letter-spacing:.9px;">${title}</div>
+        <div style="font-size:13px;color:#C8B8E8;font-weight:800;">${subtitle}</div>
+      </div>
+      <div style="font-size:13px;color:#0B0B16;background:${stage.color};border-radius:999px;padding:5px 9px;font-weight:1000;">${stage.label}</div>
+    </div>
+    <div style="height:236px;position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.22);">
+      <div style="position:absolute;left:50%;top:24px;transform:translateX(-50%);width:440px;height:440px;border-radius:50%;background:conic-gradient(from 270deg,#D96C6C 0deg 82deg,#E8C66A 82deg 98deg,#DFA36B 98deg 126deg,#A8DCAB 126deg 158deg,#39FF14 158deg 180deg,transparent 180deg 360deg);"></div>
+      <div style="position:absolute;left:50%;top:86px;transform:translateX(-50%);width:300px;height:300px;border-radius:50%;background:#0B0B16;"></div>
+      <div style="position:absolute;left:50%;bottom:0;width:6px;height:168px;background:linear-gradient(#FFFFFF,#6B7280);transform-origin:bottom center;transform:translateX(-50%) rotate(${angle}deg);border-radius:6px;"></div>
+      <div style="position:absolute;left:50%;bottom:-18px;transform:translateX(-50%);width:72px;height:72px;border-radius:50%;background:var(--purple);border:6px solid #1F2937;"></div>
+      <div style="position:absolute;left:0;bottom:10px;font-size:15px;color:#FFFFFF;font-weight:900;">$0</div>
+      <div style="position:absolute;right:0;bottom:10px;font-size:15px;color:#39FF14;font-weight:900;">${fmt(max)}+</div>
+      <div style="position:absolute;left:50%;top:96px;transform:translateX(-50%);text-align:center;">
+        <div style="font-size:36px;color:#FFFFFF;font-weight:1000;line-height:1;">${fmt(value)}</div>
+        <div style="font-size:13px;color:${stage.color};font-weight:1000;margin-top:6px;">${stage.label}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:12px;">
+      ${(stages||RENT_STAGES).map(s=>`<div style="height:6px;border-radius:99px;background:${s.color};opacity:${s.id===stage.id?1:.45};"></div>`).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:7px;">
+      ${(stages||RENT_STAGES).map(s=>`<div style="font-size:10px;color:${s.color};font-weight:900;text-align:center;line-height:1.1;">${s.label}</div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function buildDistributionSegments(d) {
+  const targets = [
+    { id:"arriendo", label:"Arriendo", target:d.arriendo, color:"#E8C66A" },
+    { id:"comision_vendedor", label:"Pago vendedor", target:d.sellerCommission, color:"#D96C6C" },
+    { id:"comisiones", label:"Comisiones bancarias", target:d.bankAndManualCommission, color:"#C8B8E8" },
+  ];
+  const coverageBase = Math.max(d.margenBruto,0);
+  let remaining = coverageBase;
+  const segments = targets.map(seg=>{
+    const covered = Math.min(Math.max(remaining,0), seg.target);
+    remaining -= covered;
+    return { ...seg, covered, missing:Math.max(seg.target-covered,0), pct:coverageBase>0?covered/coverageBase*100:0 };
+  });
+  segments.push({
+    id:"utilidad",
+    label:"Utilidad WORTHY",
+    target:Math.max(remaining,0),
+    covered:Math.max(remaining,0),
+    missing:0,
+    pct:coverageBase>0?Math.max(remaining,0)/coverageBase*100:0,
+    color:"#39FF14"
+  });
+  return segments;
+}
+
+function renderDistributionTank(d) {
+  const segments = buildDistributionSegments(d);
+  const maxTarget = Math.max(...segments.filter(s=>s.id!=="utilidad").map(s=>Number(s.target||0)), 1);
+  const cylinderHeight = s => s.id==="utilidad" ? 172 : Math.max(112, Math.min(220, 96 + (Number(s.target||0)/maxTarget)*124));
+  const fillPct = s => {
+    if (s.id === "utilidad") return s.covered > 0 ? 100 : 0;
+    return s.target > 0 ? Math.min(s.covered/s.target*100,100) : 0;
+  };
+  const statusText = s => s.id==="utilidad"
+    ? (s.covered>0 ? "Excedente generado" : "Se activa al cubrir gastos")
+    : (s.missing<=0 ? "Cubierto" : `Falta ${fmt(s.missing)}`);
+  const statusColor = s => s.id==="utilidad" ? "var(--lime-dark)" : (s.missing<=0 ? "var(--lime-dark)" : "var(--red)");
+  return `<div class="card">
+    <div class="section-title">Cobertura de gastos por cilindro</div>
+    <div style="font-size:13px;color:var(--gray);font-weight:700;margin-top:-4px;margin-bottom:12px;">Primero se toma el margen bruto real de Finanzas. Con ese margen se cubren arriendo, vendedor, comisiones y utilidad.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:12px;align-items:end;">
+      ${segments.map(s=>{
+        const h = cylinderHeight(s);
+        const p = fillPct(s);
+        const isUtility = s.id==="utilidad";
+        return `<div style="background:${s.missing<=0&&s.target>0?"#F0FDF4":"#FFFFFF"};border:1.5px solid var(--lavender);border-radius:14px;padding:10px;box-shadow:0 2px 10px rgba(45,27,105,.07);">
+          <div style="min-height:38px;">
+            <div style="font-size:14px;font-weight:1000;color:var(--purple);line-height:1.15;">${s.label}</div>
+            <div style="font-size:12px;font-weight:900;color:${statusColor(s)};margin-top:3px;">${statusText(s)}</div>
+          </div>
+          <div style="height:${h}px;max-width:78px;margin:10px auto 8px;position:relative;border:2px solid var(--purple);border-radius:34px;background:var(--lavender-light);overflow:hidden;box-shadow:inset 0 0 10px rgba(45,27,105,.16);">
+            <div style="position:absolute;left:0;right:0;bottom:0;height:${p}%;background:${s.color};border-radius:28px 28px 0 0;display:flex;align-items:flex-start;justify-content:center;color:${isUtility?"#0B0B16":"white"};font-size:13px;font-weight:1000;padding-top:7px;transition:height .25s;">${p.toFixed(0)}%</div>
+            <div style="position:absolute;left:8px;right:8px;top:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45);"></div>
+          </div>
+          <div style="border-top:1px solid var(--lavender-light);padding-top:8px;">
+            <div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--gray);font-weight:800;"><span>${isUtility?"Utilidad":"Costo"}</span><strong style="color:${isUtility?"var(--lime-dark)":"var(--purple)"};">${fmt(isUtility?s.covered:s.target)}</strong></div>
+            <div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--gray);font-weight:800;margin-top:3px;"><span>Cubierto</span><strong style="color:var(--purple);">${fmt(s.covered)}</strong></div>
+            ${!isUtility?`<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--gray);font-weight:800;margin-top:3px;"><span>Falta</span><strong style="color:${s.missing>0?"var(--red)":"var(--lime-dark)"};">${fmt(s.missing)}</strong></div>`:""}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function renderExecutiveSummary(d) {
+  const rows = [
+    ["Ventas acumuladas", d.ventas, "var(--purple)"],
+    ["Costo de ventas real", d.cogs, "var(--red)"],
+    ["Margen bruto", d.margenBruto, d.margenBruto>=0?"var(--lime-dark)":"var(--red)"],
+    ["Arriendo", d.arriendo, "var(--red)"],
+    ["Gastos operativos", d.gastosOperativos, "var(--red)"],
+    ["Base vendedor", d.sellerBase, "var(--red)"],
+    ["Variable vendedor", d.sellerVariable, "var(--red)"],
+    ["Pago vendedor total", d.sellerCommission, "var(--red)"],
+    ["Comisiones bancarias/manuales", d.bankAndManualCommission, "var(--red)"],
+    ["Utilidad operativa", d.utilidadOperativa, d.utilidadOperativa>=0?"var(--lime-dark)":"var(--red)"],
+    ["Utilidad neta", d.utilidadNeta, d.utilidadNeta>=0?"var(--lime-dark)":"var(--red)"],
+  ];
+  return `<div class="card">
+    <div class="section-title">Resumen ejecutivo</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;background:var(--lavender-light);border-radius:12px;padding:10px;">
+      <div style="font-size:15px;font-weight:900;color:var(--purple);">Estado actual del punto</div>
+      <div style="font-size:14px;font-weight:1000;color:#0B0B16;background:${d.periodStage.color};border-radius:999px;padding:5px 10px;">${d.periodStage.label}</div>
+    </div>
+    <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:8px;background:#FBFAFF;border-radius:10px;padding:8px;">
+      Equilibrio del periodo: ${fmt(d.breakEvenPeriod)} (${fmt(d.breakEvenDaily)} diario). Comisión vendedor: base ${fmt(d.sellerBase)} + 10% sobre excedente diario mayor a $100 sin IVA / $115 cobrado (${fmt(d.sellerVariable)}).
+    </div>
+    ${rows.map(([label,value,color])=>`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--lavender-light);padding:8px 0;">
+      <span style="font-size:15px;font-weight:800;color:var(--gray);">${label}</span>
+      <span style="font-size:17px;font-weight:1000;color:${color};">${fmt(value)}</span>
+    </div>`).join("")}
+  </div>`;
+}
+
+function renderRentabilidadDashboard() {
+  const d = getRentData();
+  const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
+  const periodLabel = state.rentPeriod==="week" ? `Semana · ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
+    : state.rentPeriod==="month" ? `Mes acumulado · ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
+    : state.rentPeriod==="range" ? `Rango · ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
+    : "Día actual";
+  return `
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div style="font-size:13px;color:var(--lavender);font-weight:900;text-transform:uppercase;letter-spacing:1px;">Dashboard</div>
+    <div style="font-size:14px;color:var(--lavender);margin-top:4px;">Salud financiera, madurez comercial y potencial de crecimiento</div>
+  </div>
+  <div class="store-selector">
+    ${stores.map(s=>`<button class="store-btn ${d.store===s.id?"active":""}" data-rent-store="${s.id}">${s.id==="oficina"?"🏢 ":s.id!=="all"?"🏪 ":""}${s.name}</button>`).join("")}
+  </div>
+  <div class="period-filter" style="flex-wrap:wrap;">
+    ${[["day","Día"],["week","Semana"],["month","Mes"],["range","Rango"]].map(([k,l])=>`<button class="period-btn ${state.rentPeriod===k?"active":""}" data-rent-period="${k}">${l}</button>`).join("")}
+  </div>
+  ${state.rentPeriod==="range"?`<div class="card" style="margin-bottom:12px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+    <div>
+      <label style="font-size:13px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Desde</label>
+      <input type="date" class="dispatch-input" id="rent-rango-desde" value="${state.rentRangoDesde}" max="${today()}">
+    </div>
+    <div>
+      <label style="font-size:13px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Hasta</label>
+      <input type="date" class="dispatch-input" id="rent-rango-hasta" value="${state.rentRangoHasta}" max="${today()}">
+    </div>
+  </div>`:""}
+  <div class="card" style="background:var(--lavender-light);padding:10px;margin-bottom:12px;">
+    <div style="font-size:14px;color:var(--purple);font-weight:900;">${periodLabel}</div>
+    <div style="font-size:13px;color:var(--gray);margin-top:3px;">Arriendo Quicentro prorrateado: junio $1.100 + IVA, desde 1 de julio $800 + IVA. Para P&G y Dashboard se usa base sin IVA. Vendedor $15 diarios + variable. Sin gasto de transporte.</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px;">
+    ${renderRentGauge("Promedio diario", d.dailyValue, 1, "Venta sin IVA promedio del filtro", d.dynamicDailyStages)}
+    ${renderRentGauge(state.rentPeriod==="month"?"Acumulado a hoy":"Acumulado", d.periodValue, d.days, `${d.days} día${d.days===1?"":"s"} del filtro`, d.dynamicStages)}
+  </div>
+  ${d.periodStage.id==="escalabilidad"?`<div class="card" style="background:#ECFCCB;border:2px solid #39FF14;">
+    <div style="font-size:15px;font-weight:1000;color:#166534;">Modelo listo para evolucionar de formato</div>
+    <div style="font-size:12px;color:#365314;margin-top:4px;">Stand, isla, tienda o expansión a nuevos puntos de venta.</div>
+  </div>`:""}
+  ${renderDistributionTank(d)}
+  ${renderExecutiveSummary(d)}
+  `;
+}
+
 // ─── ADMIN DASHBOARD ─────────────────────────────────────────
 function renderAdminDashboard() {
   const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
@@ -3193,7 +3579,7 @@ function renderAdminDashboard() {
   })();
   const periodLabel = state.inicioPeriod==="hoy" ? "Hoy"
     : state.inicioPeriod==="semana" ? `Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`
-    : state.inicioPeriod==="mes" ? "Este mes"
+    : state.inicioPeriod==="mes" ? `Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.inicioPeriod==="mesEspecifico" ? mesEspecificoLabel
     : state.inicioPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
     : state.inicioPeriod==="todo" ? "Todo el histórico"
@@ -3301,8 +3687,6 @@ function renderAdminDashboard() {
       </div>
     </div>
   </div>
-
-  ${renderGoalProgressPanel()}
 
   <div class="analytics-grid">
     ${renderDonutCard("productUsdChart",`Participación por producto · USD sin IVA · ${periodLabel}`,composition.productsByUsd,"usd","currency","Cada porción muestra el porcentaje del valor vendido sin IVA por producto.")}
@@ -3880,7 +4264,6 @@ const GASTO_CATS = [
   { id:"arriendo",     label:"Arriendo",      icon:"🏢" },
   { id:"personal",     label:"Personal",      icon:"👥" },
   { id:"almuerzo",     label:"Almuerzo",      icon:"🍱" },
-  { id:"transporte",   label:"Transporte",    icon:"🚗" },
   { id:"servicios",    label:"Servicios",     icon:"💡" },
   { id:"marketing",    label:"Marketing/Obsequios", icon:"🎁" },
   { id:"comisiones",   label:"Comisiones bancarias", icon:"💳" },
@@ -4095,7 +4478,7 @@ function renderVentas() {
   })();
   const periodLabel = state.ventasPeriod==="hoy" ? "Hoy"
     : state.ventasPeriod==="semana" ? `Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`
-    : state.ventasPeriod==="mes" ? "Este mes"
+    : state.ventasPeriod==="mes" ? `Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.ventasPeriod==="mesEspecifico" ? mesEspecificoLabel
     : state.ventasPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
     : state.ventasPeriod==="todo" ? "Todo el histórico"
@@ -4235,36 +4618,48 @@ function renderVentas() {
     }).join("")}`;
 }
 
-// ─── DESPACHAR ───────────────────────────────────────────────
+// ─── DESPACHOS ───────────────────────────────────────────────
 function renderDespachar() {
   const inv = state.inventory["bodega"] || {};
+  const mode = state.dispatchMode || "bodega_punto";
+  const isPlantEntry = mode === "planta_bodega";
   return `
   <div class="card card-purple" style="margin-bottom:12px;padding:16px;">
-    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Despachar a Stand</div>
-    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Los productos salen de Bodega Central y aumentan el stock del Stand seleccionado</div>
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Despachos</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Registra entradas desde planta y salidas de Bodega Central hacia cada punto de venta</div>
   </div>
 
   <div class="card">
     <div class="dispatch-form">
       <div>
+        <div class="section-title">Tipo de movimiento</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="period-btn ${mode==="bodega_punto"?"active":""}" data-dispatch-mode="bodega_punto" style="font-size:13px;">Bodega → Punto</button>
+          <button class="period-btn ${mode==="planta_bodega"?"active":""}" data-dispatch-mode="planta_bodega" style="font-size:13px;">Planta → Bodega</button>
+        </div>
+      </div>
+      <div>
         <div class="section-title">Producto</div>
         <select class="dispatch-select" id="dispatch-product">
           <option value="">Selecciona un producto...</option>
-          ${CATALOG.map(p=>`<option value="${p.id}" ${state.dispatchProduct===p.id?"selected":""}>${p.name} ${p.sub} — Stock: ${inv[p.id]||0} uds</option>`).join("")}
+          ${CATALOG.map(p=>`<option value="${p.id}" ${state.dispatchProduct===p.id?"selected":""}>${p.name} ${p.sub}${isPlantEntry?"":" — Stock bodega: "+(inv[p.id]||0)+" uds"}</option>`).join("")}
         </select>
       </div>
-      <div>
+      ${!isPlantEntry?`<div>
         <div class="section-title">Destino</div>
         <select class="dispatch-select" id="dispatch-target">
-          ${STANDS.map(s=>`<option value="${s.id}" ${state.dispatchTarget===s.id?"selected":""}>${s.name}</option>`).join("")}
+          ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.dispatchTarget===s.id?"selected":""}>${s.name}</option>`).join("")}
         </select>
-      </div>
+      </div>`:`<div style="background:var(--lavender-light);border-radius:12px;padding:10px;">
+        <div style="font-size:11px;font-weight:900;color:var(--purple);text-transform:uppercase;letter-spacing:.8px;">Destino</div>
+        <div style="font-size:15px;font-weight:900;color:var(--purple);margin-top:2px;">Bodega Central</div>
+      </div>`}
       <div>
         <div class="section-title">Cantidad</div>
-        <input type="number" class="dispatch-input" id="dispatch-qty" min="1" placeholder="Cantidad a despachar" value="${state.dispatchQty}">
+        <input type="number" class="dispatch-input" id="dispatch-qty" min="1" placeholder="${isPlantEntry?"Cantidad recibida desde planta":"Cantidad a despachar"}" value="${state.dispatchQty}">
       </div>
       <button class="btn-lime btn-lime-full" id="dispatch-btn" ${state.dispatching?"disabled":""}>
-        ${state.dispatching?"Despachando...":"🚚 Confirmar Despacho"}
+        ${state.dispatching?"Guardando...":isPlantEntry?"🏭 Confirmar entrada a bodega":"🚚 Confirmar despacho"}
       </button>
     </div>
   </div>
@@ -4790,6 +5185,14 @@ function bindApp() {
   document.querySelectorAll("[data-fin-tab]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.finTab=btn.dataset.finTab; render(); });
   });
+  document.querySelectorAll("[data-rent-store]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.rentStore=btn.dataset.rentStore; render(); });
+  });
+  document.querySelectorAll("[data-rent-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.rentPeriod=btn.dataset.rentPeriod; render(); });
+  });
+  document.getElementById("rent-rango-desde")?.addEventListener("change",e=>{ state.rentRangoDesde=e.target.value; render(); });
+  document.getElementById("rent-rango-hasta")?.addEventListener("change",e=>{ state.rentRangoHasta=e.target.value; render(); });
 
   // Finanzas: form gasto
   document.getElementById("gasto-fecha")?.addEventListener("change",e=>{ state.gastoFecha=e.target.value; });
@@ -4924,6 +5327,9 @@ function bindApp() {
   });
 
   // Dispatch
+  document.querySelectorAll("[data-dispatch-mode]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.dispatchMode=btn.dataset.dispatchMode; render(); });
+  });
   document.getElementById("dispatch-product")?.addEventListener("change",e=>{ state.dispatchProduct=e.target.value; });
   document.getElementById("dispatch-target")?.addEventListener("change",e=>{ state.dispatchTarget=e.target.value; });
   document.getElementById("dispatch-qty")?.addEventListener("input",e=>{ state.dispatchQty=e.target.value; });
@@ -5668,42 +6074,59 @@ async function handleDispatch() {
   const product = state.dispatchProduct;
   const target = state.dispatchTarget;
   const qty = parseInt(state.dispatchQty)||0;
+  const mode = state.dispatchMode || "bodega_punto";
+  const isPlantEntry = mode === "planta_bodega";
   if(!product||!qty||qty<=0) { showToast("Completa todos los campos","err"); return; }
 
   const bodegaInv = {...(state.inventory["bodega"]||{})};
   const available = bodegaInv[product]||0;
-  if(available<qty) { showToast(`Solo hay ${available} uds en Bodega`,"err"); return; }
+  if(!isPlantEntry && available<qty) { showToast(`Solo hay ${available} uds en Bodega`,"err"); return; }
 
   state.dispatching = true; render();
   try {
-    // Restar de bodega
-    bodegaInv[product] = available-qty;
-    await db.collection("inventarios").doc("bodega").set(bodegaInv);
+    const productInfo = CATALOG.find(p=>p.id===product);
+    const movementId = genId();
+    if (isPlantEntry) {
+      bodegaInv[product] = available + qty;
+      await db.collection("inventarios").doc("bodega").set(bodegaInv);
+      state.inventory["bodega"] = bodegaInv;
+    } else {
+      // Restar de bodega
+      bodegaInv[product] = available-qty;
+      await db.collection("inventarios").doc("bodega").set(bodegaInv);
 
-    // Sumar al stand
-    const standInv = {...(state.inventory[target]||{})};
-    standInv[product] = (standInv[product]||0)+qty;
-    await db.collection("inventarios").doc(target).set(standInv);
+      // Sumar al punto de venta
+      const standInv = {...(state.inventory[target]||{})};
+      standInv[product] = (standInv[product]||0)+qty;
+      await db.collection("inventarios").doc(target).set(standInv);
+      state.inventory["bodega"] = bodegaInv;
+      state.inventory[target] = standInv;
+    }
 
     // Registrar movimiento en despachos y kardex
     await db.collection("despachos").add({
+      id: movementId,
       fecha: today(), timestamp: new Date().toISOString(),
-      product, qty, from:"bodega", to:target,
-      productName: CATALOG.find(p=>p.id===product)?.name+" "+CATALOG.find(p=>p.id===product)?.sub
+      product, qty,
+      from:isPlantEntry?"planta":"bodega",
+      to:isPlantEntry?"bodega":target,
+      mode,
+      productName: productInfo ? `${productInfo.name} ${productInfo.sub}` : product,
+      registradoPor: state.user.email,
     });
     await db.collection("kardex").add({
-      id: genId(),
+      id: movementId,
       fecha: today(), timestamp: new Date().toISOString(),
-      type: "salida",
-      product, qty, lote:"", obs:"",
-      to: target,
+      type: isPlantEntry ? "entrada" : "salida",
+      product, qty, lote:"",
+      obs: isPlantEntry ? "Entrada desde planta de produccion" : "Despacho desde bodega central",
+      standId: isPlantEntry ? "bodega" : "bodega",
+      to: isPlantEntry ? "bodega" : target,
       registradoPor: state.user.email,
     });
 
-    state.inventory["bodega"] = bodegaInv;
-    state.inventory[target] = standInv;
     state.dispatchProduct=""; state.dispatchQty=""; state.dispatching=false;
-    showToast(`✅ Despachado a ${STANDS.find(s=>s.id===target)?.name}`);
+    showToast(isPlantEntry ? "✅ Entrada registrada en Bodega" : `✅ Despachado a ${PUNTOS_VENTA.find(s=>s.id===target)?.name}`);
     render();
   } catch(e) {
     state.dispatching=false;
@@ -5877,7 +6300,7 @@ auth.onAuthStateChanged(user=>{
     if(!userInfo) { auth.signOut(); state.loading=false; render(); return; }
     state.user = user;
     state.userInfo = userInfo;
-    state.tab = (userInfo.role==="asesor")?"pos":(userInfo.role==="full")?"dashboard":"dashboard";
+    state.tab = (userInfo.role==="asesor")?"pos":(userInfo.canFinanzas?"rentabilidad":"dashboard");
     state.loading = false;
     setupListeners(userInfo);
     render();
