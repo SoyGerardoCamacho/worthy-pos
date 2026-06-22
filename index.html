@@ -1604,7 +1604,7 @@ function getTrendChartMinWidth(points) {
   const meta = getTrendChartMeta(points);
   if(meta.mode==="daily") return Math.max(320, points.length*46);
   if(meta.mode==="weekly") return Math.max(320, points.length*88);
-  return Math.max(320, points.length*94);
+  return Math.max(360, points.length*160);
 }
 
 
@@ -1637,7 +1637,7 @@ function getInicioTrend() {
     // Comparacion entre puntos de venta
     return PUNTOS_VENTA.map(st=>{
       const total = salesNetTotal(state.sales.filter(s=>s.fecha>=from && s.fecha<=to && s.stand===st.id));
-      return { label: st.id==="oficina"?"🏢 "+st.name:st.name, total };
+      return { label: st.name.split(" "), total };
     });
   }
 
@@ -1738,6 +1738,22 @@ function getAutomaticRentForRange(from, to, store) {
   },0);
 }
 
+function getManualRentForRange(gastos, store) {
+  return (gastos||[]).filter(g=>{
+    if (g.cat !== "arriendo") return false;
+    if (store === "quicentro") return false;
+    if (store === "all") return g.stand !== "quicentro";
+    return true;
+  }).reduce((sum,g)=>sum+Number(g.monto||0),0);
+}
+
+function getManualBankCommissionExpenses(gastos) {
+  return (gastos||[]).filter(g=>{
+    if (g.cat !== "comisiones") return false;
+    return !String(g.nota||"").startsWith("Comisión ");
+  }).reduce((sum,g)=>sum+Number(g.monto||0),0);
+}
+
 function getSellerPayForRange(sales, from, to, store) {
   const safe = clampAutoCostRange(from,to);
   if (!safe) return { base:0, variable:0, total:0 };
@@ -1748,7 +1764,7 @@ function getSellerPayForRange(sales, from, to, store) {
   stores.forEach(standId=>{
     dates.forEach(iso=>{
       const dayNet = salesNetTotal(sales.filter(s=>s.fecha===iso && s.stand===standId));
-      base += 15;
+      if (standId === "quicentro") base += 15;
       variable += Math.max(dayNet - 100, 0) * 0.10;
     });
   });
@@ -1795,18 +1811,24 @@ function renderFinanzas() {
   const ventas = ventasTax.sinIva;
   const ivaVentas = ventasTax.iva;
   const cogs = filteredSales.reduce((s,v)=>s+ventaCOGS(v),0);
-  const margenBruto = ventas - cogs;
-  const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
 
   const autoRent = getAutomaticRentForRange(from, to, state.finStore);
   const sellerPay = getSellerPayForRange(filteredSales, from, to, state.finStore);
   const paymentInfo = getPaymentConsolidado(filteredSales);
-  const bankCommission = paymentInfo.groups.find(g=>g.id==="bendo")?.commission || 0;
+  const debitCommission = filteredSales.filter(s=>s.pago==="td").reduce((sum,s)=>sum+saleGross(s)*getComisionRate("td"),0);
+  const creditCommission = filteredSales.filter(s=>s.pago==="tc").reduce((sum,s)=>sum+saleGross(s)*getComisionRate("tc"),0);
+  const manualBankCommission = getManualBankCommissionExpenses(filteredGastos);
+  const bankCommission = debitCommission + creditCommission + manualBankCommission;
+  const manualPersonal = filteredGastos.filter(g=>g.cat==="personal").reduce((s,g)=>s+Number(g.monto||0),0);
+  const grossBeforeDiscount = filteredSales.filter(s=>!s.obsequio).reduce((sum,s)=>sum+getTaxBreakdown(Number(s.subtotal||s.total||0)).sinIva,0);
+  const discounts = filteredSales.filter(s=>!s.obsequio).reduce((sum,s)=>sum+getTaxBreakdown(Number(s.descuentoAmt||0)).sinIva,0);
+  const margenBruto = ventas - cogs;
+  const margenPct = ventas>0 ? (margenBruto/ventas*100) : 0;
   const gastosByCat = GASTO_CATS.map(c=>{
     let total = filteredGastos.filter(g=>g.cat===c.id).reduce((s,g)=>s+Number(g.monto),0);
-    if (c.id === "arriendo" && autoRent > 0) total = autoRent;
+    if (c.id === "arriendo") total = autoRent + getManualRentForRange(filteredGastos, state.finStore);
     if (c.id === "personal") total += sellerPay.total;
-    if (c.id === "comisiones") total += bankCommission;
+    if (c.id === "comisiones") total = bankCommission;
     return {...c,total};
   });
   const totalGastos = gastosByCat.reduce((s,c)=>s+c.total,0);
@@ -1838,7 +1860,7 @@ function renderFinanzas() {
     <button class="filter-btn ${state.finTab==="historico"?"active":""}" data-fin-tab="historico">📜 Histórico</button>
   </div>
 
-  ${state.finTab==="pyg" ? renderPYG({ventas,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
+  ${state.finTab==="pyg" ? renderPYG({ventas,grossBeforeDiscount,discounts,bankCommission,debitCommission,creditCommission,manualBankCommission,sellerBase:sellerPay.base,sellerVariable:sellerPay.variable,manualPersonal,cogs,margenBruto,margenPct,gastosByCat,totalGastos,utilidadOperativa,utilidadPct,periodLabel:periodLabels[state.finPeriod]}) : ""}
   ${state.finTab==="sku" ? renderMargenSKU(filteredSales) : ""}
   ${state.finTab==="gastos" ? renderGastosForm(filteredGastos) : ""}
   ${state.finTab==="caja" ? renderCaja() : ""}
@@ -1847,42 +1869,54 @@ function renderFinanzas() {
 }
 
 function renderPYG(d) {
+  const pct = value => d.ventas>0 ? (Number(value||0)/d.ventas*100).toFixed(1)+"%" : "0.0%";
+  const rowGrid = "display:grid;grid-template-columns:minmax(0,1fr) 72px 104px;align-items:center;gap:8px;";
+  const row = (label, value, color="var(--red)", sign="-", indent=false) => `<div style="${rowGrid}padding:${indent?"5px":"7px"} 0;border-bottom:1px solid var(--lavender-light);">
+    <span style="font-size:${indent?"12px":"13px"};font-weight:${indent?"700":"800"};color:${indent?"var(--gray)":"var(--purple)"};padding-left:${indent?"18px":"0"};min-width:0;">${label}</span>
+    <span style="font-size:12px;font-weight:800;color:var(--gray);text-align:right;">${pct(value)}</span>
+    <span style="font-size:${indent?"12px":"14px"};font-weight:900;color:${color};text-align:right;">${sign}${fmt(value)}</span>
+  </div>`;
   return `
   <div class="card">
     <div class="section-title">${d.periodLabel} ${state.finStore==="all"?"· Todos los locales":"· "+PUNTOS_VENTA.find(s=>s.id===state.finStore)?.name}</div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
-      <span style="font-size:13px;font-weight:700;color:var(--purple);">Ingresos por ventas</span>
-      <span style="font-size:15px;font-weight:900;color:var(--purple);">${fmt(d.ventas)}</span>
+    <div style="${rowGrid}padding:8px 0;border-bottom:2px solid var(--purple);">
+      <span style="font-size:13px;font-weight:900;color:var(--purple);min-width:0;">Ventas netas sin IVA</span>
+      <span style="font-size:12px;font-weight:900;color:var(--gray);text-align:right;">100.0%</span>
+      <span style="font-size:15px;font-weight:1000;color:var(--purple);text-align:right;">${fmt(d.ventas)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
-      <span style="font-size:13px;font-weight:700;color:var(--gray);">(–) Costo de productos vendidos</span>
-      <span style="font-size:14px;font-weight:800;color:var(--red);">-${fmt(d.cogs)}</span>
+    <div style="font-size:11px;color:var(--gray);line-height:1.4;background:#FBFAFF;border-radius:9px;padding:7px;margin-top:6px;">
+      Descuentos aplicados antes de llegar a la venta neta: ${fmt(d.discounts)}. Venta bruta antes de descuentos: ${fmt(d.grossBeforeDiscount)}.
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:2px solid var(--purple);">
-      <span style="font-size:14px;font-weight:800;color:var(--purple);">= Margen bruto</span>
-      <div style="text-align:right;">
-        <div style="font-size:16px;font-weight:900;color:${d.margenBruto>=0?"var(--lime-dark)":"var(--red)"};">${fmt(d.margenBruto)}</div>
-        <div style="font-size:10px;color:var(--gray);">${d.margenPct.toFixed(1)}% sobre ventas</div>
-      </div>
+    ${row("(–) Costo de productos vendidos", d.cogs)}
+    <div style="${rowGrid}padding:10px 0;border-bottom:2px solid var(--purple);">
+      <span style="font-size:14px;font-weight:900;color:var(--purple);min-width:0;">= Margen bruto</span>
+      <span style="font-size:12px;font-weight:900;color:var(--gray);text-align:right;">${pct(d.margenBruto)}</span>
+      <span style="font-size:16px;font-weight:1000;color:${d.margenBruto>=0?"var(--lime-dark)":"var(--red)"};text-align:right;">${fmt(d.margenBruto)}</span>
     </div>
 
     <div style="margin-top:12px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;">Gastos operativos</div>
-    ${d.gastosByCat.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
-      <span style="font-size:12px;color:var(--purple);">${c.icon} ${c.label}</span>
-      <span style="font-size:13px;font-weight:700;color:${c.total>0?"var(--red)":"var(--gray)"};">${c.total>0?"-"+fmt(c.total):fmt(0)}</span>
-    </div>`).join("")}
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--lavender-light);margin-top:4px;">
-      <span style="font-size:13px;font-weight:700;color:var(--purple);">(–) Total gastos operativos</span>
-      <span style="font-size:14px;font-weight:800;color:var(--red);">-${fmt(d.totalGastos)}</span>
+    ${d.gastosByCat.map(c=>`${row(`${c.icon} ${c.label}`, c.total)}
+      ${c.id==="personal" && c.total>0 ? `
+        ${row("Base", d.sellerBase, "var(--red)", "-", true)}
+        ${row("Comisiones por venta", d.sellerVariable, "var(--red)", "-", true)}
+        ${d.manualPersonal>0?row("Personal manual", d.manualPersonal, "var(--red)", "-", true):""}
+      `:""}
+      ${c.id==="comisiones" && c.total>0 ? `
+        ${row("TC crédito", d.creditCommission, "var(--red)", "-", true)}
+        ${row("Débito", d.debitCommission, "var(--red)", "-", true)}
+        ${d.manualBankCommission>0?row("Comisiones manuales", d.manualBankCommission, "var(--red)", "-", true):""}
+      `:""}`).join("")}
+    <div style="${rowGrid}padding:8px 0;border-top:1px solid var(--lavender-light);margin-top:4px;">
+      <span style="font-size:13px;font-weight:900;color:var(--purple);min-width:0;">(–) Total gastos operativos</span>
+      <span style="font-size:12px;font-weight:900;color:var(--gray);text-align:right;">${pct(d.totalGastos)}</span>
+      <span style="font-size:14px;font-weight:1000;color:var(--red);text-align:right;">-${fmt(d.totalGastos)}</span>
     </div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:6px;border-top:2px solid var(--purple);background:${d.utilidadOperativa>=0?"var(--lavender-light)":"#FEE2E2"};border-radius:10px;padding-left:10px;padding-right:10px;">
-      <span style="font-size:15px;font-weight:900;color:var(--purple);">= Utilidad operativa</span>
-      <div style="text-align:right;">
-        <div style="font-size:20px;font-weight:900;color:${d.utilidadOperativa>=0?"var(--lime-dark)":"var(--red)"};">${fmt(d.utilidadOperativa)}</div>
-        <div style="font-size:10px;color:var(--gray);">${d.utilidadPct.toFixed(1)}% sobre ventas</div>
-      </div>
+    <div style="${rowGrid}padding:12px 10px;margin-top:6px;border-top:2px solid var(--purple);background:${d.utilidadOperativa>=0?"var(--lavender-light)":"#FEE2E2"};border-radius:10px;">
+      <span style="font-size:15px;font-weight:1000;color:var(--purple);min-width:0;">= Utilidad operativa</span>
+      <span style="font-size:12px;font-weight:900;color:var(--gray);text-align:right;">${pct(d.utilidadOperativa)}</span>
+      <span style="font-size:20px;font-weight:1000;color:${d.utilidadOperativa>=0?"var(--lime-dark)":"var(--red)"};text-align:right;">${fmt(d.utilidadOperativa)}</span>
     </div>
   </div>`;
 }
@@ -2587,12 +2621,16 @@ let state = {
   dispatchProduct: "",
   dispatchQty: "",
   dispatchTarget: "quicentro",
+  bodegaView: "bodega",
   kardexProduct: "",
   kardexQty: "",
   kardexLote: "",
   kardexObs: "",
   kardexSaving: false,
   kardexFilter: "all",
+  auditDate: (()=>{ const d = new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-1); return dateToIsoLocal(d); })(),
+  auditStand: "quicentro",
+  auditProduct: "balm_all",
   editingKardex: null,
   kxEditProduct: "",
   kxEditQty: "",
@@ -3153,15 +3191,29 @@ function renderStandDashboard() {
 
 // ─── BODEGA DASHBOARD ────────────────────────────────────────
 function renderBodegaDashboard() {
-  const inv = state.inventory["bodega"] || {};
+  const view = state.bodegaView || "bodega";
+  const options = [{id:"all",name:"Todos los puntos",emoji:"📊"},...STOCK_POINTS];
+  const selected = options.find(o=>o.id===view) || options.find(o=>o.id==="bodega");
+  const inv = view === "all"
+    ? CATALOG.reduce((acc,p)=>{
+        acc[p.id] = STOCK_POINTS.reduce((sum,pt)=>sum+Number((state.inventory[pt.id]||{})[p.id]||0),0);
+        return acc;
+      },{})
+    : {...(state.inventory[view] || {})};
   const totalUnits = CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
   const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
   const lowStock = CATALOG.filter(p=>(inv[p.id]||0)>0&&(inv[p.id]||0)<=24);
   const outStock = CATALOG.filter(p=>(inv[p.id]||0)===0);
 
   return `
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Ver inventario de</div>
+    <select class="dispatch-select" id="bodega-view">
+      ${options.map(o=>`<option value="${o.id}" ${view===o.id?"selected":""}>${o.emoji} ${o.name}</option>`).join("")}
+    </select>
+  </div>
   <div class="card card-purple" style="padding:20px;margin-bottom:12px;">
-    <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Bodega Central</div>
+    <div style="font-size:10px;color:var(--lavender);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">${selected?.emoji||"📦"} ${selected?.name||"Bodega Central"}</div>
     <div style="font-size:32px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(totalValue)}</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:4px;">${totalUnits} unidades en stock</div>
   </div>
@@ -3344,16 +3396,17 @@ function getRentData() {
   const bankCommission = payment.groups.find(g=>g.id==="bendo")?.commission || 0;
   const sellerPay = getSellerPayForRange(rangeSales, range.from, range.to, store);
   const autoRent = getAutomaticRentForRange(range.from, range.to, store);
-  const arriendo = autoRent > 0 ? autoRent : sumGastosByIds(rangeGastos, ["arriendo"]);
+  const arriendo = autoRent + getManualRentForRange(rangeGastos, store);
   const atencion = 0;
   const transporte = 0;
+  const marketing = sumGastosByIds(rangeGastos, ["marketing"]);
   const sellerCommission = sellerPay.total;
-  const bankAndManualCommission = sumGastosByIds(rangeGastos, ["comisiones"]) + bankCommission;
+  const bankAndManualCommission = getManualBankCommissionExpenses(rangeGastos) + bankCommission;
   const comisiones = sellerCommission + bankAndManualCommission;
   const reinversion = cogs;
-  const gastosOperativos = arriendo + atencion + transporte + comisiones;
+  const gastosOperativos = arriendo + atencion + transporte + comisiones + marketing;
   const utilidadOperativa = margenBruto - gastosOperativos;
-  const utilidadNeta = ventas - arriendo - atencion - transporte - comisiones - reinversion;
+  const utilidadNeta = ventas - arriendo - atencion - transporte - comisiones - marketing - reinversion;
   const data = {
     store,
     range,
@@ -3366,6 +3419,7 @@ function getRentData() {
     arriendo,
     atencion,
     transporte,
+    marketing,
     comisiones,
     sellerBase: sellerPay.base,
     sellerVariable: sellerPay.variable,
@@ -3375,6 +3429,7 @@ function getRentData() {
     gastosOperativos,
     utilidadOperativa,
     utilidadNeta,
+    cashFlowAvailable: utilidadNeta,
   };
   const periodStages = buildDynamicRentStages(data);
   const dailyStages = periodStages.map(s=>({
@@ -3393,10 +3448,11 @@ function getRentData() {
 
 function renderRentGauge(title, value, days, subtitle, stages=null) {
   const stage = getRentStage(value, days, stages);
+  const gaugeStages = stages || RENT_STAGES;
   const max = stages ? Math.max(stages[stages.length-1].min * 1.15, value, 1) : 170 * Math.max(1, days||1);
   const ratio = Math.min(value / max, 1);
   const angle = -90 + ratio * 180;
-  return `<div style="background:#0B0B16;border-radius:16px;padding:16px;border:1px solid rgba(200,184,232,.35);box-shadow:0 6px 20px rgba(11,11,22,.28);">
+  return `<div style="background:linear-gradient(135deg,var(--purple) 0%,#9504FB 100%);border-radius:16px;padding:16px;border:1px solid rgba(200,184,232,.45);box-shadow:0 6px 20px rgba(45,27,105,.28);">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
       <div>
         <div style="font-size:15px;color:#FFFFFF;font-weight:1000;text-transform:uppercase;letter-spacing:.9px;">${title}</div>
@@ -3404,9 +3460,9 @@ function renderRentGauge(title, value, days, subtitle, stages=null) {
       </div>
       <div style="font-size:13px;color:#0B0B16;background:${stage.color};border-radius:999px;padding:5px 9px;font-weight:1000;">${stage.label}</div>
     </div>
-    <div style="height:236px;position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.22);">
+    <div style="height:236px;position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.35);">
       <div style="position:absolute;left:50%;top:24px;transform:translateX(-50%);width:440px;height:440px;border-radius:50%;background:conic-gradient(from 270deg,#D96C6C 0deg 82deg,#E8C66A 82deg 98deg,#DFA36B 98deg 126deg,#A8DCAB 126deg 158deg,#39FF14 158deg 180deg,transparent 180deg 360deg);"></div>
-      <div style="position:absolute;left:50%;top:86px;transform:translateX(-50%);width:300px;height:300px;border-radius:50%;background:#0B0B16;"></div>
+      <div style="position:absolute;left:50%;top:86px;transform:translateX(-50%);width:300px;height:300px;border-radius:50%;background:var(--purple);"></div>
       <div style="position:absolute;left:50%;bottom:0;width:6px;height:168px;background:linear-gradient(#FFFFFF,#6B7280);transform-origin:bottom center;transform:translateX(-50%) rotate(${angle}deg);border-radius:6px;"></div>
       <div style="position:absolute;left:50%;bottom:-18px;transform:translateX(-50%);width:72px;height:72px;border-radius:50%;background:var(--purple);border:6px solid #1F2937;"></div>
       <div style="position:absolute;left:0;bottom:10px;font-size:15px;color:#FFFFFF;font-weight:900;">$0</div>
@@ -3417,106 +3473,122 @@ function renderRentGauge(title, value, days, subtitle, stages=null) {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:12px;">
-      ${(stages||RENT_STAGES).map(s=>`<div style="height:6px;border-radius:99px;background:${s.color};opacity:${s.id===stage.id?1:.45};"></div>`).join("")}
+      ${gaugeStages.map(s=>`<div style="height:6px;border-radius:99px;background:${s.color};opacity:${s.id===stage.id?1:.45};"></div>`).join("")}
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:7px;">
-      ${(stages||RENT_STAGES).map(s=>`<div style="font-size:10px;color:${s.color};font-weight:900;text-align:center;line-height:1.1;">${s.label}</div>`).join("")}
+      ${gaugeStages.map(s=>`<div style="font-size:12px;color:${s.color};font-weight:900;text-align:center;line-height:1.18;">
+        <div>${fmt(s.min)}</div>
+        <div>${s.label}</div>
+      </div>`).join("")}
     </div>
   </div>`;
 }
 
-function buildDistributionSegments(d) {
-  const targets = [
-    { id:"arriendo", label:"Arriendo", target:d.arriendo, color:"#E8C66A" },
-    { id:"comision_vendedor", label:"Pago vendedor", target:d.sellerCommission, color:"#D96C6C" },
-    { id:"comisiones", label:"Comisiones bancarias", target:d.bankAndManualCommission, color:"#C8B8E8" },
+function getDashboardCashFlow(d) {
+  const steps = [
+    { id:"ventas", label:"Ingreso por ventas sin IVA", amount:d.ventas, kind:"in", note:"Dinero generado por ventas del periodo seleccionado.", color:"var(--lime)" },
+    { id:"bendo", label:"Bendo / comisiones bancarias", amount:-d.bankAndManualCommission, kind:"out", note:"Lo que se descuenta por cobros con tarjeta y comisiones registradas.", color:"#C8B8E8" },
+    { id:"producto", label:"Costo del producto", amount:-d.cogs, kind:"out", note:"Reposición de inventario, proveedores y producción.", color:"#D96C6C" },
+    { id:"arriendo", label:"Arriendo", amount:-d.arriendo, kind:"out", note:"Quicentro automático; otros puntos se toman de gastos manuales.", color:"#E8C66A" },
+    { id:"personal", label:"Personal", amount:-d.sellerCommission, kind:"out", note:`Base ${fmt(d.sellerBase)} + comisiones por venta ${fmt(d.sellerVariable)}.`, color:"#DFA36B" },
   ];
-  const coverageBase = Math.max(d.margenBruto,0);
-  let remaining = coverageBase;
-  const segments = targets.map(seg=>{
-    const covered = Math.min(Math.max(remaining,0), seg.target);
-    remaining -= covered;
-    return { ...seg, covered, missing:Math.max(seg.target-covered,0), pct:coverageBase>0?covered/coverageBase*100:0 };
+  if (d.marketing > 0) {
+    steps.push({ id:"marketing", label:"Mercadeo / obsequios", amount:-d.marketing, kind:"out", note:"Gastos de marketing registrados en el periodo.", color:"var(--purple)" });
+  }
+  let running = 0;
+  return steps.map(step=>{
+    running += Number(step.amount||0);
+    return { ...step, balance:running };
   });
-  segments.push({
-    id:"utilidad",
-    label:"Utilidad WORTHY",
-    target:Math.max(remaining,0),
-    covered:Math.max(remaining,0),
-    missing:0,
-    pct:coverageBase>0?Math.max(remaining,0)/coverageBase*100:0,
-    color:"#39FF14"
-  });
-  return segments;
 }
 
-function renderDistributionTank(d) {
-  const segments = buildDistributionSegments(d);
-  const maxTarget = Math.max(...segments.filter(s=>s.id!=="utilidad").map(s=>Number(s.target||0)), 1);
-  const cylinderHeight = s => s.id==="utilidad" ? 172 : Math.max(112, Math.min(220, 96 + (Number(s.target||0)/maxTarget)*124));
-  const fillPct = s => {
-    if (s.id === "utilidad") return s.covered > 0 ? 100 : 0;
-    return s.target > 0 ? Math.min(s.covered/s.target*100,100) : 0;
-  };
-  const statusText = s => s.id==="utilidad"
-    ? (s.covered>0 ? "Excedente generado" : "Se activa al cubrir gastos")
-    : (s.missing<=0 ? "Cubierto" : `Falta ${fmt(s.missing)}`);
-  const statusColor = s => s.id==="utilidad" ? "var(--lime-dark)" : (s.missing<=0 ? "var(--lime-dark)" : "var(--red)");
+function renderCashFlow(d) {
+  const steps = getDashboardCashFlow(d);
+  const finalBalance = steps.length ? steps[steps.length-1].balance : 0;
+  const totalUses = steps.filter(s=>s.kind==="out").reduce((sum,s)=>sum+Math.abs(s.amount),0);
+  const usedPct = d.ventas>0 ? totalUses / d.ventas * 100 : 0;
+  const finalLabel = finalBalance >= 0 ? "Flujo de caja operativo disponible" : "Caja operativa por cubrir";
   return `<div class="card">
-    <div class="section-title">Cobertura de gastos por cilindro</div>
-    <div style="font-size:13px;color:var(--gray);font-weight:700;margin-top:-4px;margin-bottom:12px;">Primero se toma el margen bruto real de Finanzas. Con ese margen se cubren arriendo, vendedor, comisiones y utilidad.</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:12px;align-items:end;">
-      ${segments.map(s=>{
-        const h = cylinderHeight(s);
-        const p = fillPct(s);
-        const isUtility = s.id==="utilidad";
-        return `<div style="background:${s.missing<=0&&s.target>0?"#F0FDF4":"#FFFFFF"};border:1.5px solid var(--lavender);border-radius:14px;padding:10px;box-shadow:0 2px 10px rgba(45,27,105,.07);">
-          <div style="min-height:38px;">
-            <div style="font-size:14px;font-weight:1000;color:var(--purple);line-height:1.15;">${s.label}</div>
-            <div style="font-size:12px;font-weight:900;color:${statusColor(s)};margin-top:3px;">${statusText(s)}</div>
-          </div>
-          <div style="height:${h}px;max-width:78px;margin:10px auto 8px;position:relative;border:2px solid var(--purple);border-radius:34px;background:var(--lavender-light);overflow:hidden;box-shadow:inset 0 0 10px rgba(45,27,105,.16);">
-            <div style="position:absolute;left:0;right:0;bottom:0;height:${p}%;background:${s.color};border-radius:28px 28px 0 0;display:flex;align-items:flex-start;justify-content:center;color:${isUtility?"#0B0B16":"white"};font-size:13px;font-weight:1000;padding-top:7px;transition:height .25s;">${p.toFixed(0)}%</div>
-            <div style="position:absolute;left:8px;right:8px;top:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45);"></div>
-          </div>
-          <div style="border-top:1px solid var(--lavender-light);padding-top:8px;">
-            <div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--gray);font-weight:800;"><span>${isUtility?"Utilidad":"Costo"}</span><strong style="color:${isUtility?"var(--lime-dark)":"var(--purple)"};">${fmt(isUtility?s.covered:s.target)}</strong></div>
-            <div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--gray);font-weight:800;margin-top:3px;"><span>Cubierto</span><strong style="color:var(--purple);">${fmt(s.covered)}</strong></div>
-            ${!isUtility?`<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--gray);font-weight:800;margin-top:3px;"><span>Falta</span><strong style="color:${s.missing>0?"var(--red)":"var(--lime-dark)"};">${fmt(s.missing)}</strong></div>`:""}
-          </div>
-        </div>`;
-      }).join("")}
+    <div class="section-title">Flujo de caja operativo</div>
+    <div style="font-size:13px;color:var(--gray);font-weight:800;margin-top:-4px;margin-bottom:12px;line-height:1.45;">
+      Esta lectura muestra el camino del dinero: primero entra la venta sin IVA, luego salen Bendo/banco, producto, arriendo, personal y marketing si existe. El resultado no es utilidad contable final; es caja operativa disponible del periodo.
     </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
+      <div style="background:var(--purple);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:#FFFFFF;font-weight:900;text-transform:uppercase;letter-spacing:.8px;">Ingreso</div>
+        <div style="font-size:25px;color:var(--lime);font-weight:1000;margin-top:5px;">${fmt(d.ventas)}</div>
+      </div>
+      <div style="background:var(--lavender-light);border:1px solid var(--lavender);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:var(--purple);font-weight:900;text-transform:uppercase;letter-spacing:.8px;">Usos del dinero</div>
+        <div style="font-size:25px;color:var(--red);font-weight:1000;margin-top:5px;">${fmt(totalUses)}</div>
+      </div>
+      <div style="background:${finalBalance>=0?"#F0FDF4":"#FFF1F2"};border:1px solid ${finalBalance>=0?"#86EFAC":"#FDA4AF"};border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:${finalBalance>=0?"#166534":"#991B1B"};font-weight:900;text-transform:uppercase;letter-spacing:.8px;">${finalLabel}</div>
+        <div style="font-size:25px;color:${finalBalance>=0?"var(--lime-dark)":"var(--red)"};font-weight:1000;margin-top:5px;">${fmt(finalBalance)}</div>
+      </div>
+    </div>
+    <div style="border:1px solid var(--lavender);border-radius:14px;overflow:hidden;background:#FFFFFF;">
+      <div style="display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(88px,.7fr) minmax(96px,.7fr);gap:8px;background:var(--purple);color:#FFFFFF;padding:9px 10px;font-size:12px;font-weight:1000;text-transform:uppercase;letter-spacing:.7px;">
+        <div>Movimiento</div><div style="text-align:right;">Entrada / salida</div><div style="text-align:right;">Saldo</div>
+      </div>
+      ${steps.map(s=>`<div style="display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(88px,.7fr) minmax(96px,.7fr);gap:8px;align-items:center;padding:10px;border-top:1px solid var(--lavender-light);">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:10px;height:10px;border-radius:99px;background:${s.color};flex:0 0 10px;"></span>
+            <span style="font-size:15px;color:var(--purple);font-weight:1000;line-height:1.15;">${s.label}</span>
+          </div>
+          <div style="font-size:12px;color:var(--gray);font-weight:750;line-height:1.35;margin-top:4px;">${s.note}</div>
+        </div>
+        <div style="text-align:right;font-size:16px;font-weight:1000;color:${s.kind==="in"?"var(--lime-dark)":"var(--red)"};">${s.kind==="in"?"+":"-"}${fmt(Math.abs(s.amount))}</div>
+        <div style="text-align:right;font-size:16px;font-weight:1000;color:${s.balance>=0?"var(--purple)":"var(--red)"};">${fmt(s.balance)}</div>
+      </div>`).join("")}
+    </div>
+    <div style="font-size:12px;color:var(--gray);font-weight:800;margin-top:10px;">Usos sobre venta: ${usedPct.toFixed(1)}%. Si supera 100%, el periodo consume más caja de la que genera.</div>
   </div>`;
 }
 
 function renderExecutiveSummary(d) {
-  const rows = [
-    ["Ventas acumuladas", d.ventas, "var(--purple)"],
-    ["Costo de ventas real", d.cogs, "var(--red)"],
-    ["Margen bruto", d.margenBruto, d.margenBruto>=0?"var(--lime-dark)":"var(--red)"],
-    ["Arriendo", d.arriendo, "var(--red)"],
-    ["Gastos operativos", d.gastosOperativos, "var(--red)"],
-    ["Base vendedor", d.sellerBase, "var(--red)"],
-    ["Variable vendedor", d.sellerVariable, "var(--red)"],
-    ["Pago vendedor total", d.sellerCommission, "var(--red)"],
-    ["Comisiones bancarias/manuales", d.bankAndManualCommission, "var(--red)"],
-    ["Utilidad operativa", d.utilidadOperativa, d.utilidadOperativa>=0?"var(--lime-dark)":"var(--red)"],
-    ["Utilidad neta", d.utilidadNeta, d.utilidadNeta>=0?"var(--lime-dark)":"var(--red)"],
-  ];
+  const steps = getDashboardCashFlow(d);
+  const finalBalance = d.cashFlowAvailable;
+  const uses = [
+    ["Costo producto", d.cogs],
+    ["Arriendo", d.arriendo],
+    ["Personal", d.sellerCommission],
+    ["Bendo / banco", d.bankAndManualCommission],
+    ["Mercadeo", d.marketing],
+  ].filter(([,value])=>Number(value||0)>0).sort((a,b)=>b[1]-a[1]);
+  const mainUse = uses[0] || ["Sin salidas registradas", 0];
+  const message = finalBalance >= 0
+    ? `El punto cubre sus usos operativos del periodo y deja ${fmt(finalBalance)} de caja disponible.`
+    : `El punto no cubre sus usos operativos del periodo; faltan ${fmt(Math.abs(finalBalance))}.`;
   return `<div class="card">
-    <div class="section-title">Resumen ejecutivo</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;background:var(--lavender-light);border-radius:12px;padding:10px;">
-      <div style="font-size:15px;font-weight:900;color:var(--purple);">Estado actual del punto</div>
-      <div style="font-size:14px;font-weight:1000;color:#0B0B16;background:${d.periodStage.color};border-radius:999px;padding:5px 10px;">${d.periodStage.label}</div>
+    <div class="section-title">Lectura rápida</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;background:var(--lavender-light);border-radius:12px;padding:10px;gap:10px;">
+      <div>
+        <div style="font-size:15px;font-weight:1000;color:var(--purple);">Estado del punto</div>
+        <div style="font-size:13px;color:var(--gray);font-weight:800;margin-top:2px;">${message}</div>
+      </div>
+      <div style="font-size:14px;font-weight:1000;color:#0B0B16;background:${d.periodStage.color};border-radius:999px;padding:6px 10px;white-space:nowrap;">${d.periodStage.label}</div>
     </div>
-    <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:8px;background:#FBFAFF;border-radius:10px;padding:8px;">
-      Equilibrio del periodo: ${fmt(d.breakEvenPeriod)} (${fmt(d.breakEvenDaily)} diario). Comisión vendedor: base ${fmt(d.sellerBase)} + 10% sobre excedente diario mayor a $100 sin IVA / $115 cobrado (${fmt(d.sellerVariable)}).
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+      <div style="background:#FFFFFF;border:1px solid var(--lavender);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:var(--gray);font-weight:900;text-transform:uppercase;letter-spacing:.8px;">Venta neta</div>
+        <div style="font-size:24px;color:var(--purple);font-weight:1000;margin-top:4px;">${fmt(d.ventas)}</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid var(--lavender);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:var(--gray);font-weight:900;text-transform:uppercase;letter-spacing:.8px;">Caja disponible</div>
+        <div style="font-size:24px;color:${finalBalance>=0?"var(--lime-dark)":"var(--red)"};font-weight:1000;margin-top:4px;">${fmt(finalBalance)}</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid var(--lavender);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:var(--gray);font-weight:900;text-transform:uppercase;letter-spacing:.8px;">Mayor salida</div>
+        <div style="font-size:18px;color:var(--purple);font-weight:1000;margin-top:4px;">${mainUse[0]}</div>
+        <div style="font-size:20px;color:var(--red);font-weight:1000;margin-top:2px;">${fmt(mainUse[1])}</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid var(--lavender);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:var(--gray);font-weight:900;text-transform:uppercase;letter-spacing:.8px;">Punto de equilibrio</div>
+        <div style="font-size:24px;color:var(--purple);font-weight:1000;margin-top:4px;">${fmt(d.breakEvenPeriod)}</div>
+      </div>
     </div>
-    ${rows.map(([label,value,color])=>`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--lavender-light);padding:8px 0;">
-      <span style="font-size:15px;font-weight:800;color:var(--gray);">${label}</span>
-      <span style="font-size:17px;font-weight:1000;color:${color};">${fmt(value)}</span>
-    </div>`).join("")}
   </div>`;
 }
 
@@ -3560,7 +3632,7 @@ function renderRentabilidadDashboard() {
     <div style="font-size:15px;font-weight:1000;color:#166534;">Modelo listo para evolucionar de formato</div>
     <div style="font-size:12px;color:#365314;margin-top:4px;">Stand, isla, tienda o expansión a nuevos puntos de venta.</div>
   </div>`:""}
-  ${renderDistributionTank(d)}
+  ${renderCashFlow(d)}
   ${renderExecutiveSummary(d)}
   `;
 }
@@ -3589,6 +3661,9 @@ function renderAdminDashboard() {
   const periodTotal = salesNetTotal(filteredSales);
   const periodTx = filteredSales.length;
   const avgTicket = periodTx>0 ? periodTotal/periodTx : 0;
+  const periodDates = filteredSales.map(s=>s.fecha).filter(Boolean).sort();
+  const periodDays = state.inicioPeriod==="todo" && periodDates.length ? countDaysInclusive(periodDates[0], periodDates[periodDates.length-1]) : countDaysInclusive(from, to);
+  const avgDaily = periodDays>0 ? periodTotal/periodDays : 0;
 
   // Comparacion vs ayer (solo tiene sentido si periodo = hoy)
   const yestIso = (()=>{ const d=new Date(Date.now()-5*60*60*1000); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
@@ -3675,6 +3750,11 @@ function renderAdminDashboard() {
       <div class="stat-label" style="color:var(--gray);">Transacciones</div>
       <div class="stat-value" style="color:var(--purple);">${periodTx}</div>
       <div style="font-size:10px;color:var(--gray);margin-top:2px;">${periodLabel}</div>
+    </div>
+    <div class="stat-card" style="background:white;box-shadow:0 1px 4px rgba(45,27,105,0.08);">
+      <div class="stat-label" style="color:var(--gray);">Promedio diario</div>
+      <div class="stat-value" style="color:var(--purple);">${fmt(avgDaily)}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px;">${periodDays} día${periodDays===1?"":"s"}</div>
     </div>
   </div>
 
@@ -3824,7 +3904,7 @@ function renderBarChart(canvasId) {
             color:'#2D1B69',
             maxRotation:0,
             minRotation:0,
-            autoSkip:dailyMode?false:true,
+            autoSkip:dailyMode || chartMeta.mode==="summary" ? false : true,
             autoSkipPadding:weeklyMode?14:10,
             padding:8
           },
@@ -3882,25 +3962,27 @@ function renderBarChart(canvasId) {
           });
 
           // Encabezado de cada bloque semanal con total sin IVA.
-          chartMeta.weekStarts.forEach((startIndex,weekIndex)=>{
-            const nextStart = chartMeta.weekStarts[weekIndex+1] ?? bars.length;
-            const first = bars[startIndex];
-            const last = bars[Math.max(startIndex,nextStart-1)];
-            if(!first || !last) return;
-            const left = startIndex===0 ? chartArea.left : (bars[startIndex-1].x+first.x)/2;
-            const right = nextStart>=bars.length ? chartArea.right : (last.x+bars[nextStart].x)/2;
-            ctx.save();
-            ctx.fillStyle='#2D1B69';
-            ctx.font=`800 ${smallScreen?9:10}px system-ui, sans-serif`;
-            ctx.textAlign='center';
-            ctx.textBaseline='middle';
-            const center = (left+right)/2;
-            ctx.fillText(chartMeta.weekLabels?.[weekIndex]||'Semana',center,chartArea.top-34);
-            ctx.fillStyle='#6fa030';
-            ctx.font=`900 ${smallScreen?10:11}px system-ui, sans-serif`;
-            ctx.fillText('$'+Number(chartMeta.weekTotals?.[weekIndex]||0).toFixed(0),center,chartArea.top-19);
-            ctx.restore();
-          });
+          if(chartMeta.weekStarts.length > 1) {
+            chartMeta.weekStarts.forEach((startIndex,weekIndex)=>{
+              const nextStart = chartMeta.weekStarts[weekIndex+1] ?? bars.length;
+              const first = bars[startIndex];
+              const last = bars[Math.max(startIndex,nextStart-1)];
+              if(!first || !last) return;
+              const left = startIndex===0 ? chartArea.left : (bars[startIndex-1].x+first.x)/2;
+              const right = nextStart>=bars.length ? chartArea.right : (last.x+bars[nextStart].x)/2;
+              ctx.save();
+              ctx.fillStyle='#2D1B69';
+              ctx.font=`800 ${smallScreen?9:10}px system-ui, sans-serif`;
+              ctx.textAlign='center';
+              ctx.textBaseline='middle';
+              const center = (left+right)/2;
+              ctx.fillText(chartMeta.weekLabels?.[weekIndex]||'Semana',center,chartArea.top-34);
+              ctx.fillStyle='#6fa030';
+              ctx.font=`900 ${smallScreen?10:11}px system-ui, sans-serif`;
+              ctx.fillText('$'+Number(chartMeta.weekTotals?.[weekIndex]||0).toFixed(0),center,chartArea.top-19);
+              ctx.restore();
+            });
+          }
         }
       },
       {
@@ -4794,6 +4876,85 @@ function renderAdminBodega() {
 
 
 // ─── KARDEX ──────────────────────────────────────────────────
+function auditProductMatches(productId, filterId) {
+  if (filterId === "balm_all") return ["WLBN6","WLBP6","WLBR6"].includes(productId);
+  return productId === filterId;
+}
+
+function auditSaleQtyForProduct(sale, filterId) {
+  return (sale.items||[]).reduce((sum,item)=>{
+    if (item.isRutina && item.rutinaItems) {
+      return sum + item.rutinaItems.reduce((s,ri)=>s+(auditProductMatches(ri.id,filterId)?Number(ri.q||0)*Number(item.qty||0):0),0);
+    }
+    return sum + (auditProductMatches(item.id,filterId)?Number(item.qty||0):0);
+  },0);
+}
+
+function renderInventoryAudit() {
+  const date = state.auditDate || today();
+  const stand = state.auditStand || "quicentro";
+  const product = state.auditProduct || "balm_all";
+  const productOptions = [
+    { id:"balm_all", label:"Todos Lip Balm" },
+    ...CATALOG.map(p=>({ id:p.id, label:`${p.name} ${p.sub}` }))
+  ];
+  const standOptions = STOCK_POINTS.filter(s=>s.id!=="bodega");
+  const salesRows = (state.sales||[])
+    .filter(s=>s.fecha===date && s.stand===stand)
+    .map(s=>({ sale:s, qty:auditSaleQtyForProduct(s,product) }))
+    .filter(r=>r.qty>0)
+    .sort((a,b)=>String(a.sale.timestamp||"").localeCompare(String(b.sale.timestamp||"")));
+  const saleQty = salesRows.reduce((sum,r)=>sum+r.qty,0);
+  const kardexRows = (state.kardexMovements||[]).filter(m=>{
+    if (m.fecha !== date || !auditProductMatches(m.product, product)) return false;
+    if (m.type === "ajuste") return m.standId === stand;
+    if (m.type === "salida") return m.to === stand;
+    if (m.type === "entrada") return m.standId === stand || m.to === stand;
+    return false;
+  }).sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||"")));
+  const incoming = kardexRows.reduce((sum,m)=>{
+    if (m.type==="ajuste") return sum + Math.max(Number(m.qty||0),0);
+    if (m.type==="salida" && m.to===stand) return sum + Number(m.qty||0);
+    if (m.type==="entrada" && (m.standId===stand || m.to===stand)) return sum + Number(m.qty||0);
+    return sum;
+  },0);
+  const outgoing = saleQty + kardexRows.reduce((sum,m)=>{
+    if (m.type==="ajuste") return sum + Math.max(-Number(m.qty||0),0);
+    return sum;
+  },0);
+  const net = incoming - outgoing;
+  const currentStock = product==="balm_all"
+    ? ["WLBN6","WLBP6","WLBR6"].reduce((s,id)=>s+Number((state.inventory[stand]||{})[id]||0),0)
+    : Number((state.inventory[stand]||{})[product]||0);
+  return `<div class="card" style="margin-bottom:12px;border:2px solid var(--lavender);">
+    <div class="section-title">Seguimiento de inventario</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px;">
+      <input type="date" class="dispatch-input" id="audit-date" value="${date}" max="${today()}">
+      <select class="dispatch-select" id="audit-stand">
+        ${standOptions.map(s=>`<option value="${s.id}" ${stand===s.id?"selected":""}>${s.name}</option>`).join("")}
+      </select>
+      <select class="dispatch-select" id="audit-product">
+        ${productOptions.map(p=>`<option value="${p.id}" ${product===p.id?"selected":""}>${p.label}</option>`).join("")}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
+      <div style="background:var(--lavender-light);border-radius:10px;padding:8px;text-align:center;"><div style="font-size:11px;color:var(--gray);font-weight:800;">Entradas</div><div style="font-size:20px;color:var(--lime-dark);font-weight:1000;">+${incoming}</div></div>
+      <div style="background:var(--lavender-light);border-radius:10px;padding:8px;text-align:center;"><div style="font-size:11px;color:var(--gray);font-weight:800;">Salidas venta</div><div style="font-size:20px;color:var(--red);font-weight:1000;">-${saleQty}</div></div>
+      <div style="background:var(--lavender-light);border-radius:10px;padding:8px;text-align:center;"><div style="font-size:11px;color:var(--gray);font-weight:800;">Neto dia</div><div style="font-size:20px;color:var(--purple);font-weight:1000;">${net>0?"+":""}${net}</div></div>
+      <div style="background:var(--lavender-light);border-radius:10px;padding:8px;text-align:center;"><div style="font-size:11px;color:var(--gray);font-weight:800;">Stock actual</div><div style="font-size:20px;color:var(--purple);font-weight:1000;">${currentStock}</div></div>
+    </div>
+    ${salesRows.length?`<div style="font-size:12px;font-weight:900;color:var(--purple);margin:8px 0 5px;">Ventas que descontaron este producto</div>
+      ${salesRows.map(r=>`<div style="border-top:1px solid var(--lavender-light);padding:6px 0;font-size:12px;color:var(--gray);">
+        <strong style="color:var(--red);">-${r.qty}</strong> · ${fmtTime(r.sale.timestamp)} · ${(r.sale.items||[]).map(i=>`${i.name} x${i.qty}`).join(" · ")}
+      </div>`).join("")}`:`<div style="font-size:12px;color:var(--gray);padding:8px 0;">No hay ventas de este producto en la fecha seleccionada.</div>`}
+    ${kardexRows.length?`<div style="font-size:12px;font-weight:900;color:var(--purple);margin:10px 0 5px;">Ajustes / despachos del dia</div>
+      ${kardexRows.map(m=>`<div style="border-top:1px solid var(--lavender-light);padding:6px 0;font-size:12px;color:var(--gray);">
+        <strong style="color:${m.type==="ajuste"&&Number(m.qty)<0?"var(--red)":"var(--lime-dark)"};">${m.type==="ajuste"&&Number(m.qty)<0?"":"+"}${m.qty}</strong> · ${fmtTime(m.timestamp)} · ${m.type} · ${m.obs||""} ${m.to?`· hacia ${STANDS.find(s=>s.id===m.to)?.name||m.to}`:""}
+      </div>`).join("")}`:""}
+    <div style="font-size:11px;color:var(--gray);margin-top:8px;">Nota: esta auditoria detecta ventas, rutinas, despachos y ajustes con registro. Una edicion directa del numero de stock no deja detalle historico.</div>
+  </div>`;
+}
+
 function renderKardex() {
   const canAdd = state.userInfo?.canKardex;
   const movs = (state.kardexMovements || []).filter(m =>
@@ -4805,6 +4966,8 @@ function renderKardex() {
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Kardex de Bodega</div>
     <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Registro de entradas y salidas</div>
   </div>
+
+  ${renderInventoryAudit()}
 
   ${canAdd ? `<div class="card card-lavender" style="margin-bottom:12px;">
     <div class="section-title">Nueva Entrada de Produccion</div>
@@ -5008,6 +5171,7 @@ function bindApp() {
   document.querySelectorAll("[data-stock-view]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.stockView=btn.dataset.stockView; state.editingStock=null; render(); });
   });
+  document.getElementById("bodega-view")?.addEventListener("change",e=>{ state.bodegaView=e.target.value; render(); });
 
   // Cat filter
   document.querySelectorAll("[data-cat]").forEach(btn=>{
@@ -5398,6 +5562,9 @@ function bindApp() {
   document.getElementById("kardex-obs")?.addEventListener("input",e=>{ state.kardexObs=e.target.value; });
   document.getElementById("kardex-save-btn")?.addEventListener("click", handleKardexEntrada);
   document.getElementById("kardex-filter")?.addEventListener("change",e=>{ state.kardexFilter=e.target.value; render(); });
+  document.getElementById("audit-date")?.addEventListener("change",e=>{ state.auditDate=e.target.value; render(); });
+  document.getElementById("audit-stand")?.addEventListener("change",e=>{ state.auditStand=e.target.value; render(); });
+  document.getElementById("audit-product")?.addEventListener("change",e=>{ state.auditProduct=e.target.value; render(); });
 
   document.querySelectorAll("[data-kx-edit]").forEach(btn=>{
     btn.addEventListener("click",()=>{
@@ -5840,8 +6007,30 @@ function downloadHistTemplate() {
 
 async function handleUpdateStock(standId, productId, newStock) {
   try {
-    inv[productId] = newStock;
+    const inv = {...(state.inventory[standId]||{})};
+    const stockAnterior = Number(inv[productId]||0);
+    const stockNuevo = Math.max(0, Number(newStock||0));
+    const delta = stockNuevo - stockAnterior;
+    inv[productId] = stockNuevo;
     await db.collection("inventarios").doc(standId).set(inv);
+    if (delta !== 0) {
+      const mov = {
+        id: genId(),
+        fecha: today(),
+        timestamp: new Date().toISOString(),
+        type: "ajuste",
+        product: productId,
+        qty: delta,
+        stockAnterior,
+        stockNuevo,
+        standId,
+        lote: "",
+        obs: "Edicion directa de stock",
+        registradoPor: state.user.email,
+      };
+      await db.collection("kardex").doc(mov.id).set(mov);
+      state.kardexMovements = [mov, ...(state.kardexMovements||[])];
+    }
     state.inventory[standId] = inv;
     state.editingStock = null;
     showToast("✅ Stock actualizado");
