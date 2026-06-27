@@ -4261,8 +4261,8 @@ function renderPOS() {
   <textarea placeholder="Nota opcional..." id="sale-note">${state.note}</textarea>
   `:""}
 
-  <button class="btn-lime btn-lime-full" id="sell-btn" ${state.cart.length===0?"disabled":""}>
-    ${state.cart.length>0?(state.obsequio?`Registrar Obsequio · costo ${fmt(cartCost)}`:`Registrar Venta · ${fmt(total)}`):"Selecciona productos"}
+  <button class="btn-lime btn-lime-full" id="sell-btn" ${state.cart.length===0||state.selling?"disabled":""}>
+    ${state.selling?"Guardando...":state.cart.length>0?(state.obsequio?`Registrar Obsequio · costo ${fmt(cartCost)}`:`Registrar Venta · ${fmt(total)}`):"Selecciona productos"}
   </button>`;
 }
 
@@ -5051,16 +5051,6 @@ async function handleKardexEditSave(id) {
 
   state.kxEditSaving = true; render();
   try {
-    const bodegaInv = {...(state.inventory["bodega"]||{})};
-
-    // Revertir el efecto del movimiento original sobre el inventario de bodega
-    bodegaInv[original.product] = (bodegaInv[original.product]||0) - (original.qty||0);
-
-    // Aplicar el efecto del movimiento nuevo (corregido)
-    bodegaInv[newProduct] = (bodegaInv[newProduct]||0) + newQty;
-
-    await db.collection("inventarios").doc("bodega").set(bodegaInv);
-
     const updatedMov = {
       ...original,
       product: newProduct,
@@ -5070,7 +5060,17 @@ async function handleKardexEditSave(id) {
       editadoPor: state.user.email,
       editadoEn: new Date().toISOString(),
     };
-    await db.collection("kardex").doc(id).set(updatedMov);
+    let bodegaInv = null;
+    await db.runTransaction(async tx=>{
+      const invRef = db.collection("inventarios").doc("bodega");
+      const invDoc = await tx.get(invRef);
+      bodegaInv = {...(invDoc.exists ? (invDoc.data()||{}) : {})};
+      bodegaInv[original.product] = Number(bodegaInv[original.product]||0) - Number(original.qty||0);
+      if (bodegaInv[original.product] < 0) throw new Error(`No puedes dejar stock negativo al editar ${original.product}`);
+      bodegaInv[newProduct] = Number(bodegaInv[newProduct]||0) + newQty;
+      tx.set(invRef, bodegaInv);
+      tx.set(db.collection("kardex").doc(id), updatedMov);
+    });
 
     state.inventory["bodega"] = bodegaInv;
     state.kardexMovements = movs.map(m=>m.id===id?updatedMov:m);
@@ -5092,12 +5092,16 @@ async function handleKardexEditDelete(id) {
 
   state.kxEditSaving = true; render();
   try {
-    const bodegaInv = {...(state.inventory["bodega"]||{})};
-    // Revertir el efecto del movimiento sobre bodega
-    bodegaInv[original.product] = (bodegaInv[original.product]||0) - (original.qty||0);
-    await db.collection("inventarios").doc("bodega").set(bodegaInv);
-
-    await db.collection("kardex").doc(id).delete();
+    let bodegaInv = null;
+    await db.runTransaction(async tx=>{
+      const invRef = db.collection("inventarios").doc("bodega");
+      const invDoc = await tx.get(invRef);
+      bodegaInv = {...(invDoc.exists ? (invDoc.data()||{}) : {})};
+      bodegaInv[original.product] = Number(bodegaInv[original.product]||0) - Number(original.qty||0);
+      if (bodegaInv[original.product] < 0) throw new Error(`No puedes dejar stock negativo al eliminar ${original.product}`);
+      tx.set(invRef, bodegaInv);
+      tx.delete(db.collection("kardex").doc(id));
+    });
 
     state.inventory["bodega"] = bodegaInv;
     state.kardexMovements = movs.filter(m=>m.id!==id);
@@ -5620,19 +5624,108 @@ function bindApp() {
 
 // ─── ACTIONS ─────────────────────────────────────────────────
 // ─── EDICION DE VENTAS ─────────────────────────────────────────
-// Aplica el delta de unidades (positivo=devuelve stock, negativo=descuenta) de una venta al inventario
-function applySaleInventoryDelta(invSourceId, items, sign) {
-  const inv = {...(state.inventory[invSourceId]||{})};
+function addStockDelta(delta, productId, qty) {
+  const units = Number(qty||0);
+  if (!productId || units === 0) return;
+  delta[productId] = Number(delta[productId]||0) + units;
+}
+
+// Construye el movimiento de stock de una venta.
+// sign -1 descuenta stock, sign +1 devuelve stock.
+function getSaleInventoryDelta(items, sign) {
+  const delta = {};
   items.forEach(item=>{
     if (item.isRutina && item.rutinaItems) {
       item.rutinaItems.forEach(ri=>{
-        inv[ri.id] = Math.max(0, (inv[ri.id]||0) + sign*(ri.q||0)*(item.qty||0));
+        addStockDelta(delta, ri.id, sign * Number(ri.q||0) * Number(item.qty||0));
       });
     } else {
-      inv[item.id] = Math.max(0, (inv[item.id]||0) + sign*(item.qty||0));
+      addStockDelta(delta, item.id, sign * Number(item.qty||0));
     }
   });
-  return inv;
+  return delta;
+}
+
+function mergeStockDeltas(...deltas) {
+  const merged = {};
+  deltas.forEach(delta=>{
+    Object.entries(delta||{}).forEach(([productId, qty])=>addStockDelta(merged, productId, qty));
+  });
+  return merged;
+}
+
+function applyInventoryDelta(inv, delta, allowNegative=false) {
+  const next = {...(inv||{})};
+  const missing = [];
+  Object.entries(delta||{}).forEach(([productId, qty])=>{
+    const current = Number(next[productId]||0);
+    const value = current + Number(qty||0);
+    if (!allowNegative && value < 0) {
+      const p = CATALOG.find(c=>c.id===productId);
+      missing.push({ productId, name:p?`${p.name} ${p.sub}`:productId, available:current, required:Math.abs(Number(qty||0)) });
+    }
+    next[productId] = value;
+  });
+  return { inv:next, missing };
+}
+
+function automaticCommissionDocId(saleId) {
+  return `COM-${saleId}`;
+}
+
+function getAutoCommissionExpenseIdsForSale(saleId) {
+  return (state.gastos||[])
+    .filter(g=>g.id===automaticCommissionDocId(saleId) || String(g.nota||"").includes(`venta ${saleId}`))
+    .filter(g=>g.cat==="comisiones" && String(g.nota||"").startsWith("Comisión "))
+    .map(g=>g.id)
+    .filter(Boolean);
+}
+
+function buildAutomaticCommissionExpense(sale) {
+  if (!sale || sale.obsequio) return null;
+  const comisionRate = getComisionRate(sale.pago);
+  if (comisionRate <= 0) return null;
+  const comisionMonto = Number(sale.total||0) * comisionRate;
+  return {
+    id: automaticCommissionDocId(sale.id),
+    fecha: sale.fecha,
+    timestamp: new Date().toISOString(),
+    stand: sale.stand,
+    cat: "comisiones",
+    monto: Number(comisionMonto.toFixed(2)),
+    nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta ${sale.id}`,
+    automatico: true,
+    saleId: sale.id,
+  };
+}
+
+function applySaleInventoryDelta(invSourceId, items, sign) {
+  const inv = {...(state.inventory[invSourceId]||{})};
+  const delta = getSaleInventoryDelta(items, sign);
+  const applied = applyInventoryDelta(inv, delta, true);
+  Object.keys(applied.inv).forEach(k=>{ applied.inv[k] = Math.max(0, Number(applied.inv[k]||0)); });
+  return applied.inv;
+}
+
+function stockMissingMessage(missing) {
+  if (!missing || !missing.length) return "";
+  const first = missing[0];
+  return `Stock insuficiente: ${first.name}. Disponible ${first.available}, necesitas ${first.required}.`;
+}
+
+async function updateInventoryWithTransaction(invSourceId, delta, writeCallback) {
+  const invRef = db.collection("inventarios").doc(invSourceId);
+  let updatedInv = null;
+  await db.runTransaction(async tx=>{
+    const invDoc = await tx.get(invRef);
+    const currentInv = invDoc.exists ? (invDoc.data()||{}) : {};
+    const applied = applyInventoryDelta(currentInv, delta, false);
+    if (applied.missing.length) throw new Error(stockMissingMessage(applied.missing));
+    updatedInv = applied.inv;
+    tx.set(invRef, updatedInv);
+    writeCallback(tx, updatedInv);
+  });
+  return updatedInv;
 }
 
 async function handleSaleEditSave(id) {
@@ -5647,22 +5740,6 @@ async function handleSaleEditSave(id) {
   state.evEditSaving = true; render();
   try {
     const invSourceId = getInvSourceForStand(sale.stand);
-
-    // Revertir el efecto del inventario original (devolver stock segun cantidades viejas)
-    let inv = applySaleInventoryDelta(invSourceId, sale.items||[], +1);
-    // Aplicar el efecto del inventario nuevo (descontar segun cantidades nuevas)
-    newItems.forEach(item=>{
-      if (item.isRutina && item.rutinaItems) {
-        item.rutinaItems.forEach(ri=>{
-          inv[ri.id] = Math.max(0, (inv[ri.id]||0) - (ri.q||0)*(item.qty||0));
-        });
-      } else {
-        inv[item.id] = Math.max(0, (inv[item.id]||0) - (item.qty||0));
-      }
-    });
-
-    await db.collection("inventarios").doc(invSourceId).set(inv);
-
     const updatedSale = {
       ...sale,
       items: newItems.map(it=>({...it, subtotal: it.price*it.qty})),
@@ -5671,10 +5748,24 @@ async function handleSaleEditSave(id) {
       editadoPor: state.user.email,
       editadoEn: new Date().toISOString(),
     };
-    await db.collection("ventas").doc(id).set(updatedSale);
+    const delta = mergeStockDeltas(
+      getSaleInventoryDelta(sale.items||[], +1),
+      getSaleInventoryDelta(updatedSale.items||[], -1)
+    );
+    const autoCommission = buildAutomaticCommissionExpense(updatedSale);
+    const oldAutoCommissionIds = getAutoCommissionExpenseIdsForSale(id);
+    const inv = await updateInventoryWithTransaction(invSourceId, delta, tx=>{
+      tx.set(db.collection("ventas").doc(id), updatedSale);
+      oldAutoCommissionIds.forEach(gid=>tx.delete(db.collection("gastos").doc(gid)));
+      if (autoCommission) tx.set(db.collection("gastos").doc(autoCommission.id), autoCommission);
+    });
 
     state.inventory[invSourceId] = inv;
     state.sales = state.sales.map(s=>s.id===id?updatedSale:s);
+    state.gastos = [
+      ...(state.gastos||[]).filter(g=>!oldAutoCommissionIds.includes(g.id)),
+      ...(autoCommission?[autoCommission]:[])
+    ];
     state.editingSale = null;
     state.evEditSaving = false;
     showToast("✅ Venta actualizada");
@@ -5693,14 +5784,16 @@ async function handleSaleDelete(id) {
   state.evEditSaving = true; render();
   try {
     const invSourceId = getInvSourceForStand(sale.stand);
-    // Revertir inventario (devolver stock de todos los items)
-    const inv = applySaleInventoryDelta(invSourceId, sale.items||[], +1);
-    await db.collection("inventarios").doc(invSourceId).set(inv);
-
-    await db.collection("ventas").doc(id).delete();
+    const delta = getSaleInventoryDelta(sale.items||[], +1);
+    const oldAutoCommissionIds = getAutoCommissionExpenseIdsForSale(id);
+    const inv = await updateInventoryWithTransaction(invSourceId, delta, tx=>{
+      tx.delete(db.collection("ventas").doc(id));
+      oldAutoCommissionIds.forEach(gid=>tx.delete(db.collection("gastos").doc(gid)));
+    });
 
     state.inventory[invSourceId] = inv;
     state.sales = state.sales.filter(s=>s.id!==id);
+    state.gastos = (state.gastos||[]).filter(g=>!oldAutoCommissionIds.includes(g.id));
     state.editingSale = null;
     state.evEditSaving = false;
     showToast("✅ Venta eliminada");
@@ -5713,7 +5806,7 @@ async function handleSaleDelete(id) {
 }
 
 async function handleSell() {
-  if (!state.cart.length) return;
+  if (!state.cart.length || state.selling) return;
   const subtotal = state.cart.reduce((s,i)=>s+(state.customPrices[i.id]!==undefined?state.customPrices[i.id]:i.price)*i.qty,0);
   const discAmt = subtotal*state.discount/100;
   const total = state.obsequio ? 0 : (subtotal-discAmt);
@@ -5733,25 +5826,14 @@ async function handleSell() {
     obsequio: !!state.obsequio
   };
 
+  state.selling = true; render();
   try {
-    // Guardar venta
-    await db.collection("ventas").doc(sale.id).set(sale);
-
     // Actualizar inventario (Oficina descuenta de Bodega Central)
     const invSourceId = getInvSourceForStand(sale.stand);
-    const inv = {...(state.inventory[invSourceId]||{})};
-    sale.items.forEach(item=>{
-      if(item.isRutina && item.rutinaItems) {
-        item.rutinaItems.forEach(ri=>{ inv[ri.id]=Math.max(0,(inv[ri.id]||0)-(ri.q*item.qty)); });
-      } else {
-        inv[item.id]=Math.max(0,(inv[item.id]||0)-item.qty);
-      }
-    });
-    await db.collection("inventarios").doc(invSourceId).set(inv);
-
-    // Si es obsequio: registrar gasto de marketing por el costo
+    const delta = getSaleInventoryDelta(sale.items||[], -1);
+    const extraGastos = [];
     if (state.obsequio && cartCost > 0) {
-      const gasto = {
+      extraGastos.push({
         id: genId(),
         fecha: sale.fecha,
         timestamp: new Date().toISOString(),
@@ -5759,41 +5841,29 @@ async function handleSell() {
         cat: "marketing",
         monto: Number(cartCost.toFixed(2)),
         nota: `Obsequio · venta ${sale.id}`,
-      };
-      await db.collection("gastos").doc(gasto.id).set(gasto);
-      state.gastos = [...(state.gastos||[]), gasto];
+      });
     }
-
-    // Si es tarjeta (debito/credito): registrar comision bancaria automatica
-    if (!state.obsequio) {
-      const comisionRate = getComisionRate(sale.pago);
-      if (comisionRate > 0) {
-        const comisionMonto = total * comisionRate;
-        const gastoCom = {
-          id: genId(),
-          fecha: sale.fecha,
-          timestamp: new Date().toISOString(),
-          stand: sale.stand,
-          cat: "comisiones",
-          monto: Number(comisionMonto.toFixed(2)),
-          nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta ${sale.id}`,
-        };
-        await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
-        state.gastos = [...(state.gastos||[]), gastoCom];
-      }
-    }
+    const autoCommission = buildAutomaticCommissionExpense(sale);
+    if (autoCommission) extraGastos.push(autoCommission);
+    const inv = await updateInventoryWithTransaction(invSourceId, delta, tx=>{
+      tx.set(db.collection("ventas").doc(sale.id), sale);
+      extraGastos.forEach(g=>tx.set(db.collection("gastos").doc(g.id), g));
+    });
 
     state.inventory[invSourceId] = inv;
     state.sales = [...state.sales, sale];
+    if (extraGastos.length) state.gastos = [...(state.gastos||[]), ...extraGastos];
     state.cart = [];
     state.customPrices = {};
     state.discount = 0;
     state.note = "";
     state.obsequio = false;
     state.success = total;
+    state.selling = false;
     render();
     setTimeout(()=>{ state.success=null; render(); }, 2200);
   } catch(e) {
+    state.selling = false;
     showToast("⚠️ Error al guardar: "+e.message, "err");
   }
 }
@@ -6007,30 +6077,35 @@ function downloadHistTemplate() {
 
 async function handleUpdateStock(standId, productId, newStock) {
   try {
-    const inv = {...(state.inventory[standId]||{})};
-    const stockAnterior = Number(inv[productId]||0);
-    const stockNuevo = Math.max(0, Number(newStock||0));
-    const delta = stockNuevo - stockAnterior;
-    inv[productId] = stockNuevo;
-    await db.collection("inventarios").doc(standId).set(inv);
-    if (delta !== 0) {
-      const mov = {
-        id: genId(),
-        fecha: today(),
-        timestamp: new Date().toISOString(),
-        type: "ajuste",
-        product: productId,
-        qty: delta,
-        stockAnterior,
-        stockNuevo,
-        standId,
-        lote: "",
-        obs: "Edicion directa de stock",
-        registradoPor: state.user.email,
-      };
-      await db.collection("kardex").doc(mov.id).set(mov);
-      state.kardexMovements = [mov, ...(state.kardexMovements||[])];
-    }
+    let inv = null;
+    let mov = null;
+    await db.runTransaction(async tx=>{
+      const invRef = db.collection("inventarios").doc(standId);
+      const invDoc = await tx.get(invRef);
+      inv = {...(invDoc.exists ? (invDoc.data()||{}) : {})};
+      const current = Number(inv[productId]||0);
+      const next = Math.max(0, Number(newStock||0));
+      inv[productId] = next;
+      tx.set(invRef, inv);
+      if (next !== current) {
+        mov = {
+          id: genId(),
+          fecha: today(),
+          timestamp: new Date().toISOString(),
+          type: "ajuste",
+          product: productId,
+          qty: next-current,
+          stockAnterior: current,
+          stockNuevo: next,
+          standId,
+          lote: "",
+          obs: "Edicion directa de stock",
+          registradoPor: state.user.email,
+        };
+        tx.set(db.collection("kardex").doc(mov.id), mov);
+      }
+    });
+    if (mov) state.kardexMovements = [mov, ...(state.kardexMovements||[])];
     state.inventory[standId] = inv;
     state.editingStock = null;
     showToast("✅ Stock actualizado");
@@ -6214,35 +6289,33 @@ async function handleAjusteInventario() {
 
   state.ajusteSaving = true; render();
   try {
-    const inv = {...(state.inventory[standId]||{})};
-    const stockAnterior = inv[productId]||0;
-    const stockNuevo = stockAnterior + delta;
-    if (stockNuevo < 0) {
-      state.ajusteSaving = false;
-      showToast(`No puedes dejar stock negativo. Stock actual: ${stockAnterior}`,"err");
-      render();
-      return;
-    }
-    inv[productId] = stockNuevo;
-
-    await db.collection("inventarios").doc(standId).set(inv);
-
-    // Registrar en kardex
-    const mov = {
-      id: genId(),
-      fecha: today(),
-      timestamp: new Date().toISOString(),
-      type: "ajuste",
-      product: productId,
-      qty: delta,
-      stockAnterior,
-      stockNuevo,
-      standId,
-      lote: "",
-      obs: nota,
-      registradoPor: state.user.email,
-    };
-    await db.collection("kardex").doc(mov.id).set(mov);
+    let inv = null;
+    let mov = null;
+    await db.runTransaction(async tx=>{
+      const invRef = db.collection("inventarios").doc(standId);
+      const invDoc = await tx.get(invRef);
+      inv = {...(invDoc.exists ? (invDoc.data()||{}) : {})};
+      const stockAnterior = Number(inv[productId]||0);
+      const stockNuevo = stockAnterior + delta;
+      if (stockNuevo < 0) throw new Error(`No puedes dejar stock negativo. Stock actual: ${stockAnterior}`);
+      inv[productId] = stockNuevo;
+      mov = {
+        id: genId(),
+        fecha: today(),
+        timestamp: new Date().toISOString(),
+        type: "ajuste",
+        product: productId,
+        qty: delta,
+        stockAnterior,
+        stockNuevo,
+        standId,
+        lote: "",
+        obs: nota,
+        registradoPor: state.user.email,
+      };
+      tx.set(invRef, inv);
+      tx.set(db.collection("kardex").doc(mov.id), mov);
+    });
 
     state.inventory[standId] = inv;
     state.kardexMovements = [mov, ...(state.kardexMovements||[])];
@@ -6275,25 +6348,7 @@ async function handleDispatch() {
   try {
     const productInfo = CATALOG.find(p=>p.id===product);
     const movementId = genId();
-    if (isPlantEntry) {
-      bodegaInv[product] = available + qty;
-      await db.collection("inventarios").doc("bodega").set(bodegaInv);
-      state.inventory["bodega"] = bodegaInv;
-    } else {
-      // Restar de bodega
-      bodegaInv[product] = available-qty;
-      await db.collection("inventarios").doc("bodega").set(bodegaInv);
-
-      // Sumar al punto de venta
-      const standInv = {...(state.inventory[target]||{})};
-      standInv[product] = (standInv[product]||0)+qty;
-      await db.collection("inventarios").doc(target).set(standInv);
-      state.inventory["bodega"] = bodegaInv;
-      state.inventory[target] = standInv;
-    }
-
-    // Registrar movimiento en despachos y kardex
-    await db.collection("despachos").add({
+    const despacho = {
       id: movementId,
       fecha: today(), timestamp: new Date().toISOString(),
       product, qty,
@@ -6302,8 +6357,8 @@ async function handleDispatch() {
       mode,
       productName: productInfo ? `${productInfo.name} ${productInfo.sub}` : product,
       registradoPor: state.user.email,
-    });
-    await db.collection("kardex").add({
+    };
+    const kardex = {
       id: movementId,
       fecha: today(), timestamp: new Date().toISOString(),
       type: isPlantEntry ? "entrada" : "salida",
@@ -6312,7 +6367,32 @@ async function handleDispatch() {
       standId: isPlantEntry ? "bodega" : "bodega",
       to: isPlantEntry ? "bodega" : target,
       registradoPor: state.user.email,
+    };
+    let updatedBodegaInv = null;
+    let updatedStandInv = null;
+    await db.runTransaction(async tx=>{
+      const bodegaRef = db.collection("inventarios").doc("bodega");
+      const bodegaDoc = await tx.get(bodegaRef);
+      updatedBodegaInv = {...(bodegaDoc.exists ? (bodegaDoc.data()||{}) : {})};
+      const currentBodega = Number(updatedBodegaInv[product]||0);
+      if (isPlantEntry) {
+        updatedBodegaInv[product] = currentBodega + qty;
+        tx.set(bodegaRef, updatedBodegaInv);
+      } else {
+        if (currentBodega < qty) throw new Error(`Solo hay ${currentBodega} uds en Bodega`);
+        updatedBodegaInv[product] = currentBodega - qty;
+        const standRef = db.collection("inventarios").doc(target);
+        const standDoc = await tx.get(standRef);
+        updatedStandInv = {...(standDoc.exists ? (standDoc.data()||{}) : {})};
+        updatedStandInv[product] = Number(updatedStandInv[product]||0) + qty;
+        tx.set(bodegaRef, updatedBodegaInv);
+        tx.set(standRef, updatedStandInv);
+      }
+      tx.set(db.collection("despachos").doc(movementId), despacho);
+      tx.set(db.collection("kardex").doc(movementId), kardex);
     });
+    state.inventory["bodega"] = updatedBodegaInv;
+    if (updatedStandInv) state.inventory[target] = updatedStandInv;
 
     state.dispatchProduct=""; state.dispatchQty=""; state.dispatching=false;
     showToast(isPlantEntry ? "✅ Entrada registrada en Bodega" : `✅ Despachado a ${PUNTOS_VENTA.find(s=>s.id===target)?.name}`);
@@ -6344,13 +6424,15 @@ async function handleKardexEntrada() {
       registradoPor: state.user.email,
     };
 
-    // Guardar movimiento en Firestore
-    await db.collection("kardex").doc(mov.id).set(mov);
-
-    // Sumar al inventario de bodega
-    const bodegaInv = {...(state.inventory["bodega"]||{})};
-    bodegaInv[product] = (bodegaInv[product]||0) + qty;
-    await db.collection("inventarios").doc("bodega").set(bodegaInv);
+    let bodegaInv = null;
+    await db.runTransaction(async tx=>{
+      const invRef = db.collection("inventarios").doc("bodega");
+      const invDoc = await tx.get(invRef);
+      bodegaInv = {...(invDoc.exists ? (invDoc.data()||{}) : {})};
+      bodegaInv[product] = Number(bodegaInv[product]||0) + qty;
+      tx.set(invRef, bodegaInv);
+      tx.set(db.collection("kardex").doc(mov.id), mov);
+    });
 
     state.inventory["bodega"] = bodegaInv;
     state.kardexMovements = [mov, ...(state.kardexMovements||[])];
@@ -6423,6 +6505,9 @@ function setupListeners(userInfo) {
   // Unsubscribe previous
   if(state.unsubInventory) state.unsubInventory();
   if(state.unsubSales) state.unsubSales();
+  if(state.unsubKardex) state.unsubKardex();
+  if(state.unsubGastos) state.unsubGastos();
+  if(state.unsubCierres) state.unsubCierres();
   if(state.unsubMaterials) state.unsubMaterials();
 
   // Listen to all inventories
@@ -6432,8 +6517,10 @@ function setupListeners(userInfo) {
   });
 
   // Listen to sales - stand only sees own, admin/bodega sees all
-  let salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(200);
-  if(userInfo.role==="asesor" && state.selectedStand) salesQuery = salesQuery.where("stand","==",state.selectedStand);
+  let salesQuery = db.collection("ventas").orderBy("timestamp","desc");
+  if(userInfo.role==="asesor" && state.selectedStand) {
+    salesQuery = db.collection("ventas").where("stand","==",state.selectedStand).orderBy("timestamp","desc");
+  }
 
   state.unsubSales = salesQuery.onSnapshot(snap=>{
     state.sales = snap.docs.map(d=>d.data());
@@ -6441,7 +6528,7 @@ function setupListeners(userInfo) {
   });
 
   // Kardex listener
-  db.collection("kardex").orderBy("timestamp","desc").limit(500).onSnapshot(snap=>{
+  state.unsubKardex = db.collection("kardex").orderBy("timestamp","desc").onSnapshot(snap=>{
     state.kardexMovements = snap.docs.map(d=>d.data());
     render();
   });
@@ -6467,13 +6554,13 @@ function setupListeners(userInfo) {
 
   // Gastos operativos listener
   if (userInfo.canFinanzas) {
-    db.collection("gastos").orderBy("timestamp","desc").limit(1000).onSnapshot(snap=>{
+    state.unsubGastos = db.collection("gastos").orderBy("timestamp","desc").onSnapshot(snap=>{
       state.gastos = snap.docs.map(d=>d.data());
       render();
     });
 
     // Cierres de caja listener
-    db.collection("cierres_caja").onSnapshot(snap=>{
+    state.unsubCierres = db.collection("cierres_caja").onSnapshot(snap=>{
       const map = {};
       snap.forEach(doc=>{ map[doc.id] = doc.data(); });
       state.cierres = map;
@@ -6496,6 +6583,9 @@ auth.onAuthStateChanged(user=>{
   } else {
     if(state.unsubInventory) state.unsubInventory();
     if(state.unsubSales) state.unsubSales();
+    if(state.unsubKardex) state.unsubKardex();
+    if(state.unsubGastos) state.unsubGastos();
+    if(state.unsubCierres) state.unsubCierres();
     if(state.unsubMaterials) state.unsubMaterials();
     state.user=null; state.userInfo=null;
     state.inventory={}; state.sales=[]; state.materials=[];
