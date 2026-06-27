@@ -5,8 +5,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY POS</title>
-<!-- v2026-06-14-responsive-iva-graficas-semana-calendario -->
-<meta name="app-version" content="2026-06-14-07">
+<!-- v2026-06-26-auditoria-estabilidad-version-visible -->
+<meta name="app-version" content="2026-06-26-01">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY POS">
@@ -1292,6 +1292,8 @@ const RUTINAS = [
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
+const APP_VERSION = "2026-06-26-01";
+const APP_UPDATED_LABEL = "Actualizado: 26 jun 2026";
 
 function getTaxBreakdown(totalConIva) {
   const total = Number(totalConIva||0);
@@ -2998,7 +3000,10 @@ function bindLogin() {
 
 // ─── MAIN APP ─────────────────────────────────────────────────
 function renderGlobalDownloadButton() {
-  return `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+  return `<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+    <div title="Versión ${APP_VERSION}" style="background:var(--lavender-light);border:1.5px solid var(--lavender);color:var(--purple);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:900;letter-spacing:.2px;white-space:nowrap;">
+      ${APP_UPDATED_LABEL}
+    </div>
     <button onclick="exportToExcel()" style="background:var(--purple);color:var(--lime);border:none;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(45,27,105,.18);">📥 Descargar toda la información</button>
   </div>`;
 }
