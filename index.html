@@ -5,8 +5,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY POS</title>
-<!-- v2026-06-26-auditoria-estabilidad-version-visible -->
-<meta name="app-version" content="2026-06-26-01">
+<!-- v2026-07-19-puembo-usuario-quicentro-auditoria -->
+<meta name="app-version" content="2026-07-19-01">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY POS">
@@ -982,6 +982,7 @@ const USERS = {
   "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
   "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
+  "aye@worthy.com":     { role:"venta_only", name:"Aye",        emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false, fixedStand:"quicentro" },
 };
 
 // ─── CATÁLOGO ────────────────────────────────────────────────
@@ -1160,6 +1161,7 @@ const STANDS = [
   { id:"sanfrancisco", name:"San Francisco" },
   { id:"mercadito",    name:"El Mercadito" },
   { id:"parque_cumbaya", name:"Parque Cumbayá" },
+  { id:"puembo",       name:"Puembo" },
 ];
 
 // Puntos de venta para el POS (incluye Oficina, que vende desde el inventario de Bodega Central)
@@ -1176,6 +1178,7 @@ function getInvSourceForStand(standId) {
 // El punto de venta activo (donde se registra la venta): para full/asesor/bodega es selectedStand, para "stand" es su propio stand
 function getActiveSaleStandId() {
   const role = state.userInfo.role;
+  if (state.userInfo.fixedStand) return state.userInfo.fixedStand;
   if (role==="full"||role==="asesor"||role==="bodega") return state.selectedStand;
   return state.userInfo.stand;
 }
@@ -1292,8 +1295,8 @@ const RUTINAS = [
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-06-26-01";
-const APP_UPDATED_LABEL = "Actualizado: 26 jun 2026";
+const APP_VERSION = "2026-07-19-01";
+const APP_UPDATED_LABEL = "Actualizado: 19 jul 2026";
 
 function getTaxBreakdown(totalConIva) {
   const total = Number(totalConIva||0);
@@ -1440,6 +1443,7 @@ function getInvStandId() {
     return view === "consolidado" ? "quicentro" : view;
   }
   if (role === "asesor") return state.selectedStand;
+  if (state.userInfo.fixedStand) return state.userInfo.fixedStand;
   return state.userInfo.stand;
 }
 
@@ -2377,7 +2381,7 @@ function renderHistoricoArchivo() {
       Una fila = un producto de una venta. Filas con el mismo <strong>venta_id</strong> se agrupan en una sola venta.<br>
       Columnas (en este orden, con encabezado):<br>
       <code>venta_id,fecha,punto_venta,producto_id,cantidad,precio_unitario,metodo_pago,descuento_pct</code><br><br>
-      <strong>punto_venta:</strong> quicentro / sanfrancisco / mercadito / parque_cumbaya / oficina<br>
+      <strong>punto_venta:</strong> quicentro / sanfrancisco / mercadito / parque_cumbaya / puembo / oficina<br>
       <strong>metodo_pago:</strong> efectivo / td / tc / deuna / produbanco / pichincha<br>
       <strong>producto_id:</strong> SKU del catálogo (ej. WMO30, WLBN6...)<br>
       <strong>fecha:</strong> formato YYYY-MM-DD
@@ -2915,7 +2919,9 @@ function render() {
 
 function renderStandSelector() {
   const role = state.userInfo.role;
-  const options = role==="bodega"
+  const options = state.userInfo.fixedStand
+    ? PUNTOS_VENTA.filter(p=>p.id===state.userInfo.fixedStand)
+    : role==="bodega"
     ? PUNTOS_VENTA.filter(p=>p.id==="oficina")
     : PUNTOS_VENTA;
   return `<div class="login-screen">
@@ -3020,7 +3026,7 @@ function renderApp() {
     <div class="header">
       <div class="header-brand">
         <img src="${LOGO_WORTHY}" alt="WORTHY" class="brand-logo-img">
-        <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor"||u.role==="bodega")&&state.selectedStand?" · "+PUNTOS_VENTA.find(s=>s.id===state.selectedStand)?.name:""}</div>
+        <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor"||u.role==="bodega"||u.fixedStand)&&state.selectedStand?" · "+PUNTOS_VENTA.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
         ${u.role==="stand"?`<div><div class="today-total">${fmt(todayTotal)} hoy</div><div class="today-date">${fmtDate(today())}</div></div>`:""}
@@ -3051,6 +3057,11 @@ function canUseDespachos() {
 
 function getTabsForRole(role) {
   const u = state.userInfo;
+
+  // Venta bloqueada a un solo punto: solo puede registrar ventas
+  if (role === "venta_only") return [
+    {id:"pos",icon:"🛒",label:"Vender"},
+  ];
 
   // Admin - solo reportes
   if (role === "admin") return [
@@ -4362,6 +4373,7 @@ const STOCK_POINTS = [
   { id:"sanfrancisco", name:"San Francisco",   emoji:"🏪" },
   { id:"mercadito",    name:"El Mercadito",    emoji:"🏪" },
   { id:"parque_cumbaya", name:"Parque Cumbayá", emoji:"🏪" },
+  { id:"puembo",       name:"Puembo",          emoji:"🏪" },
   { id:"bodega",       name:"Bodega Central",  emoji:"🏭" },
 ];
 
@@ -6071,6 +6083,7 @@ function downloadHistTemplate() {
     "H001,2026-03-05,quicentro,WLBN6,2,5.95,efectivo,0",
     "H002,2026-03-05,mercadito,WHT80,1,27.75,deuna,0",
     "H003,2026-03-05,parque_cumbaya,WDS30,1,9.50,efectivo,0",
+    "H004,2026-03-05,puembo,WDS45,1,11.50,efectivo,0",
   ].join("\n");
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
@@ -6514,6 +6527,8 @@ function setupListeners(userInfo) {
   if(state.unsubGastos) state.unsubGastos();
   if(state.unsubCierres) state.unsubCierres();
   if(state.unsubMaterials) state.unsubMaterials();
+  if(state.unsubCosts) state.unsubCosts();
+  if(state.unsubPrices) state.unsubPrices();
 
   // Listen to all inventories
   state.unsubInventory = db.collection("inventarios").onSnapshot(snap=>{
@@ -6523,7 +6538,7 @@ function setupListeners(userInfo) {
 
   // Listen to sales - stand only sees own, admin/bodega sees all
   let salesQuery = db.collection("ventas").orderBy("timestamp","desc");
-  if(userInfo.role==="asesor" && state.selectedStand) {
+  if((userInfo.role==="asesor" || userInfo.fixedStand) && state.selectedStand) {
     salesQuery = db.collection("ventas").where("stand","==",state.selectedStand).orderBy("timestamp","desc");
   }
 
@@ -6539,13 +6554,13 @@ function setupListeners(userInfo) {
   });
 
   // Costos listener
-  db.collection("config").doc("costos").onSnapshot(doc=>{
+  state.unsubCosts = db.collection("config").doc("costos").onSnapshot(doc=>{
     state.costs = doc.exists ? (doc.data()||{}) : {};
     render();
   });
 
   // Precios listener
-  db.collection("config").doc("precios").onSnapshot(doc=>{
+  state.unsubPrices = db.collection("config").doc("precios").onSnapshot(doc=>{
     state.prices = doc.exists ? (doc.data()||{}) : {};
     render();
   });
@@ -6577,11 +6592,13 @@ function setupListeners(userInfo) {
 // ─── AUTH LISTENER ────────────────────────────────────────────
 auth.onAuthStateChanged(user=>{
   if(user) {
-    const userInfo = USERS[user.email];
+    const userEmail = (user.email||"").toLowerCase();
+    const userInfo = USERS[userEmail];
     if(!userInfo) { auth.signOut(); state.loading=false; render(); return; }
     state.user = user;
     state.userInfo = userInfo;
-    state.tab = (userInfo.role==="asesor")?"pos":(userInfo.canFinanzas?"rentabilidad":"dashboard");
+    if (userInfo.fixedStand) state.selectedStand = userInfo.fixedStand;
+    state.tab = (userInfo.role==="asesor"||userInfo.role==="venta_only")?"pos":(userInfo.canFinanzas?"rentabilidad":"dashboard");
     state.loading = false;
     setupListeners(userInfo);
     render();
@@ -6592,7 +6609,10 @@ auth.onAuthStateChanged(user=>{
     if(state.unsubGastos) state.unsubGastos();
     if(state.unsubCierres) state.unsubCierres();
     if(state.unsubMaterials) state.unsubMaterials();
+    if(state.unsubCosts) state.unsubCosts();
+    if(state.unsubPrices) state.unsubPrices();
     state.user=null; state.userInfo=null;
+    state.selectedStand=null; state.tab="dashboard";
     state.inventory={}; state.sales=[]; state.materials=[];
     state.loading=false;
     render();
