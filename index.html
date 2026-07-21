@@ -5,8 +5,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY POS</title>
-<!-- v2026-07-19-puembo-usuario-quicentro-auditoria -->
-<meta name="app-version" content="2026-07-19-02">
+<!-- v2026-07-21-aye-stock-quicentro -->
+<meta name="app-version" content="2026-07-21-01">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY POS">
@@ -982,7 +982,7 @@ const USERS = {
   "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
   "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
-  "aye@worthy.com":     { role:"venta_only", name:"Aye",        emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false, fixedStand:"quicentro" },
+  "aye@worthy.com":     { role:"venta_only", name:"Aye",        emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false, canStock:true, fixedStand:"quicentro" },
 };
 
 // ─── CATÁLOGO ────────────────────────────────────────────────
@@ -1295,8 +1295,8 @@ const RUTINAS = [
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-07-19-01";
-const APP_UPDATED_LABEL = "Actualizado: 19 jul 2026";
+const APP_VERSION = "2026-07-21-01";
+const APP_UPDATED_LABEL = "Actualizado: 21 jul 2026";
 
 function getTaxBreakdown(totalConIva) {
   const total = Number(totalConIva||0);
@@ -3058,9 +3058,10 @@ function canUseDespachos() {
 function getTabsForRole(role) {
   const u = state.userInfo;
 
-  // Venta bloqueada a un solo punto: solo puede registrar ventas
+  // Venta bloqueada a un solo punto: puede registrar ventas y consultar stock de su punto
   if (role === "venta_only") return [
     {id:"pos",icon:"🛒",label:"Vender"},
+    ...(u.canStock?[{id:"inventario",icon:"📦",label:"Stock"}]:[]),
   ];
 
   // Admin - solo reportes
@@ -4519,20 +4520,23 @@ function renderInventario() {
   const standId = getInvStandId();
   const inv = state.inventory[standId] || {};
   const totalValue = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
+  const totalUnits = CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0);
+  const isStockReadOnly = state.userInfo?.role === "venta_only";
+  const standName = PUNTOS_VENTA.find(s=>s.id===standId)?.name || standId;
 
   return `
   <div class="card card-purple" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
     <div>
-      <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Valor en stock (al costo)</div>
-      <div style="font-size:28px;font-weight:900;color:var(--lime);">${fmt(totalValue)}</div>
+      <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Stock ${standName}${isStockReadOnly?"":" · valor al costo"}</div>
+      <div style="font-size:28px;font-weight:900;color:var(--lime);">${isStockReadOnly ? `${totalUnits} uds` : fmt(totalValue)}</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:11px;color:var(--lavender);">${CATALOG.reduce((s,p)=>s+(inv[p.id]||0),0)} uds</div>
+      <div style="font-size:11px;color:var(--lavender);">${totalUnits} uds</div>
       <div style="font-size:10px;color:var(--lavender);">en stock</div>
     </div>
   </div>
 
-  <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
+  <div class="section-title">Stock por SKU${isStockReadOnly?"":" — toca ✏️ para ajustar"}</div>
   ${CATALOG.map(p=>{
     const stock = inv[p.id]||0;
     const level = stock>5?"green":stock>0?"amber":"red";
@@ -4543,13 +4547,13 @@ function renderInventario() {
           <div class="inv-name">${p.name} <span style="font-weight:400;color:var(--gray);">${p.sub}</span></div>
           <div class="inv-sub">${p.ref} · ${fmt(getPrice(p.id))}</div>
         </div>
-        ${state.editingStock===p.id?`
+        ${!isStockReadOnly && state.editingStock===p.id?`
           <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
           <button class="btn-lime btn-sm" id="inv-save" data-save="${p.id}">OK</button>
           <button class="btn-ghost btn-sm" id="inv-cancel">✕</button>
         `:`
           <span class="badge badge-${level}">${stock} uds</span>
-          <button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>
+          ${isStockReadOnly ? "" : `<button style="background:var(--lavender-light);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;" data-edit-stock="${p.id}">✏️</button>`}
         `}
       </div>
     </div>`;
