@@ -1,12 +1,13 @@
 
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY POS</title>
-<!-- v2026-07-21-aye-stock-quicentro -->
-<meta name="app-version" content="2026-07-21-01">
+<!-- v2026-07-23-jornadas-usuario-ventas -->
+<meta name="app-version" content="2026-07-23-01">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY POS">
@@ -1295,8 +1296,8 @@ const RUTINAS = [
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-07-21-01";
-const APP_UPDATED_LABEL = "Actualizado: 21 jul 2026";
+const APP_VERSION = "2026-07-23-01";
+const APP_UPDATED_LABEL = "Actualizado: 23 jul 2026";
 
 function getTaxBreakdown(totalConIva) {
   const total = Number(totalConIva||0);
@@ -2592,6 +2593,7 @@ let state = {
   editingPrice: null,
   editPriceVal: "",
   sales: [],
+  jornadas: [],
   cart: [],
   payment: "efectivo",
   discount: 0,
@@ -2687,6 +2689,11 @@ let state = {
   cajaTransferBanco: "",
   cajaNota: "",
   cajaSaving: false,
+  // Jornadas de punto de venta
+  jornadaCounts: {},
+  jornadaMode: null,
+  jornadaNota: "",
+  jornadaSaving: false,
   // Edicion de ventas
   editingSale: null,
   evEditPago: "",
@@ -2696,6 +2703,7 @@ let state = {
   evEditSaving: false,
   unsubInventory: null,
   unsubSales: null,
+  unsubJornadas: null,
   unsubMaterials: null,
   // Carga de ventas historicas
   histCart: [],
@@ -2771,7 +2779,7 @@ async function exportToExcel() {
 
     // Hoja 1: Ventas
     const ventasData = [
-      ["ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago","Descuento%","Obsequio","Histórica","Nota","Por","Editado por","Editado en"],
+      ["ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago","Descuento%","Obsequio","Histórica","Nota","Usuario","Email usuario","Editado por","Editado en"],
       ...ventas.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))).map(v=>{
         const hora = v.timestamp ? new Date(v.timestamp).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : "";
         const subtotalSinIva = (v.total||0)/1.15;
@@ -2788,7 +2796,8 @@ async function exportToExcel() {
           v.obsequio ? "Sí" : "No",
           v.historica ? "Sí" : "No",
           v.nota||"",
-          v.vendedor||v.registradoPor||"",
+          v.vendedorNombre||v.usuarioNombre||v.vendedor||v.registradoPor||"",
+          v.vendedorEmail||v.usuarioEmail||"",
           v.editadoPor||"",
           v.editadoEn||""
         ];
@@ -2898,17 +2907,10 @@ function render() {
   const app = document.getElementById("app");
   if (state.loading) { app.innerHTML = renderLoading(); return; }
   if (!state.user) { app.innerHTML = renderLogin(); bindLogin(); return; }
-  if (state.userInfo.role === "asesor" && !state.selectedStand) {
-    app.innerHTML = renderStandSelector();
-    bindStandSelector();
-    return;
+  if (state.userInfo.fixedStand && !state.selectedStand) {
+    state.selectedStand = state.userInfo.fixedStand;
   }
-  if (state.userInfo.role === "full" && state.tab === "pos" && !state.selectedStand) {
-    app.innerHTML = renderStandSelector();
-    bindStandSelector();
-    return;
-  }
-  if (state.userInfo.role === "bodega" && state.tab === "pos" && !state.selectedStand) {
+  if (state.userInfo.canSell && (state.tab === "pos" || state.tab === "jornada") && !state.selectedStand) {
     app.innerHTML = renderStandSelector();
     bindStandSelector();
     return;
@@ -2918,11 +2920,8 @@ function render() {
 }
 
 function renderStandSelector() {
-  const role = state.userInfo.role;
   const options = state.userInfo.fixedStand
     ? PUNTOS_VENTA.filter(p=>p.id===state.userInfo.fixedStand)
-    : role==="bodega"
-    ? PUNTOS_VENTA.filter(p=>p.id==="oficina")
     : PUNTOS_VENTA;
   return `<div class="login-screen">
     <div class="login-isotipo-wrap login-isotipo-wrap-sm">
@@ -2945,6 +2944,9 @@ function bindStandSelector() {
     btn.addEventListener("click", () => {
       state.selectedStand = btn.dataset.selectStand;
       state.tab = "pos";
+      state.jornadaMode = null;
+      state.jornadaCounts = {};
+      state.jornadaNota = "";
       setupListeners(state.userInfo);
       render();
     });
@@ -3061,6 +3063,7 @@ function getTabsForRole(role) {
   // Venta bloqueada a un solo punto: puede registrar ventas y consultar stock de su punto
   if (role === "venta_only") return [
     {id:"pos",icon:"🛒",label:"Vender"},
+    {id:"jornada",icon:"🕘",label:"Jornada"},
     ...(u.canStock?[{id:"inventario",icon:"📦",label:"Stock"}]:[]),
   ];
 
@@ -3076,6 +3079,7 @@ function getTabsForRole(role) {
   if (role === "bodega") return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"pos",icon:"🛒",label:"Vender"},
+    {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"inventario",icon:"📦",label:"Bodega"},
     {id:"materiales",icon:"🧾",label:"Materiales"},
     {id:"despachar",icon:"🚚",label:"Despachos"},
@@ -3088,6 +3092,7 @@ function getTabsForRole(role) {
     ...(u.canFinanzas?[{id:"rentabilidad",icon:"📈",label:"Dashboard"}]:[]),
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"pos",icon:"🛒",label:"Vender"},
+    {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"materiales",icon:"🧾",label:"Materiales"},
@@ -3102,6 +3107,7 @@ function getTabsForRole(role) {
   return [
     {id:"dashboard",icon:"📊",label:"Inicio"},
     {id:"pos",icon:"🛒",label:"Vender"},
+    {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"cambiar",icon:"🔄",label:"Cambiar"},
@@ -3131,6 +3137,7 @@ function renderTab() {
   switch(state.tab) {
     case "dashboard":  return (role==="admin"||role==="full") ? renderAdminDashboard() : role==="bodega" ? renderBodegaDashboard() : renderStandDashboard();
     case "pos":        return renderPOS();
+    case "jornada":    return renderJornada();
     case "inventario": return renderInventario();
     case "materiales": return (role==="full"||role==="bodega") ? renderMateriales() : "<p>No autorizado</p>";
     case "ventas":     return renderVentas();
@@ -4283,6 +4290,195 @@ function renderPOS() {
   </button>`;
 }
 
+// ─── JORNADA ─────────────────────────────────────────────────
+function userKey(email) {
+  return String(email||"").toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
+}
+
+function getJornadaDocId(fecha=today(), standId=getActiveSaleStandId(), email=state.user?.email) {
+  return `${fecha}_${standId}_${userKey(email)}`;
+}
+
+function getActiveJornada() {
+  const id = getJornadaDocId();
+  return (state.jornadas||[]).find(j=>j.id===id) || null;
+}
+
+function buildCountsFromInputs() {
+  const counts = {};
+  CATALOG.forEach(p=>{
+    const raw = state.jornadaCounts[p.id];
+    const val = parseInt(raw,10);
+    counts[p.id] = Number.isFinite(val) && val >= 0 ? val : 0;
+  });
+  return counts;
+}
+
+function startJornadaCapture(mode) {
+  const inv = state.inventory[getActiveInvSourceId()] || {};
+  const jornada = getActiveJornada();
+  const source = mode==="cierre" ? (jornada?.inventarioFinal||inv) : (jornada?.inventarioInicial||inv);
+  state.jornadaMode = mode;
+  state.jornadaCounts = {};
+  CATALOG.forEach(p=>{ state.jornadaCounts[p.id] = String(Number(source[p.id]||0)); });
+  state.jornadaNota = mode==="cierre" ? (jornada?.notaCierre||"") : (jornada?.notaApertura||"");
+  render();
+}
+
+function renderJornadaCountForm(mode, jornada, inv) {
+  const title = mode==="cierre" ? "Conteo físico final" : "Inventario inicial recibido";
+  const btnText = mode==="cierre" ? "Guardar cierre de turno" : "Guardar inicio de jornada";
+  return `<div class="card" style="border:2px solid var(--lime);">
+    <div class="section-title">${title}</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:10px;">Cuenta físicamente cada producto del punto y ajusta las cantidades antes de guardar.</div>
+    <div style="display:grid;grid-template-columns:minmax(120px,1fr) 58px 78px 70px;gap:6px;align-items:center;margin-bottom:8px;padding:0 2px;">
+      <div style="font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;">Producto</div>
+      <div style="font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;text-align:center;">Sistema</div>
+      <div style="font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;text-align:center;">Físico</div>
+      <div style="font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;text-align:right;">Dif.</div>
+    </div>
+    ${CATALOG.map(p=>{
+      const sistema = Number(inv[p.id]||0);
+      const val = state.jornadaCounts[p.id] ?? String(sistema);
+      const fisico = parseInt(val,10);
+      const conteo = Number.isFinite(fisico) ? fisico : 0;
+      const diff = conteo - sistema;
+      const diffColor = diff===0 ? "var(--gray)" : diff<0 ? "var(--red)" : "var(--lime-dark)";
+      const diffLabel = `${diff>0?"+":""}${diff}`;
+      return `<div style="display:grid;grid-template-columns:minmax(120px,1fr) 58px 78px 70px;gap:6px;align-items:center;margin-bottom:8px;">
+        <div style="min-width:0;">
+          <div class="inv-name" style="font-size:13px;">${p.emoji} ${p.ref}</div>
+          <div class="inv-sub">${p.name} ${p.sub}</div>
+        </div>
+        <div style="text-align:center;font-size:15px;font-weight:900;color:var(--purple);">${sistema}</div>
+        <input class="inv-edit-input" style="width:100%;" type="number" min="0" step="1" data-jornada-count="${p.id}" data-sistema="${sistema}" value="${val}">
+        <div data-jornada-diff="${p.id}" style="text-align:right;font-size:15px;font-weight:900;color:${diffColor};">${diffLabel}</div>
+      </div>`;
+    }).join("")}
+    <textarea id="jornada-nota" placeholder="Nota opcional">${state.jornadaNota}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn-lime" style="flex:1;" id="jornada-save" data-jornada-save="${mode}" ${state.jornadaSaving?"disabled":""}>${state.jornadaSaving?"Guardando...":btnText}</button>
+      <button class="btn-ghost" style="flex:1;" id="jornada-cancel">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+function renderJornadaSummary(title, counts, compareCounts=null) {
+  if(!counts) return "";
+  return `<div class="card">
+    <div class="section-title">${title}</div>
+    ${CATALOG.map(p=>{
+      const qty = Number(counts[p.id]||0);
+      const compare = compareCounts ? Number(compareCounts[p.id]||0) : null;
+      const diff = compareCounts ? qty - compare : 0;
+      return `<div class="inv-item" style="margin-bottom:7px;">
+        <div class="inv-emoji">${p.emoji}</div>
+        <div class="inv-info">
+          <div class="inv-name">${p.ref} · ${p.name}</div>
+          <div class="inv-sub">${p.sub}</div>
+        </div>
+        <div style="text-align:right;">
+          <span class="badge badge-purple">${qty}</span>
+          ${compareCounts?`<div style="font-size:11px;color:${diff===0?"var(--gray)":diff<0?"var(--red)":"var(--lime-dark)"};margin-top:3px;">Dif. ${diff>0?"+":""}${diff}</div>`:""}
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+function renderJornada() {
+  if(!state.userInfo?.canSell) return "<p>No autorizado</p>";
+  const standId = getActiveSaleStandId();
+  const invSourceId = getActiveInvSourceId();
+  const standName = PUNTOS_VENTA.find(s=>s.id===standId)?.name || standId;
+  const inv = state.inventory[invSourceId] || {};
+  const jornada = getActiveJornada();
+  const mode = state.jornadaMode;
+  const ventasUsuario = (state.sales||[]).filter(s=>
+    s.fecha===today() &&
+    s.stand===standId &&
+    String(s.vendedorEmail||s.usuarioEmail||"").toLowerCase()===String(state.user?.email||"").toLowerCase()
+  );
+  const totalUsuario = salesNetTotal(ventasUsuario);
+
+  return `
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Jornada de venta</div>
+    <div style="font-size:23px;font-weight:900;color:var(--lime);margin-top:4px;">${standName}</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${fmtDate(today())} · ${state.userInfo.name}</div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <span class="badge ${jornada?.aperturaAt?"badge-green":"badge-amber"}">${jornada?.aperturaAt?"Inicio guardado":"Sin inicio"}</span>
+      <span class="badge ${jornada?.cierreAt?"badge-green":"badge-amber"}">${jornada?.cierreAt?"Cierre guardado":"Sin cierre"}</span>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card card-lavender">
+      <div class="stat-label" style="color:var(--gray);">Mis ventas hoy</div>
+      <div class="stat-value" style="color:var(--purple);">${ventasUsuario.length}</div>
+    </div>
+    <div class="stat-card card-lavender">
+      <div class="stat-label" style="color:var(--gray);">Total vendido</div>
+      <div class="stat-value" style="color:var(--purple);font-size:24px;">${fmt(totalUsuario)}</div>
+    </div>
+  </div>
+
+  ${mode?renderJornadaCountForm(mode, jornada, inv):`
+    <div class="card">
+      <div class="section-title">Acciones</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-lime" style="flex:1;" id="jornada-start">${jornada?.aperturaAt?"Editar inicio":"Iniciar jornada"}</button>
+        <button class="btn-ghost" style="flex:1;" id="jornada-close">${jornada?.cierreAt?"Editar cierre":"Finalizar turno"}</button>
+      </div>
+    </div>
+    ${renderJornadaSummary("Inventario inicial registrado", jornada?.inventarioInicial)}
+    ${renderJornadaSummary("Inventario final registrado", jornada?.inventarioFinal, inv)}
+  `}
+  `;
+}
+
+async function handleSaveJornada(mode) {
+  if(state.jornadaSaving) return;
+  const standId = getActiveSaleStandId();
+  const counts = buildCountsFromInputs();
+  const docId = getJornadaDocId(today(), standId, state.user?.email);
+  const now = new Date().toISOString();
+  const payload = {
+    id: docId,
+    fecha: today(),
+    stand: standId,
+    invSource: getActiveInvSourceId(),
+    usuarioEmail: state.user?.email || "",
+    usuarioNombre: state.userInfo?.name || "",
+    updatedAt: now,
+  };
+  if(mode==="cierre") {
+    payload.inventarioFinal = counts;
+    payload.cierreAt = now;
+    payload.notaCierre = state.jornadaNota.trim();
+  } else {
+    payload.inventarioInicial = counts;
+    payload.aperturaAt = now;
+    payload.notaApertura = state.jornadaNota.trim();
+  }
+
+  state.jornadaSaving = true; render();
+  try {
+    await db.collection("jornadas").doc(docId).set(payload, { merge:true });
+    state.jornadas = [...(state.jornadas||[]).filter(j=>j.id!==docId), { ...(getActiveJornada()||{}), ...payload }];
+    state.jornadaMode = null;
+    state.jornadaCounts = {};
+    state.jornadaNota = "";
+    state.jornadaSaving = false;
+    showToast(mode==="cierre" ? "✅ Cierre guardado" : "✅ Inicio guardado");
+    render();
+  } catch(e) {
+    state.jornadaSaving = false;
+    showToast("⚠️ Error: "+e.message,"err");
+    render();
+  }
+}
+
 // ─── INVENTARIO ──────────────────────────────────────────────
 function renderMateriales() {
   const rows = [...(state.materials||[])].sort((a,b)=>String(a.nombre||"").localeCompare(String(b.nombre||"")));
@@ -4702,7 +4898,7 @@ function renderVentas() {
       return `<div class="card sale-card" style="margin-bottom:8px;">
       <div class="sale-header">
         <div style="flex:1;min-width:0;">
-          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name||sale.stand}`:""}${sale.historica?` · <span style="color:var(--purple);font-weight:700;">📜 Histórica</span>`:""}</div>
+          <div class="sale-meta">${fmtDate(sale.fecha)} · ${fmtTime(sale.timestamp)}${role==="admin"&&sale.stand?` · ${PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name||sale.stand}`:""} · Ingresado por ${sale.vendedorNombre||sale.usuarioNombre||sale.vendedor||sale.registradoPor||sale.vendedorEmail||sale.usuarioEmail||"—"}${sale.historica?` · <span style="color:var(--purple);font-weight:700;">📜 Histórica</span>`:""}</div>
           <div class="sale-items">${sale.items?sale.items.map(i=>`${i.name} ×${i.qty}`).join(" · "):"—"}</div>
           ${sale.nota?`<div class="sale-note">📝 ${sale.nota}</div>`:""}
         </div>
@@ -5250,6 +5446,32 @@ function bindApp() {
 
   // Note
   document.getElementById("sale-note")?.addEventListener("input",e=>{ state.note=e.target.value; });
+
+  // Jornada
+  document.getElementById("jornada-start")?.addEventListener("click",()=>startJornadaCapture("apertura"));
+  document.getElementById("jornada-close")?.addEventListener("click",()=>startJornadaCapture("cierre"));
+  document.getElementById("jornada-cancel")?.addEventListener("click",()=>{
+    state.jornadaMode = null;
+    state.jornadaCounts = {};
+    state.jornadaNota = "";
+    render();
+  });
+  document.querySelectorAll("[data-jornada-count]").forEach(inp=>{
+    inp.addEventListener("input",e=>{
+      const id = e.target.dataset.jornadaCount;
+      state.jornadaCounts[id] = e.target.value;
+      const sistema = Number(e.target.dataset.sistema||0);
+      const fisico = parseInt(e.target.value,10);
+      const diff = (Number.isFinite(fisico) ? fisico : 0) - sistema;
+      const el = document.querySelector(`[data-jornada-diff="${id}"]`);
+      if(el) {
+        el.textContent = `${diff>0?"+":""}${diff}`;
+        el.style.color = diff===0 ? "var(--gray)" : diff<0 ? "var(--red)" : "var(--lime-dark)";
+      }
+    });
+  });
+  document.getElementById("jornada-nota")?.addEventListener("input",e=>{ state.jornadaNota=e.target.value; });
+  document.getElementById("jornada-save")?.addEventListener("click",e=>handleSaveJornada(e.target.dataset.jornadaSave));
 
   // Custom prices (gerardo & rosita)
   document.querySelectorAll("[data-custom-price]").forEach(inp=>{
@@ -5844,7 +6066,11 @@ async function handleSell() {
     items: state.cart.map(i=>{ const cp=state.customPrices[i.id]; const effectivePrice=cp!==undefined?cp:i.price; return {id:i.id,ref:i.ref||i.rutinaId,name:`${i.name} ${i.sub}`,qty:i.qty,price:effectivePrice,precioOriginal:i.price,precioModificado:cp!==undefined,subtotal:effectivePrice*i.qty,isRutina:i.isRutina||false,rutinaItems:i.items||null}; }),
     subtotal: state.obsequio?0:subtotal, descuento:state.discount, descuentoAmt:state.obsequio?0:discAmt, total,
     pago: state.obsequio?"obsequio":state.payment, nota: state.note,
-    obsequio: !!state.obsequio
+    obsequio: !!state.obsequio,
+    vendedorEmail: state.user?.email || "",
+    vendedorNombre: state.userInfo?.name || "",
+    usuarioEmail: state.user?.email || "",
+    usuarioNombre: state.userInfo?.name || ""
   };
 
   state.selling = true; render();
@@ -5924,7 +6150,12 @@ async function handleHistSell() {
     }),
     subtotal, descuento:state.histDiscount, descuentoAmt:discAmt, total,
     pago: state.histPayment, nota: state.histNote,
-    historica: true
+    historica: true,
+    vendedorEmail: state.user?.email || "",
+    vendedorNombre: state.userInfo?.name || "",
+    usuarioEmail: state.user?.email || "",
+    usuarioNombre: state.userInfo?.name || "",
+    registradoPor: state.user?.email || ""
   };
 
   try {
@@ -6028,7 +6259,12 @@ function handleHistFileSelected(file) {
         id: v.id, fecha: v.fecha, timestamp: new Date(v.fecha+"T12:00:00").toISOString(),
         stand: v.stand, items: v.items,
         subtotal, descuento: v.descPct, descuentoAmt, total: subtotal-descuentoAmt,
-        pago: v.pago, nota: "", historica: true
+        pago: v.pago, nota: "", historica: true,
+        vendedorEmail: state.user?.email || "",
+        vendedorNombre: state.userInfo?.name || "",
+        usuarioEmail: state.user?.email || "",
+        usuarioNombre: state.userInfo?.name || "",
+        registradoPor: state.user?.email || ""
       };
     });
 
@@ -6527,6 +6763,7 @@ function setupListeners(userInfo) {
   // Unsubscribe previous
   if(state.unsubInventory) state.unsubInventory();
   if(state.unsubSales) state.unsubSales();
+  if(state.unsubJornadas) state.unsubJornadas();
   if(state.unsubKardex) state.unsubKardex();
   if(state.unsubGastos) state.unsubGastos();
   if(state.unsubCierres) state.unsubCierres();
@@ -6548,6 +6785,16 @@ function setupListeners(userInfo) {
 
   state.unsubSales = salesQuery.onSnapshot(snap=>{
     state.sales = snap.docs.map(d=>d.data());
+    render();
+  });
+
+  // Jornadas - stand only sees own, admin/full/bodega sees all
+  let jornadasQuery = db.collection("jornadas").orderBy("updatedAt","desc");
+  if((userInfo.role==="asesor" || userInfo.fixedStand) && state.selectedStand) {
+    jornadasQuery = db.collection("jornadas").where("stand","==",state.selectedStand).orderBy("updatedAt","desc");
+  }
+  state.unsubJornadas = jornadasQuery.onSnapshot(snap=>{
+    state.jornadas = snap.docs.map(d=>({ ...(d.data()||{}), id:d.id }));
     render();
   });
 
@@ -6609,6 +6856,7 @@ auth.onAuthStateChanged(user=>{
   } else {
     if(state.unsubInventory) state.unsubInventory();
     if(state.unsubSales) state.unsubSales();
+    if(state.unsubJornadas) state.unsubJornadas();
     if(state.unsubKardex) state.unsubKardex();
     if(state.unsubGastos) state.unsubGastos();
     if(state.unsubCierres) state.unsubCierres();
@@ -6617,7 +6865,7 @@ auth.onAuthStateChanged(user=>{
     if(state.unsubPrices) state.unsubPrices();
     state.user=null; state.userInfo=null;
     state.selectedStand=null; state.tab="dashboard";
-    state.inventory={}; state.sales=[]; state.materials=[];
+    state.inventory={}; state.sales=[]; state.jornadas=[]; state.materials=[];
     state.loading=false;
     render();
   }
