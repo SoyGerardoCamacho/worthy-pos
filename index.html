@@ -962,12 +962,12 @@ const ISOTIPO_WORTHY = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcQAAAHECA
 // ─── FIREBASE CONFIG ─────────────────────────────────────────
 // IMPORTANTE: Reemplaza estos valores con los de tu proyecto Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyBHbYv7PWAugOwC5j-ThoA1Y20gEBlJfuo",
-  authDomain: "worthypos.firebaseapp.com",
-  projectId: "worthypos",
-  storageBucket: "worthypos.firebasestorage.app",
-  messagingSenderId: "756883535086",
-  appId: "1:756883535086:web:5070c01a64b0b4f51a2fff"
+  apiKey: "AIzaSyCah3n_K-opeV8Twogdd8x1kMB_pwEfmmM",
+  authDomain: "worthy-pos.firebaseapp.com",
+  projectId: "worthy-pos",
+  storageBucket: "worthy-pos.firebasestorage.app",
+  messagingSenderId: "130996804566",
+  appId: "1:130996804566:web:9728e91f195861aab06277"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -1298,6 +1298,13 @@ const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
 const APP_VERSION = "2026-07-23-01";
 const APP_UPDATED_LABEL = "Actualizado: 23 jul 2026";
+const PENDING_SALES_KEY = "worthy-pos-pending-sales-v1";
+const RETRYABLE_ERROR_RE = /(quota|rate.?limit|resource.?exhausted|too many requests|deadline|unavailable|network|offline)/i;
+const LIVE_SALES_LIMIT = 350;
+const LIVE_STAND_SALES_LIMIT = 180;
+const LIVE_JORNADAS_LIMIT = 120;
+const LIVE_KARDEX_LIMIT = 350;
+const LIVE_GASTOS_LIMIT = 350;
 
 function getTaxBreakdown(totalConIva) {
   const total = Number(totalConIva||0);
@@ -2694,6 +2701,9 @@ let state = {
   jornadaMode: null,
   jornadaNota: "",
   jornadaSaving: false,
+  pendingSales: [],
+  queueProcessing: false,
+  backupRestoring: false,
   // Edicion de ventas
   editingSale: null,
   evEditPago: "",
@@ -2705,6 +2715,11 @@ let state = {
   unsubSales: null,
   unsubJornadas: null,
   unsubMaterials: null,
+  unsubKardex: null,
+  unsubGastos: null,
+  unsubCierres: null,
+  unsubCosts: null,
+  unsubPrices: null,
   // Carga de ventas historicas
   histCart: [],
   histCustomPrices: {},
@@ -2877,6 +2892,282 @@ async function exportToExcel() {
   }
 }
 
+function exportPendingSalesBackup() {
+  const pending = loadPendingSales();
+  if (!pending.length) {
+    showToast("No hay ventas pendientes por respaldar");
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ventasRows = [[
+    "ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago",
+    "Descuento%","Obsequio","Nota","Usuario","Email usuario","En cola desde","Intentos","Último error"
+  ]];
+  const gastosRows = [[
+    "ID","Venta ID","Fecha","Timestamp","Stand","Categoría","Monto","Nota"
+  ]];
+  const rawRows = [["Venta ID","JSON completo"]];
+
+  pending.forEach(entry=>{
+    const v = entry.sale || {};
+    const hora = v.timestamp ? new Date(v.timestamp).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : "";
+    const tax = getTaxBreakdown(v.total||0);
+    ventasRows.push([
+      v.id, v.fecha, hora,
+      PUNTOS_VENTA.find(s=>s.id===v.stand)?.name||v.stand||"",
+      (v.items||[]).map(i=>`${i.name} x${i.qty} @${fmt(i.price)}`).join("; "),
+      Number(tax.sinIva.toFixed(2)),
+      Number(tax.iva.toFixed(2)),
+      v.total||0,
+      PAYMENTS.find(p=>p.id===v.pago)?.label||v.pago||"",
+      v.descuento||0,
+      v.obsequio ? "Sí" : "No",
+      v.nota||"",
+      v.vendedorNombre||v.usuarioNombre||"",
+      v.vendedorEmail||v.usuarioEmail||"",
+      entry.queuedAt||"",
+      entry.attempts||0,
+      entry.lastError||""
+    ]);
+    (entry.extraGastos||[]).forEach(g=>gastosRows.push([
+      g.id, v.id, g.fecha, g.timestamp, g.stand, g.cat, g.monto, g.nota
+    ]));
+    rawRows.push([v.id||"", JSON.stringify(entry)]);
+  });
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ventasRows), "Ventas pendientes");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gastosRows), "Gastos pendientes");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rawRows), "Respaldo técnico");
+
+  const fecha = today().replace(/-/g,"");
+  const hora = new Date().toTimeString().slice(0,5).replace(":","");
+  XLSX.writeFile(wb, `WORTHY_POS_VENTAS_PENDIENTES_${fecha}_${hora}.xlsx`);
+  showToast("✅ Ventas pendientes descargadas");
+}
+
+function rowValue(row, key) {
+  return row?.[key] ?? "";
+}
+
+function normalizeText(value) {
+  return String(value||"")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().trim();
+}
+
+function standIdFromName(value) {
+  const raw = String(value||"").trim();
+  return PUNTOS_VENTA.find(s=>s.id===raw || normalizeText(s.name)===normalizeText(raw))?.id || raw || "";
+}
+
+function paymentIdFromLabel(value) {
+  const raw = String(value||"").trim();
+  return PAYMENTS.find(p=>p.id===raw || normalizeText(p.label)===normalizeText(raw))?.id || raw || "";
+}
+
+function productIdFromLabel(value) {
+  const raw = String(value||"").trim();
+  return CATALOG.find(p=>p.id===raw || p.ref===raw || normalizeText(`${p.name} ${p.sub}`)===normalizeText(raw))?.id || raw;
+}
+
+function parseBackupItems(value) {
+  return String(value||"").split(";").map(part=>part.trim()).filter(Boolean).map(part=>{
+    const match = part.match(/^(.*?)\s+x([\d.]+)\s+@\s*\$?([\d.]+)/i);
+    const name = match ? match[1].trim() : part;
+    const qty = match ? Number(match[2]||1) : 1;
+    const price = match ? Number(match[3]||0) : 0;
+    const product = CATALOG.find(p=>normalizeText(`${p.name} ${p.sub}`)===normalizeText(name));
+    return {
+      id: product?.id || name,
+      ref: product?.ref || "",
+      name,
+      qty,
+      price,
+      subtotal: Number((qty*price).toFixed(2)),
+      isRutina: false,
+      rutinaItems: null
+    };
+  });
+}
+
+function backupRows(workbook, sheetName) {
+  const ws = workbook.Sheets[sheetName];
+  return ws ? XLSX.utils.sheet_to_json(ws, { defval:"" }) : [];
+}
+
+function backupTimestamp(fecha, hora) {
+  const date = String(fecha||today()).slice(0,10);
+  return `${date}T12:00:00.000Z`;
+}
+
+async function writeDocsInChunks(collectionName, docs) {
+  const cleanDocs = docs.filter(d=>d && d.id);
+  for (let i=0; i<cleanDocs.length; i+=400) {
+    const batch = db.batch();
+    cleanDocs.slice(i,i+400).forEach(doc=>{
+      const { id, ...data } = doc;
+      batch.set(db.collection(collectionName).doc(String(id)), { id:String(id), ...data }, { merge:true });
+    });
+    await batch.commit();
+  }
+}
+
+function buildRestoreDocsFromWorkbook(workbook) {
+  const ventasRows = backupRows(workbook, "Ventas");
+  const invRows = backupRows(workbook, "Inventario");
+  const kardexRows = backupRows(workbook, "Kardex");
+  const gastosRows = backupRows(workbook, "Gastos");
+  const cierresRows = backupRows(workbook, "Cierres Caja");
+  const despachosRows = backupRows(workbook, "Despachos");
+  const materialesRows = backupRows(workbook, "Materiales");
+  const preciosCostosRows = backupRows(workbook, "Precios Costos");
+
+  const ventas = ventasRows.map(r=>{
+    const id = rowValue(r,"ID");
+    const total = Number(rowValue(r,"Total")||0);
+    const items = parseBackupItems(rowValue(r,"Productos"));
+    return {
+      id,
+      fecha: String(rowValue(r,"Fecha")||today()).slice(0,10),
+      timestamp: backupTimestamp(rowValue(r,"Fecha"), rowValue(r,"Hora")),
+      stand: standIdFromName(rowValue(r,"Stand")),
+      items,
+      subtotal: total,
+      descuento: Number(rowValue(r,"Descuento%")||0),
+      descuentoAmt: 0,
+      total,
+      pago: paymentIdFromLabel(rowValue(r,"Pago")),
+      nota: rowValue(r,"Nota"),
+      obsequio: normalizeText(rowValue(r,"Obsequio"))==="si",
+      historica: normalizeText(rowValue(r,"Histórica"))==="si" || normalizeText(rowValue(r,"Historica"))==="si",
+      vendedorNombre: rowValue(r,"Usuario"),
+      vendedorEmail: rowValue(r,"Email usuario"),
+      usuarioNombre: rowValue(r,"Usuario"),
+      usuarioEmail: rowValue(r,"Email usuario"),
+      editadoPor: rowValue(r,"Editado por"),
+      editadoEn: rowValue(r,"Editado en")
+    };
+  }).filter(v=>v.id);
+
+  const inventarioMap = {};
+  [...PUNTOS_VENTA.map(s=>s.id), "bodega"].forEach(id=>{ inventarioMap[id] = {}; });
+  invRows.forEach(r=>{
+    const product = CATALOG.find(p=>p.ref===rowValue(r,"SKU")) || CATALOG.find(p=>p.id===rowValue(r,"SKU"));
+    if (!product) return;
+    PUNTOS_VENTA.forEach(s=>{ inventarioMap[s.id][product.id] = Number(rowValue(r,s.name)||0); });
+    inventarioMap.bodega[product.id] = Number(rowValue(r,"Bodega")||0);
+  });
+  const inventarios = Object.entries(inventarioMap).map(([id,data])=>({ id, ...data }));
+
+  const kardex = kardexRows.map(r=>({
+    id: rowValue(r,"Doc ID") || rowValue(r,"ID"),
+    fecha: String(rowValue(r,"Fecha")||"").slice(0,10),
+    timestamp: backupTimestamp(rowValue(r,"Fecha"), rowValue(r,"Hora")),
+    type: normalizeText(rowValue(r,"Tipo")),
+    product: productIdFromLabel(rowValue(r,"Producto")),
+    qty: Number(rowValue(r,"Cantidad")||0),
+    stockAnterior: rowValue(r,"Stock Anterior"),
+    stockNuevo: rowValue(r,"Stock Nuevo"),
+    standId: standIdFromName(rowValue(r,"Stand")),
+    to: standIdFromName(rowValue(r,"Destino")),
+    lote: rowValue(r,"Lote"),
+    obs: rowValue(r,"Nota"),
+    registradoPor: rowValue(r,"Por")
+  })).filter(m=>m.id);
+
+  const gastos = gastosRows.map(r=>({
+    id: rowValue(r,"Doc ID") || rowValue(r,"ID"),
+    fecha: String(rowValue(r,"Fecha")||"").slice(0,10),
+    timestamp: rowValue(r,"Timestamp") || backupTimestamp(rowValue(r,"Fecha")),
+    stand: standIdFromName(rowValue(r,"Stand")),
+    cat: rowValue(r,"Categoría"),
+    monto: Number(rowValue(r,"Monto")||0),
+    nota: rowValue(r,"Nota"),
+    registradoPor: rowValue(r,"Registrado por"),
+    editadoPor: rowValue(r,"Editado por"),
+    editadoEn: rowValue(r,"Editado en")
+  })).filter(g=>g.id);
+
+  const cierres = cierresRows.map(r=>({
+    id: rowValue(r,"Doc ID") || rowValue(r,"ID"),
+    stand: standIdFromName(rowValue(r,"Stand")),
+    fecha: String(rowValue(r,"Fecha")||"").slice(0,10),
+    efectivoInicial: Number(rowValue(r,"Efectivo inicial")||0),
+    efectivoFinal: Number(rowValue(r,"Efectivo final")||0),
+    bendoBanco: rowValue(r,"Bendo banco"),
+    transferBanco: rowValue(r,"Transfer banco"),
+    nota: rowValue(r,"Nota"),
+    cerradoPor: rowValue(r,"Cerrado por"),
+    cerradoEn: rowValue(r,"Cerrado en")
+  })).filter(c=>c.id);
+
+  const despachos = despachosRows.map(r=>({
+    id: rowValue(r,"Doc ID"),
+    fecha: String(rowValue(r,"Fecha")||"").slice(0,10),
+    timestamp: rowValue(r,"Timestamp") || backupTimestamp(rowValue(r,"Fecha")),
+    product: productIdFromLabel(rowValue(r,"Producto")),
+    productName: rowValue(r,"Producto nombre"),
+    qty: Number(rowValue(r,"Cantidad")||0),
+    from: standIdFromName(rowValue(r,"Desde")),
+    to: standIdFromName(rowValue(r,"Hacia"))
+  })).filter(d=>d.id);
+
+  const materiales = materialesRows.map(r=>({
+    id: rowValue(r,"Doc ID") || rowValue(r,"ID"),
+    nombre: rowValue(r,"Nombre"),
+    categoria: rowValue(r,"Categoría"),
+    unidad: rowValue(r,"Unidad"),
+    stock: Number(rowValue(r,"Stock")||0),
+    minimo: Number(rowValue(r,"Stock mínimo")||0),
+    costoUnitario: Number(rowValue(r,"Costo unitario")||0),
+    nota: rowValue(r,"Nota"),
+    actualizadoPor: rowValue(r,"Actualizado por"),
+    actualizadoEn: rowValue(r,"Actualizado en")
+  })).filter(m=>m.id);
+
+  const precios = {};
+  const costos = {};
+  preciosCostosRows.forEach(r=>{
+    const product = CATALOG.find(p=>p.ref===rowValue(r,"SKU")) || CATALOG.find(p=>p.id===rowValue(r,"SKU"));
+    if (!product) return;
+    if (rowValue(r,"Precio actual") !== "") precios[product.id] = Number(rowValue(r,"Precio actual")||0);
+    if (rowValue(r,"Costo actual") !== "") costos[product.id] = Number(rowValue(r,"Costo actual")||0);
+  });
+
+  return { ventas, inventarios, kardex, gastos, cierres, despachos, materiales, precios, costos };
+}
+
+async function restoreBackupWorkbook(file) {
+  if (!file || state.backupRestoring) return;
+  if (!confirm("Esto restaurará el backup en el Firebase nuevo. Si ya existen documentos con el mismo ID, se actualizarán. ¿Continuar?")) return;
+  state.backupRestoring = true; render();
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type:"array" });
+    const docs = buildRestoreDocsFromWorkbook(workbook);
+
+    await writeDocsInChunks("inventarios", docs.inventarios);
+    await writeDocsInChunks("ventas", docs.ventas);
+    await writeDocsInChunks("kardex", docs.kardex);
+    await writeDocsInChunks("gastos", docs.gastos);
+    await writeDocsInChunks("cierres_caja", docs.cierres);
+    await writeDocsInChunks("despachos", docs.despachos);
+    await writeDocsInChunks("materias_primas", docs.materiales);
+    await db.collection("config").doc("precios").set(docs.precios, { merge:true });
+    await db.collection("config").doc("costos").set(docs.costos, { merge:true });
+
+    state.backupRestoring = false;
+    showToast(`✅ Backup restaurado: ${docs.ventas.length} ventas`);
+    setupListeners(state.userInfo);
+    render();
+  } catch(e) {
+    state.backupRestoring = false;
+    showToast("⚠️ Error al restaurar: "+e.message, "err");
+    render();
+  }
+}
+
 function renderAjusteModal() {
   const p = CATALOG.find(c=>c.id===state.ajusteModal?.productId);
   const standId = state.ajusteModal?.standId;
@@ -2952,7 +3243,11 @@ function bindStandSelector() {
     });
   });
   document.getElementById("logout-btn-select")?.addEventListener("click", () => auth.signOut());
-  document.getElementById("back-dashboard-btn")?.addEventListener("click", () => { state.tab="dashboard"; render(); });
+  document.getElementById("back-dashboard-btn")?.addEventListener("click", () => {
+    state.tab="dashboard";
+    if (state.userInfo) setupListeners(state.userInfo);
+    render();
+  });
 }
 
 function renderLoading() {
@@ -3008,10 +3303,12 @@ function bindLogin() {
 
 // ─── MAIN APP ─────────────────────────────────────────────────
 function renderGlobalDownloadButton() {
+  const canRestore = state.userInfo && (state.userInfo.role==="full" || state.userInfo.role==="bodega");
   return `<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
     <div title="Versión ${APP_VERSION}" style="background:var(--lavender-light);border:1.5px solid var(--lavender);color:var(--purple);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:900;letter-spacing:.2px;white-space:nowrap;">
       ${APP_UPDATED_LABEL}
     </div>
+    ${canRestore?`<input type="file" id="restore-backup-file" accept=".xlsx,.xls" style="display:none;"><button id="restore-backup-btn" style="background:#2563eb;color:white;border:none;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(37,99,235,.18);">${state.backupRestoring?"Restaurando...":"Restaurar backup"}</button>`:""}
     <button onclick="exportToExcel()" style="background:var(--purple);color:var(--lime);border:none;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(45,27,105,.18);">📥 Descargar toda la información</button>
   </div>`;
 }
@@ -3031,6 +3328,7 @@ function renderApp() {
         <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor"||u.role==="bodega"||u.fixedStand)&&state.selectedStand?" · "+PUNTOS_VENTA.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
+        ${state.pendingSales.length?`<button class="logout-btn" id="download-pending-btn" title="Descargar respaldo de ventas pendientes">Backup pendientes</button><button class="logout-btn" id="sync-pending-btn" title="Reintentar ventas pendientes">${state.queueProcessing?"Sincronizando":"Pendientes"} ${state.pendingSales.length}</button>`:""}
         ${u.role==="stand"?`<div><div class="today-total">${fmt(todayTotal)} hoy</div><div class="today-date">${fmtDate(today())}</div></div>`:""}
         <button class="logout-btn" id="logout-btn">Salir</button>
       </div>
@@ -5358,13 +5656,26 @@ function getLastN(sales, n) {
 function bindApp() {
   // Logout
   document.getElementById("logout-btn")?.addEventListener("click", ()=>auth.signOut());
+  document.getElementById("sync-pending-btn")?.addEventListener("click", processPendingSalesQueue);
+  document.getElementById("download-pending-btn")?.addEventListener("click", exportPendingSalesBackup);
+  document.getElementById("restore-backup-btn")?.addEventListener("click",()=>document.getElementById("restore-backup-file")?.click());
+  document.getElementById("restore-backup-file")?.addEventListener("change",e=>{
+    const file = e.target.files?.[0];
+    if (file) restoreBackupWorkbook(file);
+    e.target.value = "";
+  });
 
   // Trend chart (dashboard)
   renderTrendChart();
 
   // Nav tabs
   document.querySelectorAll("[data-tab]").forEach(btn=>{
-    btn.addEventListener("click",()=>{ state.tab=btn.dataset.tab; render(); });
+    btn.addEventListener("click",()=>{
+      state.tab=btn.dataset.tab;
+      const needsStandFirst = state.userInfo?.canSell && (state.tab==="pos" || state.tab==="jornada") && !state.selectedStand;
+      if (state.userInfo && !needsStandFirst) setupListeners(state.userInfo);
+      render();
+    });
   });
 
   // Store filter (admin dashboard & ventas)
@@ -5956,6 +6267,91 @@ function stockMissingMessage(missing) {
   return `Stock insuficiente: ${first.name}. Disponible ${first.available}, necesitas ${first.required}.`;
 }
 
+function isRetryableQuotaError(error) {
+  const msg = `${error?.code||""} ${error?.message||""} ${error?.name||""}`;
+  return RETRYABLE_ERROR_RE.test(msg);
+}
+
+function retryDelayMs(attempts=0) {
+  const base = Math.min(30000, 3000 * Math.pow(2, Math.max(0, attempts)));
+  return base + Math.floor(Math.random()*1000);
+}
+
+function loadPendingSales() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(PENDING_SALES_KEY)||"[]");
+    return Array.isArray(rows) ? rows : [];
+  } catch(e) {
+    return [];
+  }
+}
+
+function savePendingSales(rows) {
+  localStorage.setItem(PENDING_SALES_KEY, JSON.stringify(rows||[]));
+  state.pendingSales = rows||[];
+}
+
+function enqueuePendingSale(entry, error) {
+  const rows = loadPendingSales();
+  const existing = rows.find(r=>r.sale?.id===entry.sale?.id);
+  const attempts = existing ? Number(existing.attempts||0) : 0;
+  const queued = {
+    ...entry,
+    attempts,
+    queuedAt: existing?.queuedAt || new Date().toISOString(),
+    lastError: error?.message || String(error||""),
+    nextRetryAt: Date.now() + retryDelayMs(attempts),
+  };
+  savePendingSales([...rows.filter(r=>r.sale?.id!==entry.sale?.id), queued]);
+  schedulePendingSalesRetry();
+}
+
+function schedulePendingSalesRetry() {
+  if (state.pendingRetryTimer) clearTimeout(state.pendingRetryTimer);
+  const rows = loadPendingSales();
+  if (!rows.length) return;
+  const next = Math.max(1000, Math.min(...rows.map(r=>Number(r.nextRetryAt||Date.now()))) - Date.now());
+  state.pendingRetryTimer = setTimeout(processPendingSalesQueue, next);
+}
+
+async function processPendingSalesQueue() {
+  if (state.queueProcessing) return;
+  const now = Date.now();
+  const rows = loadPendingSales();
+  const due = rows.filter(r=>Number(r.nextRetryAt||0)<=now);
+  if (!due.length) { schedulePendingSalesRetry(); return; }
+
+  state.queueProcessing = true;
+  for (const entry of due) {
+    try {
+      const inv = await persistSaleTransaction(entry);
+      if (entry.invSourceId && inv) state.inventory[entry.invSourceId] = inv;
+      const remaining = loadPendingSales().filter(r=>r.sale?.id!==entry.sale?.id);
+      savePendingSales(remaining);
+      if (!state.sales.some(s=>s.id===entry.sale.id)) state.sales = [...state.sales, entry.sale];
+      if (entry.extraGastos?.length) {
+        const existingIds = new Set((state.gastos||[]).map(g=>g.id));
+        state.gastos = [...(state.gastos||[]), ...entry.extraGastos.filter(g=>!existingIds.has(g.id))];
+      }
+      showToast(`✅ Venta pendiente sincronizada (${remaining.length} en cola)`);
+    } catch(e) {
+      const remaining = loadPendingSales().filter(r=>r.sale?.id!==entry.sale?.id);
+      const attempts = Number(entry.attempts||0)+1;
+      const updated = {
+        ...entry,
+        attempts,
+        lastError: e.message || String(e),
+        nextRetryAt: Date.now() + retryDelayMs(attempts),
+      };
+      savePendingSales([...remaining, updated]);
+      if (!isRetryableQuotaError(e)) break;
+    }
+  }
+  state.queueProcessing = false;
+  render();
+  schedulePendingSalesRetry();
+}
+
 async function updateInventoryWithTransaction(invSourceId, delta, writeCallback) {
   const invRef = db.collection("inventarios").doc(invSourceId);
   let updatedInv = null;
@@ -5967,6 +6363,32 @@ async function updateInventoryWithTransaction(invSourceId, delta, writeCallback)
     updatedInv = applied.inv;
     tx.set(invRef, updatedInv);
     writeCallback(tx, updatedInv);
+  });
+  return updatedInv;
+}
+
+async function persistSaleTransaction(entry) {
+  const { invSourceId, delta, sale, extraGastos=[] } = entry;
+  const invRef = db.collection("inventarios").doc(invSourceId);
+  const saleRef = db.collection("ventas").doc(sale.id);
+  let updatedInv = null;
+  await db.runTransaction(async tx=>{
+    const saleDoc = await tx.get(saleRef);
+    const invDoc = await tx.get(invRef);
+    const currentInv = invDoc.exists ? (invDoc.data()||{}) : {};
+
+    if (saleDoc.exists) {
+      updatedInv = currentInv;
+      extraGastos.forEach(g=>tx.set(db.collection("gastos").doc(g.id), g, { merge:true }));
+      return;
+    }
+
+    const applied = applyInventoryDelta(currentInv, delta, false);
+    if (applied.missing.length) throw new Error(stockMissingMessage(applied.missing));
+    updatedInv = applied.inv;
+    tx.set(invRef, updatedInv);
+    tx.set(saleRef, sale);
+    extraGastos.forEach(g=>tx.set(db.collection("gastos").doc(g.id), g));
   });
   return updatedInv;
 }
@@ -6073,29 +6495,28 @@ async function handleSell() {
     usuarioNombre: state.userInfo?.name || ""
   };
 
+  // Actualizar inventario (Oficina descuenta de Bodega Central)
+  const invSourceId = getInvSourceForStand(sale.stand);
+  const delta = getSaleInventoryDelta(sale.items||[], -1);
+  const extraGastos = [];
+  if (state.obsequio && cartCost > 0) {
+    extraGastos.push({
+      id: genId(),
+      fecha: sale.fecha,
+      timestamp: new Date().toISOString(),
+      stand: sale.stand,
+      cat: "marketing",
+      monto: Number(cartCost.toFixed(2)),
+      nota: `Obsequio · venta ${sale.id}`,
+    });
+  }
+  const autoCommission = buildAutomaticCommissionExpense(sale);
+  if (autoCommission) extraGastos.push(autoCommission);
+  const queueEntry = { sale, invSourceId, delta, extraGastos };
+
   state.selling = true; render();
   try {
-    // Actualizar inventario (Oficina descuenta de Bodega Central)
-    const invSourceId = getInvSourceForStand(sale.stand);
-    const delta = getSaleInventoryDelta(sale.items||[], -1);
-    const extraGastos = [];
-    if (state.obsequio && cartCost > 0) {
-      extraGastos.push({
-        id: genId(),
-        fecha: sale.fecha,
-        timestamp: new Date().toISOString(),
-        stand: sale.stand,
-        cat: "marketing",
-        monto: Number(cartCost.toFixed(2)),
-        nota: `Obsequio · venta ${sale.id}`,
-      });
-    }
-    const autoCommission = buildAutomaticCommissionExpense(sale);
-    if (autoCommission) extraGastos.push(autoCommission);
-    const inv = await updateInventoryWithTransaction(invSourceId, delta, tx=>{
-      tx.set(db.collection("ventas").doc(sale.id), sale);
-      extraGastos.forEach(g=>tx.set(db.collection("gastos").doc(g.id), g));
-    });
+    const inv = await persistSaleTransaction(queueEntry);
 
     state.inventory[invSourceId] = inv;
     state.sales = [...state.sales, sale];
@@ -6110,6 +6531,18 @@ async function handleSell() {
     render();
     setTimeout(()=>{ state.success=null; render(); }, 2200);
   } catch(e) {
+    if (isRetryableQuotaError(e)) {
+      enqueuePendingSale(queueEntry, e);
+      state.cart = [];
+      state.customPrices = {};
+      state.discount = 0;
+      state.note = "";
+      state.obsequio = false;
+      state.selling = false;
+      showToast("⚠️ Cuota alcanzada. Venta guardada en este dispositivo y se reintentará sola.", "err");
+      render();
+      return;
+    }
     state.selling = false;
     showToast("⚠️ Error al guardar: "+e.message, "err");
   }
@@ -6761,15 +7194,22 @@ function showToast(msg, type="ok") {
 // ─── FIREBASE LISTENERS ───────────────────────────────────────
 function setupListeners(userInfo) {
   // Unsubscribe previous
-  if(state.unsubInventory) state.unsubInventory();
-  if(state.unsubSales) state.unsubSales();
-  if(state.unsubJornadas) state.unsubJornadas();
-  if(state.unsubKardex) state.unsubKardex();
-  if(state.unsubGastos) state.unsubGastos();
-  if(state.unsubCierres) state.unsubCierres();
-  if(state.unsubMaterials) state.unsubMaterials();
-  if(state.unsubCosts) state.unsubCosts();
-  if(state.unsubPrices) state.unsubPrices();
+  if(state.unsubInventory) { state.unsubInventory(); state.unsubInventory=null; }
+  if(state.unsubSales) { state.unsubSales(); state.unsubSales=null; }
+  if(state.unsubJornadas) { state.unsubJornadas(); state.unsubJornadas=null; }
+  if(state.unsubKardex) { state.unsubKardex(); state.unsubKardex=null; }
+  if(state.unsubGastos) { state.unsubGastos(); state.unsubGastos=null; }
+  if(state.unsubCierres) { state.unsubCierres(); state.unsubCierres=null; }
+  if(state.unsubMaterials) { state.unsubMaterials(); state.unsubMaterials=null; }
+  if(state.unsubCosts) { state.unsubCosts(); state.unsubCosts=null; }
+  if(state.unsubPrices) { state.unsubPrices(); state.unsubPrices=null; }
+
+  const activeTab = state.tab;
+  const sellingTabs = ["pos","jornada","ventas"];
+  const sellingContext = !!state.selectedStand && sellingTabs.includes(activeTab);
+  const needsFinance = !!userInfo.canFinanzas && ["finanzas","rentabilidad","ventas"].includes(activeTab);
+  const needsKardex = (userInfo.role==="full" || userInfo.role==="bodega") && ["kardex","bodega","despachar"].includes(activeTab);
+  const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega") && activeTab==="materiales";
 
   // Listen to all inventories
   state.unsubInventory = db.collection("inventarios").onSnapshot(snap=>{
@@ -6777,10 +7217,13 @@ function setupListeners(userInfo) {
     render();
   });
 
-  // Listen to sales - stand only sees own, admin/bodega sees all
-  let salesQuery = db.collection("ventas").orderBy("timestamp","desc");
-  if((userInfo.role==="asesor" || userInfo.fixedStand) && state.selectedStand) {
-    salesQuery = db.collection("ventas").where("stand","==",state.selectedStand).orderBy("timestamp","desc");
+  // Ventas en vivo: para vender solo se escucha el punto seleccionado.
+  let salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(LIVE_SALES_LIMIT);
+  if((userInfo.role==="asesor" || userInfo.fixedStand || sellingContext) && state.selectedStand) {
+    salesQuery = db.collection("ventas")
+      .where("stand","==",state.selectedStand)
+      .orderBy("timestamp","desc")
+      .limit(LIVE_STAND_SALES_LIMIT);
   }
 
   state.unsubSales = salesQuery.onSnapshot(snap=>{
@@ -6788,21 +7231,27 @@ function setupListeners(userInfo) {
     render();
   });
 
-  // Jornadas - stand only sees own, admin/full/bodega sees all
-  let jornadasQuery = db.collection("jornadas").orderBy("updatedAt","desc");
-  if((userInfo.role==="asesor" || userInfo.fixedStand) && state.selectedStand) {
-    jornadasQuery = db.collection("jornadas").where("stand","==",state.selectedStand).orderBy("updatedAt","desc");
+  // Jornadas: se limita para no leer todo el histórico al vender.
+  let jornadasQuery = db.collection("jornadas").orderBy("updatedAt","desc").limit(LIVE_JORNADAS_LIMIT);
+  if((userInfo.role==="asesor" || userInfo.fixedStand || sellingContext) && state.selectedStand) {
+    jornadasQuery = db.collection("jornadas")
+      .where("stand","==",state.selectedStand)
+      .orderBy("updatedAt","desc")
+      .limit(LIVE_JORNADAS_LIMIT);
   }
   state.unsubJornadas = jornadasQuery.onSnapshot(snap=>{
     state.jornadas = snap.docs.map(d=>({ ...(d.data()||{}), id:d.id }));
     render();
   });
 
-  // Kardex listener
-  state.unsubKardex = db.collection("kardex").orderBy("timestamp","desc").onSnapshot(snap=>{
-    state.kardexMovements = snap.docs.map(d=>d.data());
-    render();
-  });
+  if (needsKardex) {
+    state.unsubKardex = db.collection("kardex").orderBy("timestamp","desc").limit(LIVE_KARDEX_LIMIT).onSnapshot(snap=>{
+      state.kardexMovements = snap.docs.map(d=>d.data());
+      render();
+    });
+  } else {
+    state.kardexMovements = state.kardexMovements || [];
+  }
 
   // Costos listener
   state.unsubCosts = db.collection("config").doc("costos").onSnapshot(doc=>{
@@ -6816,7 +7265,7 @@ function setupListeners(userInfo) {
     render();
   });
 
-  if (userInfo.role==="full" || userInfo.role==="bodega") {
+  if (needsMaterials) {
     state.unsubMaterials = db.collection("materias_primas").onSnapshot(snap=>{
       state.materials = snap.docs.map(doc=>({ ...(doc.data()||{}), id:doc.id }));
       render();
@@ -6824,19 +7273,21 @@ function setupListeners(userInfo) {
   }
 
   // Gastos operativos listener
-  if (userInfo.canFinanzas) {
-    state.unsubGastos = db.collection("gastos").orderBy("timestamp","desc").onSnapshot(snap=>{
+  if (needsFinance) {
+    state.unsubGastos = db.collection("gastos").orderBy("timestamp","desc").limit(LIVE_GASTOS_LIMIT).onSnapshot(snap=>{
       state.gastos = snap.docs.map(d=>d.data());
       render();
     });
 
     // Cierres de caja listener
-    state.unsubCierres = db.collection("cierres_caja").onSnapshot(snap=>{
-      const map = {};
-      snap.forEach(doc=>{ map[doc.id] = doc.data(); });
-      state.cierres = map;
-      render();
-    });
+    if (["finanzas","rentabilidad"].includes(activeTab)) {
+      state.unsubCierres = db.collection("cierres_caja").onSnapshot(snap=>{
+        const map = {};
+        snap.forEach(doc=>{ map[doc.id] = doc.data(); });
+        state.cierres = map;
+        render();
+      });
+    }
   }
 }
 
@@ -6852,6 +7303,9 @@ auth.onAuthStateChanged(user=>{
     state.tab = (userInfo.role==="asesor"||userInfo.role==="venta_only")?"pos":(userInfo.canFinanzas?"rentabilidad":"dashboard");
     state.loading = false;
     setupListeners(userInfo);
+    state.pendingSales = loadPendingSales();
+    schedulePendingSalesRetry();
+    processPendingSalesQueue();
     render();
   } else {
     if(state.unsubInventory) state.unsubInventory();
@@ -6866,12 +7320,18 @@ auth.onAuthStateChanged(user=>{
     state.user=null; state.userInfo=null;
     state.selectedStand=null; state.tab="dashboard";
     state.inventory={}; state.sales=[]; state.jornadas=[]; state.materials=[];
+    state.pendingSales = loadPendingSales();
     state.loading=false;
     render();
   }
 });
 
+window.addEventListener("online", processPendingSalesQueue);
+setInterval(()=>{ if(loadPendingSales().length) processPendingSalesQueue(); }, 60000);
+
 // Initial render
+state.pendingSales = loadPendingSales();
+schedulePendingSalesRetry();
 render();
 </script>
 </body>
