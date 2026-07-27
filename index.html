@@ -6,8 +6,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY POS</title>
-<!-- v2026-07-23-jornadas-usuario-ventas -->
-<meta name="app-version" content="2026-07-23-01">
+<!-- v2026-07-27-produccion-forecast -->
+<meta name="app-version" content="2026-07-27-01">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY POS">
@@ -1296,8 +1296,8 @@ const RUTINAS = [
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-07-23-01";
-const APP_UPDATED_LABEL = "Actualizado: 23 jul 2026";
+const APP_VERSION = "2026-07-27-01";
+const APP_UPDATED_LABEL = "Actualizado: 27 jul 2026";
 const PENDING_SALES_KEY = "worthy-pos-pending-sales-v1";
 const RETRYABLE_ERROR_RE = /(quota|rate.?limit|resource.?exhausted|too many requests|deadline|unavailable|network|offline)/i;
 const LIVE_SALES_LIMIT = 350;
@@ -1431,7 +1431,32 @@ const today = () => {
   return d.toISOString().slice(0,10);
 };
 const fmtDate = iso => new Date(iso+"T12:00:00").toLocaleDateString("es-EC",{day:"2-digit",month:"short",year:"numeric"});
-const fmtTime = ts => new Date(ts).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"});
+const APP_TIME_ZONE = "America/Guayaquil";
+function parseTimestampValue(ts) {
+  if(!ts) return null;
+  if(ts instanceof Date) return Number.isNaN(ts.getTime()) ? null : ts;
+  if(typeof ts === "object") {
+    if(typeof ts.toDate === "function") {
+      const d = ts.toDate();
+      return d && !Number.isNaN(d.getTime()) ? d : null;
+    }
+    if(Number.isFinite(ts.seconds)) {
+      const d = new Date(ts.seconds*1000 + Math.floor(Number(ts.nanoseconds||0)/1000000));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function isUtcNoonBackupTimestamp(ts) {
+  return typeof ts === "string" && /^\d{4}-\d{2}-\d{2}T12:00:00(?:\.000)?Z$/.test(ts);
+}
+function formatTimeInAppZone(ts) {
+  if(isUtcNoonBackupTimestamp(ts)) return "12:00";
+  const d = parseTimestampValue(ts);
+  return d ? d.toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit",timeZone:APP_TIME_ZONE}) : "";
+}
+const fmtTime = ts => formatTimeInAppZone(ts);
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 // Verifica si una variante puede armarse completa con el inventario actual del stand
@@ -1469,6 +1494,103 @@ function getPrice(productId) {
   const p = CATALOG.find(c=>c.id===productId);
   return p ? p.price : 0;
 }
+
+function recipeMaterials(unitGrams, wastePct, formula) {
+  const grossUnit = Number(unitGrams||0) * (1 + Number(wastePct||0));
+  return formula.map(m=>({
+    name:m[0],
+    unit:m[2]||"g",
+    qtyPerUnit:Number((grossUnit * Number(m[1]||0)).toFixed(4))
+  }));
+}
+
+function makeRecipe(productId, unitGrams, wastePct, batchDefault, setupMin, unitMin, packagingCost, formula) {
+  return {
+    productId,
+    unitGrams,
+    wastePct,
+    batchDefault,
+    setupMin,
+    unitMin,
+    packagingCost,
+    materials:recipeMaterials(unitGrams, wastePct, formula)
+  };
+}
+
+const PRODUCTION_RECIPES = {
+  WMO30: makeRecipe("WMO30",30,0.03,36,35,1.2,2.15,[
+    ["ACEITE DE SEMILLA DE UVA",0.35],["ACEITE DE RICINO",0.25],["ACEITE DE JOJOBA",0.05],["ACEITE DE LINO",0.05],
+    ["ACEITE DE SESAMO",0.05],["ACEITE DE AGUACATE",0.05],["VITAMINA E",0.05],["ACEITE DE ZANAHORIA",0.04],
+    ["ACEITE DE ALBARICOQUE",0.033],["ACEITE DE ARROZ",0.03],["ACEITE DE BROCOLI",0.03],["A.E. MENTHA",0.01],
+    ["A.E. CEDRO",0.001],["A.E. LAVANDA",0.001],["A.E. YLANG YLANG",0.001],["A.E. BERGAMOTA",0.001],
+    ["A.E. SALVIA",0.001],["A.E. EUCALIPTO",0.001],["A.E. LIMON",0.001]
+  ]),
+  WMO45: makeRecipe("WMO45",50,0.03,18,35,1.4,2.37,[
+    ["ACEITE DE SEMILLA DE UVA",0.35],["ACEITE DE RICINO",0.25],["ACEITE DE JOJOBA",0.05],["ACEITE DE LINO",0.05],
+    ["ACEITE DE SESAMO",0.05],["ACEITE DE AGUACATE",0.05],["VITAMINA E",0.05],["ACEITE DE ZANAHORIA",0.04],
+    ["ACEITE DE ALBARICOQUE",0.033],["ACEITE DE ARROZ",0.03],["ACEITE DE BROCOLI",0.03],["A.E. MENTHA",0.01],
+    ["A.E. CEDRO",0.001],["A.E. LAVANDA",0.001],["A.E. YLANG YLANG",0.001],["A.E. BERGAMOTA",0.001],
+    ["A.E. SALVIA",0.001],["A.E. EUCALIPTO",0.001],["A.E. LIMON",0.001]
+  ]),
+  WLBN6: makeRecipe("WLBN6",6,0.02,50,30,0.6,0.98,[
+    ["CERA CANDELILLA",0.295],["ACEITE DE COCO",0.22],["ACEITE DE RICINO",0.10],["ACEITE DE JOJOBA",0.09],
+    ["ACEITE DE CALENDULA",0.09],["MANTECA DE MURUMURU",0.08],["ACEITE DE LINO",0.05],["ACIDO ASTEARICO",0.05],
+    ["VITAMINA E",0.01],["A.E. MENTHA",0.01],["ACEITE DE BORRAJA",0.005]
+  ]),
+  WLBP6: makeRecipe("WLBP6",6,0.02,25,30,0.6,0.98,[
+    ["CERA CANDELILLA",0.265],["ACEITE DE COCO",0.22],["ACEITE DE RICINO",0.10],["ACEITE DE JOJOBA",0.09],
+    ["ACEITE DE CALENDULA",0.09],["MANTECA DE MURUMURU",0.07],["ACEITE DE LINO",0.05],["ACIDO ASTEARICO",0.04],
+    ["VITAMINA E",0.01],["A.E. MENTHA",0.01],["ACEITE DE BORRAJA",0.005],["MICA ROSADA",0.05]
+  ]),
+  WLBR6: makeRecipe("WLBR6",6,0.02,25,30,0.6,0.98,[
+    ["CERA CANDELILLA",0.265],["ACEITE DE COCO",0.22],["ACEITE DE RICINO",0.10],["ACEITE DE JOJOBA",0.09],
+    ["ACEITE DE CALENDULA",0.09],["MANTECA DE MURUMURU",0.07],["ACEITE DE LINO",0.05],["ACIDO ASTEARICO",0.04],
+    ["VITAMINA E",0.01],["A.E. MENTHA",0.01],["ACEITE DE BORRAJA",0.005],["OXIDO DE HIERRO ROJO",0.05]
+  ]),
+  WDS30: makeRecipe("WDS30",30,0.03,12,25,0.8,1.03,[
+    ["ACEITE DE COCO",0.22],["ALMIDON DE YUCA",0.22],["HIDROXIDO DE MAGNESIO",0.15],["CERA CANDELILLA",0.12],
+    ["ACEITE DE COCO FRACCIONADO",0.0985],["TRIETHYL CITRATE",0.05],["ZINC RICINOLEATO",0.03],["ACEITE DE JOJOBA",0.02],
+    ["EXTRACTO DE SALVIA",0.02],["CERA DE GIRASOL",0.02],["MANTECA DE MURUMURU",0.01],["VITAMINA E",0.01],
+    ["LAVENDER & COCONUT MILK",0.01],["AUSTRALIAN SANDALO",0.01],["A.E. ARBOL DEL TE",0.005],["EXTRACTO DE NEEM",0.0065]
+  ]),
+  WDS45: makeRecipe("WDS45",45,0.03,12,25,0.9,1.52,[
+    ["ACEITE DE COCO",0.22],["ALMIDON DE YUCA",0.22],["HIDROXIDO DE MAGNESIO",0.15],["CERA CANDELILLA",0.12],
+    ["ACEITE DE COCO FRACCIONADO",0.0985],["TRIETHYL CITRATE",0.05],["ZINC RICINOLEATO",0.03],["ACEITE DE JOJOBA",0.02],
+    ["EXTRACTO DE SALVIA",0.02],["CERA DE GIRASOL",0.02],["MANTECA DE MURUMURU",0.01],["VITAMINA E",0.01],
+    ["LAVENDER & COCONUT MILK",0.01],["AUSTRALIAN SANDALO",0.01],["A.E. ARBOL DEL TE",0.005],["EXTRACTO DE NEEM",0.0065]
+  ]),
+  WDSK30: makeRecipe("WDSK30",30,0.03,12,25,0.8,1.03,[
+    ["ACEITE DE COCO",0.22],["ALMIDON DE YUCA",0.22],["HIDROXIDO DE MAGNESIO",0.15],["CERA CANDELILLA",0.12],
+    ["ACEITE DE COCO FRACCIONADO",0.0985],["TRIETHYL CITRATE",0.05],["ZINC RICINOLEATO",0.03],["ACEITE DE JOJOBA",0.02],
+    ["EXTRACTO DE SALVIA",0.02],["CERA DE GIRASOL",0.02],["MANTECA DE MURUMURU",0.01],["VITAMINA E",0.01],
+    ["FRAGANCIA BABY POWDER",0.02],["A.E. ARBOL DEL TE",0.005],["EXTRACTO DE NEEM",0.0065]
+  ]),
+  WDSK45: makeRecipe("WDSK45",45,0.03,12,25,0.9,1.52,[
+    ["ACEITE DE COCO",0.22],["ALMIDON DE YUCA",0.22],["HIDROXIDO DE MAGNESIO",0.15],["CERA CANDELILLA",0.12],
+    ["ACEITE DE COCO FRACCIONADO",0.0985],["TRIETHYL CITRATE",0.05],["ZINC RICINOLEATO",0.03],["ACEITE DE JOJOBA",0.02],
+    ["EXTRACTO DE SALVIA",0.02],["CERA DE GIRASOL",0.02],["MANTECA DE MURUMURU",0.01],["VITAMINA E",0.01],
+    ["FRAGANCIA BABY POWDER",0.02],["A.E. ARBOL DEL TE",0.005],["EXTRACTO DE NEEM",0.0065]
+  ]),
+  WSF90: makeRecipe("WSF90",87,0.05,20,60,2.2,0.25,[
+    ["SCI",0.58],["BETAINA DE COCO",0.10],["AVENA POWDER",0.07],["INULINA VEGETAL POWDER",0.03],
+    ["ACIDO ASTEARICO",0.03],["EXTRACTO DE ALOE",0.02],["ACEITE DE LINAZA",0.02],["AUSTRALIAN SANDALO",0.02],
+    ["ORTIGA POWDER",0.01],["COLA DE CABALLO POWDER",0.01],["EXTRACTO DE ORTIGA",0.01],["EXTRACTO DE COLA DE CABALLO",0.01],
+    ["ACEITE DE JOJOBA",0.01],["MANTECA DE KARITE",0.01],["PROTEINA DE SEDA",0.01],["EXTRACTO DE CEBOLLA",0.01],
+    ["EXTRACTO DE PAPAYA",0.01],["GLICERINA VEGETAL",0.01],["DANOX",0.01],["CETHYL ALCOHOL",0.01],["CONSERVANTE SHAROMIX",0.01]
+  ]),
+  WHT50: makeRecipe("WHT50",50,0.03,18,35,1.1,2.37,[
+    ["HIDROLATO DE MENTA",0.68],["EXTRACTO DE PAPAYA",0.04],["EXTRACTO GINKGO BILOBA",0.04],["EXTRACTO DE GERMEN DE TRIGO",0.04],
+    ["EXTRACTO DE ORTIGA",0.03],["EXTRACTO DE COLA DE CABALLO",0.03],["EXTRACTO CEBOLLA",0.03],["EXTRACTO DE LIMON",0.03],
+    ["EXTRACTO DE TE VERDE",0.03],["EXTRACTO DE NEEM",0.03],["CONSERVANTE SHAROMIX",0.01],["ACEITE ESENCIAL DE GERANIO",0.005],
+    ["ACEITE ESENCIAL DE MANDARINA",0.005]
+  ]),
+  WHT80: makeRecipe("WHT80",80,0.03,12,35,1.2,2.59,[
+    ["HIDROLATO DE MENTA",0.68],["EXTRACTO DE PAPAYA",0.04],["EXTRACTO GINKGO BILOBA",0.04],["EXTRACTO DE GERMEN DE TRIGO",0.04],
+    ["EXTRACTO DE ORTIGA",0.03],["EXTRACTO DE COLA DE CABALLO",0.03],["EXTRACTO CEBOLLA",0.03],["EXTRACTO DE LIMON",0.03],
+    ["EXTRACTO DE TE VERDE",0.03],["EXTRACTO DE NEEM",0.03],["CONSERVANTE SHAROMIX",0.01],["ACEITE ESENCIAL DE GERANIO",0.005],
+    ["ACEITE ESENCIAL DE MANDARINA",0.005]
+  ])
+};
 
 // ─── HELPERS GENERICOS DE PERIODO ──────────────────────────────
 const DAY_LETTERS = ["D","L","M","W","J","V","S"];
@@ -1595,6 +1717,266 @@ function getDailyBreakdown(salesForStand, from, to, aggregateAfterDays=120) {
     cursor.setDate(cursor.getDate()+1);
   }
   return days;
+}
+
+const SALES_WEEKDAY_FILTERS = [
+  { id:"1", label:"Lun" },
+  { id:"2", label:"Mar" },
+  { id:"3", label:"Mié" },
+  { id:"4", label:"Jue" },
+  { id:"5", label:"Vie" },
+  { id:"6", label:"Sáb" },
+  { id:"0", label:"Dom" },
+];
+
+function getSaleWeekdayId(sale) {
+  if(!sale?.fecha) return "";
+  return String(new Date(sale.fecha+"T12:00:00").getDay());
+}
+
+function activeCompareCategories() {
+  const selected = state.ventasCompareCategories || ["all"];
+  return selected.includes("all") ? SALES_CATEGORY_META.map(c=>c.id) : selected;
+}
+
+function activeCompareWeekdays() {
+  const selected = state.ventasCompareWeekdays || ["all"];
+  return selected.includes("all") ? SALES_WEEKDAY_FILTERS.map(d=>d.id) : selected;
+}
+
+function getCompareSkuOptions(categoryIds=activeCompareCategories()) {
+  const wanted = new Set(categoryIds);
+  return CATALOG.filter(p=>wanted.has(p.cat));
+}
+
+function activeCompareSkus(categoryIds=activeCompareCategories()) {
+  const selected = state.ventasCompareSkus || ["all"];
+  if(selected.includes("all")) return getCompareSkuOptions(categoryIds).map(p=>p.id);
+  const allowed = new Set(getCompareSkuOptions(categoryIds).map(p=>p.id));
+  return selected.filter(id=>allowed.has(id));
+}
+
+function getSaleCompareAmountAndUnits(sale, categoryIds, skuIds) {
+  const wantedCategories = new Set(categoryIds);
+  const wantedSkus = new Set(skuIds);
+  const items = sale.items||[];
+  const grossItems = items.reduce((sum,item)=>{
+    const line = Number(item.subtotal);
+    return sum + (Number.isFinite(line) ? line : Number(item.price||0)*Number(item.qty||0));
+  },0);
+  const saleFactor = grossItems>0 ? saleNet(sale)/grossItems : 1;
+  let usd = 0;
+  let units = 0;
+
+  const addComponent = (productId, qty, grossValue) => {
+    const product = CATALOG.find(p=>p.id===productId);
+    const cat = product?.cat || "otros";
+    if(!wantedCategories.has(cat) || !wantedSkus.has(productId)) return;
+    usd += Number(grossValue||0) * saleFactor;
+    units += Number(qty||0);
+  };
+
+  items.forEach(item=>{
+    const lineGrossRaw = Number(item.subtotal);
+    const lineGross = Number.isFinite(lineGrossRaw) ? lineGrossRaw : Number(item.price||0)*Number(item.qty||0);
+
+    if(item.isRutina && Array.isArray(item.rutinaItems) && item.rutinaItems.length) {
+      const components = item.rutinaItems.map(ri=>{
+        const qty = Number(ri.q||0) * Number(item.qty||0);
+        const weight = Math.max(0, getPrice(ri.id) * qty);
+        return { id:ri.id, qty, weight };
+      });
+      const totalWeight = components.reduce((sum,c)=>sum+c.weight,0);
+      components.forEach(c=>{
+        const allocatedGross = totalWeight>0 ? lineGross*(c.weight/totalWeight) : lineGross/components.length;
+        addComponent(c.id, c.qty, allocatedGross);
+      });
+    } else {
+      addComponent(item.id, Number(item.qty||0), lineGross);
+    }
+  });
+
+  return { usd, units };
+}
+
+function getCompareSkuRanking(baseSales) {
+  const categories = activeCompareCategories();
+  const skus = activeCompareSkus(categories);
+  const wantedCategories = new Set(categories);
+  const wantedSkus = new Set(skus);
+  const weekdays = new Set(activeCompareWeekdays());
+  const rows = {};
+
+  const addComponent = (productId, qty, netValue) => {
+    const product = CATALOG.find(p=>p.id===productId);
+    const cat = product?.cat || "otros";
+    if(!wantedCategories.has(cat) || !wantedSkus.has(productId)) return;
+    if(!rows[productId]) {
+      rows[productId] = {
+        id:productId,
+        ref:product?.ref || productId,
+        name:product ? `${product.name} ${product.sub}` : productId,
+        emoji:product?.emoji || "🏷️",
+        usd:0,
+        units:0,
+        tx:0
+      };
+    }
+    rows[productId].usd += Number(netValue||0);
+    rows[productId].units += Number(qty||0);
+    rows[productId].tx += 1;
+  };
+
+  (baseSales||[]).forEach(sale=>{
+    if(!sale.fecha || !weekdays.has(getSaleWeekdayId(sale))) return;
+    const items = sale.items||[];
+    const grossItems = items.reduce((sum,item)=>{
+      const line = Number(item.subtotal);
+      return sum + (Number.isFinite(line) ? line : Number(item.price||0)*Number(item.qty||0));
+    },0);
+    const saleFactor = grossItems>0 ? saleNet(sale)/grossItems : 1;
+
+    items.forEach(item=>{
+      const lineGrossRaw = Number(item.subtotal);
+      const lineGross = Number.isFinite(lineGrossRaw) ? lineGrossRaw : Number(item.price||0)*Number(item.qty||0);
+
+      if(item.isRutina && Array.isArray(item.rutinaItems) && item.rutinaItems.length) {
+        const components = item.rutinaItems.map(ri=>{
+          const qty = Number(ri.q||0) * Number(item.qty||0);
+          const weight = Math.max(0, getPrice(ri.id) * qty);
+          return { id:ri.id, qty, weight };
+        });
+        const totalWeight = components.reduce((sum,c)=>sum+c.weight,0);
+        components.forEach(c=>{
+          const allocatedGross = totalWeight>0 ? lineGross*(c.weight/totalWeight) : lineGross/components.length;
+          addComponent(c.id, c.qty, allocatedGross*saleFactor);
+        });
+      } else {
+        addComponent(item.id, Number(item.qty||0), lineGross*saleFactor);
+      }
+    });
+  });
+
+  const list = Object.values(rows);
+  return {
+    byUsd:[...list].filter(r=>r.usd>0).sort((a,b)=>b.usd-a.usd).slice(0,8),
+    byUnits:[...list].filter(r=>r.units>0).sort((a,b)=>b.units-a.units).slice(0,8)
+  };
+}
+
+function getSaleHour(sale) {
+  const ts = sale?.timestamp || sale?.createdAt || sale?.fechaHora || "";
+  if(isUtcNoonBackupTimestamp(ts)) return 12;
+  const d = parseTimestampValue(ts);
+  if(d) {
+    const parts = new Intl.DateTimeFormat("en-US",{
+      hour:"2-digit",
+      hour12:false,
+      timeZone:APP_TIME_ZONE
+    }).formatToParts(d);
+    const hour = Number(parts.find(p=>p.type==="hour")?.value);
+    if(Number.isFinite(hour)) return hour === 24 ? 0 : hour;
+  }
+  const raw = String(sale?.hora||"").match(/(\d{1,2})/);
+  if(raw) return Math.max(0, Math.min(23, Number(raw[1])));
+  return null;
+}
+
+const HEATMAP_START_HOUR = 10;
+const HEATMAP_END_HOUR = 21;
+
+function getSalesHeatmap(baseSales) {
+  const categories = activeCompareCategories();
+  const skus = activeCompareSkus(categories);
+  const weekdays = new Set(activeCompareWeekdays());
+  const metric = state.ventasHeatmapMetric || "usd";
+  const dayLabels = [
+    { id:"1", label:"Lunes" },
+    { id:"2", label:"Martes" },
+    { id:"3", label:"Miércoles" },
+    { id:"4", label:"Jueves" },
+    { id:"5", label:"Viernes" },
+    { id:"6", label:"Sábado" },
+    { id:"0", label:"Domingo" },
+  ];
+  const values = {};
+
+  dayLabels.forEach(d=>{
+    values[d.id] = {};
+    for(let h=HEATMAP_START_HOUR; h<=HEATMAP_END_HOUR; h++) values[d.id][h] = 0;
+  });
+
+  (baseSales||[]).forEach(sale=>{
+    if(!sale.fecha) return;
+    const weekday = getSaleWeekdayId(sale);
+    if(!weekdays.has(weekday)) return;
+    const hour = getSaleHour(sale);
+    if(hour===null) return;
+    if(hour<HEATMAP_START_HOUR || hour>HEATMAP_END_HOUR) return;
+    const amount = getSaleCompareAmountAndUnits(sale, categories, skus);
+    if(amount.usd<=0 && amount.units<=0) return;
+    if(!values[weekday]) values[weekday] = {};
+    const value = metric==="tx" ? 1 : metric==="units" ? amount.units : amount.usd;
+    values[weekday][hour] = (values[weekday][hour]||0) + value;
+  });
+
+  const hours = [];
+  for(let h=HEATMAP_START_HOUR; h<=HEATMAP_END_HOUR; h++) hours.push(h);
+
+  const maxValue = dayLabels.reduce((max,d)=>Math.max(max,...hours.map(h=>Number(values[d.id]?.[h]||0))),0);
+  const combos = [];
+  dayLabels.forEach(day=>{
+    hours.forEach(hour=>{
+      const value = Number(values[day.id]?.[hour]||0);
+      if(value>0) combos.push({ day:day.label, hour, value });
+    });
+  });
+
+  return {
+    metric,
+    dayLabels,
+    hours,
+    values,
+    maxValue,
+    topCombos:combos.sort((a,b)=>b.value-a.value).slice(0,6)
+  };
+}
+
+function formatMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-").map(Number);
+  if(!year || !month) return monthKey;
+  return new Date(year, month-1, 1).toLocaleDateString("es-EC",{month:"short",year:"2-digit"});
+}
+
+function getMonthlySalesComparison(baseSales) {
+  const categories = activeCompareCategories();
+  const skus = activeCompareSkus(categories);
+  const weekdays = new Set(activeCompareWeekdays());
+  const totals = {};
+
+  (baseSales||[]).forEach(sale=>{
+    if(!sale.fecha || !weekdays.has(getSaleWeekdayId(sale))) return;
+    const amount = getSaleCompareAmountAndUnits(sale, categories, skus);
+    if(amount.usd <= 0 && amount.units <= 0) return;
+    const monthKey = sale.fecha.slice(0,7);
+    if(!totals[monthKey]) totals[monthKey] = { monthKey, usd:0, units:0, tx:0 };
+    totals[monthKey].usd += amount.usd;
+    totals[monthKey].units += amount.units;
+    totals[monthKey].tx += 1;
+  });
+
+  return Object.values(totals)
+    .sort((a,b)=>a.monthKey.localeCompare(b.monthKey))
+    .slice(-18)
+    .map((row,idx,arr)=>{
+      const previous = idx>0 ? arr[idx-1].usd : null;
+      return {
+        ...row,
+        label:formatMonthLabel(row.monthKey),
+        avgTicket:row.tx>0 ? row.usd/row.tx : 0,
+        growth:previous && previous>0 ? ((row.usd-previous)/previous)*100 : null
+      };
+    });
 }
 
 function getTrendChartMeta(points) {
@@ -1856,6 +2238,7 @@ function renderFinanzas() {
     <div style="font-size:12px;color:var(--lavender);margin-top:4px;">Información privada — Gerardo y Rosita</div>
   </div>
 
+  <div class="section-title" style="margin-top:4px;">Base histórica de ventas</div>
   <div class="period-filter" style="flex-wrap:wrap;">
     ${[["today","Hoy"],["week","7 días"],["month","Mes actual"],["monthSpecific","📅 Mes"],["all","Todo"]].map(([k,l])=>`<button class="period-btn ${state.finPeriod===k?"active":""}" data-fin-period="${k}">${l}</button>`).join("")}
   </div>
@@ -2613,6 +2996,11 @@ let state = {
   ventasMesAno: today().slice(0,7),
   ventasRangoDesde: today(),
   ventasRangoHasta: today(),
+  ventasCompareCategories: ["all"],
+  ventasCompareSkus: ["all"],
+  ventasCompareWeekdays: ["all"],
+  ventasCompareMetric: "usd",
+  ventasHeatmapMetric: "usd",
   adminStoreFilter: "all",
   inicioPeriod: "hoy",
   inicioStand: "all",
@@ -2680,6 +3068,11 @@ let state = {
   forecastRangoHasta: today(),
   forecastStand: "all",
   forecastDays: 15,
+  productionDays: 15,
+  productionCategory: "oleos",
+  productionProduct: "WMO30",
+  productionLots: {},
+  productionManualUnits: {},
   gastoFecha: today(),
   gastoStand: "quicentro",
   gastoCat: "arriendo",
@@ -2803,7 +3196,7 @@ async function exportToExcel() {
     const ventasData = [
       ["ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago","Descuento%","Obsequio","Histórica","Nota","Usuario","Email usuario","Editado por","Editado en"],
       ...ventas.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))).map(v=>{
-        const hora = v.timestamp ? new Date(v.timestamp).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : "";
+        const hora = formatTimeInAppZone(v.timestamp);
         const subtotalSinIva = (v.total||0)/1.15;
         const iva = subtotalSinIva*0.15;
         return [
@@ -2847,7 +3240,7 @@ async function exportToExcel() {
     // Hoja 3: Kardex
     const kardexData = [["ID","Doc ID","Fecha","Hora","Tipo","Producto","Cantidad","Stock Anterior","Stock Nuevo","Stand","Destino","Lote","Nota","Por"]];
     kardexRows.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))).forEach(m=>{
-      const hora = m.timestamp ? new Date(m.timestamp).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : "";
+      const hora = formatTimeInAppZone(m.timestamp);
       const p = CATALOG.find(c=>c.id===m.product);
       kardexData.push([
         m.id, m._docId, m.fecha, hora,
@@ -2918,7 +3311,7 @@ function exportPendingSalesBackup() {
 
   pending.forEach(entry=>{
     const v = entry.sale || {};
-    const hora = v.timestamp ? new Date(v.timestamp).toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : "";
+    const hora = formatTimeInAppZone(v.timestamp);
     const tax = getTaxBreakdown(v.total||0);
     ventasRows.push([
       v.id, v.fecha, hora,
@@ -3003,9 +3396,51 @@ function backupRows(workbook, sheetName) {
   return ws ? XLSX.utils.sheet_to_json(ws, { defval:"" }) : [];
 }
 
+function normalizeBackupDate(fecha) {
+  if(fecha instanceof Date && !Number.isNaN(fecha.getTime())) return dateToIsoLocal(fecha);
+  if(typeof fecha === "number" && Number.isFinite(fecha)) {
+    const parsed = XLSX.SSF.parse_date_code(fecha);
+    if(parsed) return `${String(parsed.y).padStart(4,"0")}-${String(parsed.m).padStart(2,"0")}-${String(parsed.d).padStart(2,"0")}`;
+  }
+  const raw = String(fecha||today()).trim();
+  const iso = raw.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(iso) return `${iso[1]}-${String(iso[2]).padStart(2,"0")}-${String(iso[3]).padStart(2,"0")}`;
+  const slash = raw.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if(slash) {
+    const year = slash[3].length===2 ? `20${slash[3]}` : slash[3];
+    return `${year}-${String(slash[2]).padStart(2,"0")}-${String(slash[1]).padStart(2,"0")}`;
+  }
+  return today();
+}
+
+function normalizeBackupTime(hora) {
+  if(typeof hora === "number" && Number.isFinite(hora)) {
+    const totalMinutes = Math.round((hora%1) * 24 * 60);
+    return {
+      hours: Math.floor(totalMinutes/60)%24,
+      minutes: totalMinutes%60
+    };
+  }
+  const raw = String(hora||"").trim();
+  const match = raw.match(/(\d{1,2})(?::|h|\.)(\d{1,2})/i) || raw.match(/^(\d{1,2})$/);
+  if(match) {
+    return {
+      hours: Math.max(0, Math.min(23, Number(match[1]||0))),
+      minutes: Math.max(0, Math.min(59, Number(match[2]||0)))
+    };
+  }
+  return { hours:12, minutes:0 };
+}
+
+function timestampFromEcuadorLocal(dateIso, hours=12, minutes=0) {
+  const safeDate = normalizeBackupDate(dateIso);
+  return `${safeDate}T${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:00-05:00`;
+}
+
 function backupTimestamp(fecha, hora) {
-  const date = String(fecha||today()).slice(0,10);
-  return `${date}T12:00:00.000Z`;
+  const date = normalizeBackupDate(fecha);
+  const time = normalizeBackupTime(hora);
+  return timestampFromEcuadorLocal(date, time.hours, time.minutes);
 }
 
 async function writeDocsInChunks(collectionName, docs) {
@@ -3430,6 +3865,10 @@ function canUseDespachos() {
   return ["gerardo@worthy.com","rosita@worthy.com","bodega@worthy.com","bodgas@worthy.com"].includes((state.user?.email||"").toLowerCase());
 }
 
+function canUseProduction() {
+  return ["gerardo@worthy.com","rosita@worthy.com"].includes((state.user?.email||"").toLowerCase());
+}
+
 function getTabsForRole(role) {
   const u = state.userInfo;
 
@@ -3465,6 +3904,7 @@ function getTabsForRole(role) {
     ...(u.canFinanzas?[{id:"rentabilidad",icon:"📈",label:"Dashboard"}]:[]),
     {id:"dashboard",icon:"📊",label:"Inicio"},
     ...(u.canFinanzas?[{id:"forecast",icon:"📐",label:"Forecast"}]:[]),
+    ...(canUseProduction()?[{id:"produccion",icon:"🏭",label:"Producción"}]:[]),
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"ventas",icon:"📋",label:"Ventas"},
@@ -3516,6 +3956,7 @@ function renderTab() {
     case "materiales": return (role==="full"||role==="bodega") ? renderMateriales() : "<p>No autorizado</p>";
     case "ventas":     return renderVentas();
     case "despachar":  return canUseDespachos() ? renderDespachar() : "<p>No autorizado</p>";
+    case "produccion": return canUseProduction() ? renderProduccion() : "<p>No autorizado</p>";
     case "bodega":     return renderAdminBodega();
     case "kardex":     return renderKardex();
     case "forecast":   return state.userInfo?.canFinanzas ? renderForecast() : "<p>No autorizado</p>";
@@ -4499,9 +4940,144 @@ function renderDoughnutChart(canvasId) {
   });
 }
 
+function renderMonthlyComparisonChart() {
+  const canvas = document.getElementById("ventasMonthlyCompareChart");
+  if(!canvas) return;
+  const wrapper = canvas.parentElement;
+  const raw = wrapper?.dataset?.monthlyCompare || "";
+  if(!raw) return;
+  let payload;
+  try { payload = JSON.parse(decodeURIComponent(raw)); } catch(e) { return; }
+  const labels = payload.labels || [];
+  const usd = payload.usd || [];
+  const units = payload.units || [];
+  const metric = payload.metric || "usd";
+  if(!labels.length) return;
+  const smallScreen = window.innerWidth <= 420;
+  const datasets = metric==="both"
+    ? [
+      {
+        label:"Dólares",
+        data:usd,
+        backgroundColor:"#2D1B69",
+        borderColor:"#8DC63F",
+        borderWidth:1.5,
+        borderRadius:7,
+        maxBarThickness:34,
+        categoryPercentage:.74,
+        barPercentage:.86,
+      },
+      {
+        label:"Unidades",
+        data:units,
+        backgroundColor:"#8DC63F",
+        borderColor:"#2D1B69",
+        borderWidth:1.5,
+        borderRadius:7,
+        maxBarThickness:34,
+        categoryPercentage:.74,
+        barPercentage:.86,
+      }
+    ]
+    : [{
+      label:metric==="units" ? "Unidades" : "Dólares",
+      data:metric==="units" ? units : usd,
+      backgroundColor:metric==="units" ? "#8DC63F" : "#2D1B69",
+      borderColor:metric==="units" ? "#2D1B69" : "#8DC63F",
+      borderWidth:1.5,
+      borderRadius:7,
+      maxBarThickness:44,
+      categoryPercentage:.72,
+      barPercentage:.88,
+    }];
+
+  if(canvas._chartInstance) canvas._chartInstance.destroy();
+  canvas._chartInstance = new Chart(canvas, {
+    type:"bar",
+    data:{
+      labels,
+      datasets
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:{ duration:300 },
+      layout:{ padding:{ top:34, left:4, right:6, bottom:2 } },
+      plugins:{
+        legend:{
+          display:metric==="both",
+          labels:{ color:"#2D1B69", font:{ size:11, weight:"800" }, boxWidth:12, boxHeight:12 }
+        },
+        tooltip:{
+          callbacks:{
+            label(c){
+              const val = Number(c.parsed.y||0);
+              if(metric==="both") return `${c.dataset.label}: ${c.dataset.label==="Dólares" ? "$"+val.toFixed(2) : val.toFixed(0)+" und"}`;
+              return metric==="units" ? `Unidades: ${val.toFixed(0)}` : "Ventas sin IVA: $" + val.toFixed(2);
+            },
+            afterLabel(c){
+              if(metric==="both") return "";
+              const otherUnits = Number(units[c.dataIndex]||0);
+              const otherUsd = Number(usd[c.dataIndex]||0);
+              return metric==="units" ? `Dólares: $${otherUsd.toFixed(2)}` : `Unidades: ${otherUnits.toFixed(0)}`;
+            }
+          }
+        }
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          ticks:{
+            callback(v){ return metric==="units" ? v+" und" : "$"+v; },
+            font:{ size:9, weight:"700" },
+            color:"#6B7280",
+            maxTicksLimit:6
+          },
+          grid:{ color:"rgba(108,114,128,0.10)" },
+          border:{ display:false }
+        },
+        x:{
+          offset:true,
+          ticks:{
+            font:{ size:smallScreen?10:11, weight:"900" },
+            color:"#2D1B69",
+            maxRotation:0,
+            minRotation:0,
+            autoSkip:false,
+            padding:8
+          },
+          grid:{ display:false },
+          border:{ color:"rgba(45,27,105,.22)" }
+        }
+      }
+    },
+    plugins:[{
+      id:"monthlyValueLabels",
+      afterDatasetsDraw(chart) {
+        const {ctx} = chart;
+        chart.data.datasets.forEach((dataset,datasetIndex)=>{
+          const meta = chart.getDatasetMeta(datasetIndex);
+          meta.data.forEach((bar, idx)=>{
+            const val = Number(dataset.data[idx]||0);
+            if(val<=0) return;
+            ctx.save();
+            ctx.fillStyle=datasetIndex===1 ? "#6fa030" : "#2D1B69";
+            ctx.font=`900 ${smallScreen?9:11}px system-ui, sans-serif`;
+            ctx.textAlign="center";
+            const isUnits = metric==="units" || (metric==="both" && dataset.label==="Unidades");
+            ctx.fillText(isUnits ? val.toFixed(0) : "$"+val.toFixed(0), bar.x, bar.y - 6);
+            ctx.restore();
+          });
+        });
+      }
+    }]
+  });
+}
+
 function renderTrendChart() {
   renderBarChart('trendChart');
   renderBarChart('ventasTrendChart');
+  renderMonthlyComparisonChart();
   renderDoughnutChart('productUsdChart');
   renderDoughnutChart('productUnitsChart');
   renderDoughnutChart('categoryUsdChart');
@@ -5150,13 +5726,13 @@ function forecastSaleUnitsBySku(sale) {
   return units;
 }
 
-function getForecastRows() {
+function getForecastRowsForHorizon(horizonOverride) {
   const { from, to } = getForecastDateRange();
   let sales = (state.sales||[]).filter(s=>s.fecha>=from && s.fecha<=to);
   if (state.forecastStand !== "all") sales = sales.filter(s=>s.stand===state.forecastStand);
 
   const dayCount = Math.max(1, countDaysInclusive(from, to));
-  const horizon = Math.max(1, Number(state.forecastDays||1));
+  const horizon = Math.max(1, Number(horizonOverride||state.forecastDays||1));
   const totals = {};
   sales.forEach(sale=>{
     const units = forecastSaleUnitsBySku(sale);
@@ -5177,6 +5753,10 @@ function getForecastRows() {
     const need = Math.max(0, Math.ceil(projected - stock));
     return { product:p, sold, avg, projected, stock, coverage, need };
   }).sort((a,b)=>b.projected-a.projected || b.sold-a.sold);
+}
+
+function getForecastRows() {
+  return getForecastRowsForHorizon(state.forecastDays);
 }
 
 function renderForecast() {
@@ -5286,6 +5866,462 @@ function renderForecast() {
   </div>`;
 }
 
+// ─── PRODUCCION ───────────────────────────────────────────────
+function roundToLot(units, lotSize) {
+  const lot = Math.max(1, Number(lotSize||1));
+  return Math.ceil(Math.max(0, Number(units||0)) / lot) * lot;
+}
+
+function formatHours(minutes) {
+  const total = Math.max(0, Number(minutes||0));
+  if (total < 60) return `${total.toFixed(0)} min`;
+  return `${(total/60).toFixed(1)} h`;
+}
+
+function normalizeMaterialName(name) {
+  return String(name||"")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-zA-Z0-9]+/g," ")
+    .trim()
+    .toLowerCase();
+}
+
+function getMaterialStockInRecipeUnit(materialName) {
+  const target = normalizeMaterialName(materialName);
+  const material = (state.materials||[]).find(m=>normalizeMaterialName(m.nombre)===target);
+  if (!material) return { stock:null, unit:"g" };
+  const rawStock = Number(material.stock||0);
+  const unit = String(material.unidad||"g").toLowerCase();
+  if (unit==="kg" || unit==="kilo" || unit==="kilos") return { stock:rawStock*1000, unit:"g" };
+  if (unit==="l" || unit==="lt" || unit==="litro" || unit==="litros") return { stock:rawStock*1000, unit:"ml" };
+  return { stock:rawStock, unit:material.unidad||"g" };
+}
+
+function getProductionDemandRows(horizonOverride) {
+  const { from, to } = getForecastDateRange();
+  const sales = (state.sales||[]).filter(s=>s.fecha>=from && s.fecha<=to);
+  const dayCount = Math.max(1, countDaysInclusive(from, to));
+  const horizon = Math.max(1, Number(horizonOverride||state.productionDays||15));
+  const totals = {};
+  sales.forEach(sale=>{
+    const units = forecastSaleUnitsBySku(sale);
+    Object.entries(units).forEach(([sku, qty])=>{
+      totals[sku] = (totals[sku]||0) + Number(qty||0);
+    });
+  });
+
+  return CATALOG
+    .filter(p=>PRODUCTION_RECIPES[p.id])
+    .map(p=>{
+      const sold = Number(totals[p.id]||0);
+      const avg = sold / dayCount;
+      const projected = avg * horizon;
+      const stock = PUNTOS_VENTA.reduce((sum,st)=>sum+Number((state.inventory[getInvSourceForStand(st.id)]||{})[p.id]||0),0);
+      const coverage = avg > 0 ? stock / avg : null;
+      const need = Math.max(0, Math.ceil(projected - stock));
+      return { product:p, sold, avg, projected, stock, coverage, need };
+    })
+    .sort((a,b)=>b.need-a.need || b.projected-a.projected || b.sold-a.sold);
+}
+
+function getRecipeSignature(recipe) {
+  return (recipe.materials||[])
+    .map(m=>normalizeMaterialName(m.name))
+    .sort()
+    .join("|");
+}
+
+function getProductionProductGroups() {
+  const groups = {};
+  CATALOG.filter(p=>PRODUCTION_RECIPES[p.id]).forEach(product=>{
+    const recipe = PRODUCTION_RECIPES[product.id];
+    const signature = getRecipeSignature(recipe);
+    if (!groups[signature]) groups[signature] = [];
+    groups[signature].push(product);
+  });
+  return Object.values(groups)
+    .filter(group=>group.length>1)
+    .sort((a,b)=>b.length-a.length || a[0].name.localeCompare(b[0].name));
+}
+
+const PRODUCTION_CATEGORIES = [
+  { id:"oleos", label:"Oleos", productIds:["WMO30","WMO45"], note:"Misma base de oleo, cambia el tamano del envase." },
+  { id:"tonicos", label:"Tonicos", productIds:["WHT50","WHT80"], note:"Misma base de tonico, cambia el tamano del envase." },
+  { id:"desodorantes_adultos", label:"Desodorantes adultos", productIds:["WDS30","WDS45"], note:"Misma formula adulta, cambia el gramaje/envase." },
+  { id:"desodorantes_kids", label:"Desodorantes kids", productIds:["WDSK30","WDSK45"], note:"Misma formula kids, cambia el gramaje/envase." },
+  { id:"balsamos", label:"Balsamos", productIds:["WLBN6","WLBP6","WLBR6"], note:"Comparten una base muy parecida; Pink y Red cambian al final por pigmento/tono." },
+  { id:"shampoo", label:"Shampoo", productIds:["WSF90"], note:"Formula de shampoo solido." }
+];
+
+function getProductionCategoryMeta() {
+  return PRODUCTION_CATEGORIES.find(c=>c.id===state.productionCategory) || PRODUCTION_CATEGORIES[0];
+}
+
+function optimizeProductionRows(rows) {
+  rows.forEach(row=>{
+    row.idealUnits = row.manualUnits;
+    row.idealCost = row.idealUnits * row.unitCost;
+    row.idealTime = row.idealUnits > 0 ? row.recipe.setupMin + row.recipe.unitMin*row.idealUnits : 0;
+    row.coverageAfter = row.avg > 0 ? (row.stock + row.idealUnits) / row.avg : null;
+    row.limiter = row.manualUnits > 0 ? "Sugerido" : "Stock ok";
+  });
+
+  return rows;
+}
+
+function getProductionRows() {
+  const horizon = Math.max(1, Number(state.productionDays||15));
+
+  const rows = getProductionDemandRows(horizon)
+    .filter(r=>PRODUCTION_RECIPES[r.product.id])
+    .map(r=>{
+      const recipe = PRODUCTION_RECIPES[r.product.id];
+      const unitCost = Math.max(Number(getCost(r.product.id)||0), Number(recipe.packagingCost||0));
+      const lotSize = Math.max(1, Number(state.productionLots?.[r.product.id] || recipe.batchDefault || 1));
+      const need = Math.max(0, Math.ceil(r.projected - r.stock));
+      const manualUnits = need > 0 ? roundToLot(need, lotSize) : 0;
+      const timeForManual = manualUnits > 0 ? recipe.setupMin + recipe.unitMin*manualUnits : 0;
+      const costForManual = manualUnits * unitCost;
+
+      return {
+        ...r,
+        recipe,
+        lotSize,
+        need,
+        manualUnits,
+        timeForManual,
+        costForManual,
+        unitCost,
+        idealUnits:0,
+        idealCost:0,
+        idealTime:0,
+        coverageAfter:null,
+        limiter:"Stock ok"
+      };
+    });
+
+  return optimizeProductionRows(rows).sort((a,b)=>b.need-a.need || b.projected-a.projected);
+}
+
+function getProductionMaterialRows(rows, unitsKey="idealUnits") {
+  const map = {};
+  rows.forEach(row=>{
+    const units = Number(row[unitsKey]||0);
+    if (units <= 0) return;
+    row.recipe.materials.forEach(mat=>{
+      const key = normalizeMaterialName(mat.name);
+      if (!map[key]) map[key] = { name:mat.name, unit:mat.unit||"g", required:0 };
+      map[key].required += Number(mat.qtyPerUnit||0) * units;
+    });
+  });
+  const list = Object.values(map);
+  const totalRequired = list.reduce((sum,row)=>sum+Number(row.required||0),0);
+  return list.map(row=>{
+    const matStock = getMaterialStockInRecipeUnit(row.name);
+    const stock = matStock.stock;
+    const shortage = stock===null ? null : Math.max(0, row.required - stock);
+    const formulaPct = totalRequired > 0 ? (Number(row.required||0) / totalRequired) * 100 : 0;
+    return { ...row, formulaPct, stock, shortage, stockUnit:matStock.unit };
+  }).sort((a,b)=>(b.shortage||0)-(a.shortage||0) || b.required-a.required);
+}
+
+function getProductionCategoryPlan() {
+  const rows = getProductionRows();
+  const category = getProductionCategoryMeta();
+  const categoryRows = optimizeProductionRows(rows
+    .filter(r=>category.productIds.includes(r.product.id))
+    .map(r=>({...r})));
+
+  categoryRows.forEach(row=>{
+    const typed = state.productionManualUnits?.[row.product.id];
+    row.manualTypedUnits = typed === undefined || typed === "" || typed === null
+      ? row.idealUnits
+      : Math.max(0, parseInt(typed)||0);
+    row.manualTypedCost = row.manualTypedUnits * row.unitCost;
+    row.manualTypedTime = row.manualTypedUnits > 0 ? row.recipe.setupMin + row.recipe.unitMin*row.manualTypedUnits : 0;
+    row.manualTypedCoverage = row.avg > 0 ? (row.stock + row.manualTypedUnits) / row.avg : null;
+  });
+
+  return {
+    rows,
+    category,
+    categoryRows,
+    materialRows:getProductionMaterialRows(categoryRows, "manualTypedUnits")
+  };
+}
+
+function renderProduccion() {
+  const { from, to } = getForecastDateRange();
+  const { rows, category, categoryRows, materialRows } = getProductionCategoryPlan();
+  const activeRows = categoryRows.filter(r=>r.need>0 || r.stock>0 || r.sold>0 || r.manualTypedUnits>0);
+  const horizonOptions = [1,5,10,15,30,45,60,90];
+  const periodLabel = `${fmtDate(from)} – ${fmtDate(to)}`;
+  const totalNeed = categoryRows.reduce((s,r)=>s+r.need,0);
+  const totalIdealUnits = categoryRows.reduce((s,r)=>s+r.idealUnits,0);
+  const totalTypedUnits = categoryRows.reduce((s,r)=>s+r.manualTypedUnits,0);
+  const totalTypedCost = categoryRows.reduce((s,r)=>s+r.manualTypedCost,0);
+  const totalTypedTime = categoryRows.reduce((s,r)=>s+r.manualTypedTime,0);
+  const totalProjected = categoryRows.reduce((s,r)=>s+r.projected,0);
+  const totalStock = categoryRows.reduce((s,r)=>s+r.stock,0);
+  const missingMaterials = materialRows.filter(m=>m.shortage===null || m.shortage>0).length;
+  const formulaPctTotal = materialRows.reduce((sum,m)=>sum+Number(m.formulaPct||0),0);
+  const requiredTotalByUnit = materialRows.reduce((acc,m)=>{
+    const unit = m.unit || "g";
+    acc[unit] = (acc[unit]||0) + Number(m.required||0);
+    return acc;
+  }, {});
+  const requiredTotalLabel = Object.entries(requiredTotalByUnit).map(([unit,total])=>`${total.toFixed(1)} ${unit}`).join(" + ");
+  const projectedSkuRows = categoryRows.filter(r=>r.projected>0 || r.stock>0 || r.need>0)
+    .sort((a,b)=>b.projected-a.projected || b.need-a.need)
+    .slice(0,12);
+  const urgentRows = categoryRows.filter(r=>r.need>0).slice(0,5);
+  const skuPriorities = [...categoryRows].sort((a,b)=>b.need-a.need || b.projected-a.projected || b.sold-a.sold);
+
+  return `
+  <div class="card" style="margin-bottom:12px;padding:10px;">
+    <div class="section-title">1. Elegir categoría de producto</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px;">
+      ${PRODUCTION_CATEGORIES.map(c=>`
+        <button class="product-card ${category.id===c.id?"in-cart":""}" data-production-category="${c.id}" style="min-height:88px;">
+          <div class="p-emoji">🏭</div>
+          <div class="p-name">${c.label}</div>
+          <div class="p-sub">${c.productIds.length} SKU</div>
+        </button>
+      `).join("")}
+    </div>
+    <div style="font-size:12px;color:var(--gray);font-weight:700;">${category.note}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;padding:10px;">
+    <div class="section-title">2. Informe de necesidad de producción</div>
+    <div class="section-title" style="margin-top:4px;">Seleccionar rango histórico de ventas</div>
+    <div class="period-filter" style="flex-wrap:wrap;">
+      <button class="period-btn ${state.forecastPeriod==="semana"?"active":""}" data-forecast-period="semana">Semana</button>
+      <button class="period-btn ${state.forecastPeriod==="mes"?"active":""}" data-forecast-period="mes">Mes actual</button>
+      <button class="period-btn ${state.forecastPeriod==="mesEspecifico"?"active":""}" data-forecast-period="mesEspecifico">Mes</button>
+      <button class="period-btn ${state.forecastPeriod==="rango"?"active":""}" data-forecast-period="rango">Rango</button>
+      <button class="period-btn ${state.forecastPeriod==="todo"?"active":""}" data-forecast-period="todo">Todo</button>
+    </div>
+    ${state.forecastPeriod==="mesEspecifico"?`<div style="margin-bottom:12px;">
+      <input type="month" class="dispatch-input" id="forecast-mes" value="${state.forecastMesAno}" max="${today().slice(0,7)}">
+    </div>`:""}
+    ${state.forecastPeriod==="rango"?`<div style="margin-bottom:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+      <div><label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Desde</label><input type="date" class="dispatch-input" id="forecast-rango-desde" value="${state.forecastRangoDesde}" max="${today()}"></div>
+      <div><label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.8px;">Hasta</label><input type="date" class="dispatch-input" id="forecast-rango-hasta" value="${state.forecastRangoHasta}" max="${today()}"></div>
+    </div>`:""}
+    <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:10px;">Base histórica seleccionada: ${periodLabel} · Consumo total de todos los puntos</div>
+    <div class="section-title" style="margin-top:8px;">DIAS DE INVENTARIO A PRODUCIR</div>
+    <div class="period-filter" style="margin:0;flex-wrap:wrap;">
+      ${horizonOptions.map(d=>`<button class="period-btn ${Number(state.productionDays)===d?"active":""}" data-production-days="${d}">${d} días</button>`).join("")}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+      <input type="number" class="dispatch-input" id="production-days-custom" value="${state.productionDays}" min="1" max="365" style="max-width:140px;">
+      <div style="font-size:12px;color:var(--gray);font-weight:700;">días personalizados</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;">
+      <div style="background:var(--lavender-light);border-radius:12px;padding:12px;">
+        <div style="font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">Plan de Ventas Proyectada</div>
+        <div style="font-size:24px;color:var(--purple);font-weight:900;">${totalProjected.toFixed(1)}</div>
+        <div style="font-size:11px;color:var(--gray);font-weight:700;">unidades</div>
+      </div>
+      <div style="background:var(--lavender-light);border-radius:12px;padding:12px;">
+        <div style="font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">Stock total</div>
+        <div style="font-size:24px;color:var(--purple);font-weight:900;">${totalStock}</div>
+        <div style="font-size:11px;color:var(--gray);font-weight:700;">unidades</div>
+      </div>
+      <div style="background:${totalNeed>0?"#FEE2E2":"#D1FAE5"};border-radius:12px;padding:12px;">
+        <div style="font-size:10px;color:${totalNeed>0?"#991B1B":"#065F46"};font-weight:900;text-transform:uppercase;">Necesidad</div>
+        <div style="font-size:24px;color:${totalNeed>0?"#991B1B":"#065F46"};font-weight:900;">${totalNeed}</div>
+        <div style="font-size:11px;color:${totalNeed>0?"#991B1B":"#065F46"};font-weight:700;">unidades a cubrir</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;overflow-x:auto;">
+      <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Plan de Ventas Proyectada por SKU</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:520px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:7px 4px;color:var(--gray);font-weight:800;">SKU</th>
+            <th style="text-align:left;padding:7px 4px;color:var(--gray);font-weight:800;">Producto</th>
+            <th style="text-align:right;padding:7px 4px;color:var(--purple);font-weight:900;">Plan ventas</th>
+            <th style="text-align:right;padding:7px 4px;color:var(--gray);font-weight:800;">Stock</th>
+            <th style="text-align:right;padding:7px 4px;color:var(--gray);font-weight:800;">Faltante</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${projectedSkuRows.map(r=>`
+            <tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:7px 4px;font-weight:900;color:var(--purple);">${r.product.ref}</td>
+              <td style="padding:7px 4px;font-weight:700;color:var(--gray);">${r.product.name} ${r.product.sub}</td>
+              <td style="text-align:right;padding:7px 4px;font-weight:900;color:var(--purple);">${r.projected.toFixed(1)} und</td>
+              <td style="text-align:right;padding:7px 4px;font-weight:800;color:var(--gray);">${r.stock}</td>
+              <td style="text-align:right;padding:7px 4px;font-weight:900;color:${r.need>0?"var(--red)":"var(--green)"};">${r.need}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+    ${urgentRows.length?`
+      <div style="margin-top:12px;">
+        <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">SKU más críticos</div>
+        <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;">
+          ${urgentRows.map(r=>`
+            <div style="min-width:150px;border:1.5px solid var(--lavender);border-radius:12px;padding:10px;background:white;">
+              <div style="font-size:12px;color:var(--purple);font-weight:900;">${r.product.ref}</div>
+              <div style="font-size:11px;color:var(--gray);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.product.name} ${r.product.sub}</div>
+              <div style="font-size:18px;color:var(--red);font-weight:900;margin-top:4px;">${r.need}</div>
+              <div style="font-size:10px;color:var(--gray);font-weight:800;">faltan para ${state.productionDays} días</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `:""}
+  </div>
+
+  <div class="card" style="padding:12px;margin-bottom:12px;">
+    <div class="section-title">3. Prioridades de producción de ${category.label}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+      ${skuPriorities.map((r,idx)=>`
+        ${(()=>{
+          const tone = r.need>0 ? "red" : (r.coverage!==null && r.coverage <= Number(state.productionDays)*1.5 ? "amber" : "green");
+          const toneColor = tone==="red" ? "var(--red)" : tone==="amber" ? "var(--amber)" : "var(--green)";
+          const toneBg = tone==="red" ? "#FEE2E2" : tone==="amber" ? "#FEF3C7" : "#D1FAE5";
+          return `<div class="product-card" style="min-height:118px;border-color:${toneColor};background:${toneBg};cursor:default;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+            <div class="p-emoji">${r.product.emoji}</div>
+            <div style="font-size:11px;font-weight:900;color:${toneColor};">#${idx+1}</div>
+          </div>
+          <div class="p-name">${r.product.ref}</div>
+          <div class="p-sub">${r.product.name} ${r.product.sub}</div>
+          <div style="font-size:20px;font-weight:900;color:var(--purple);margin-top:6px;">${r.need}</div>
+          <div style="font-size:10px;color:var(--gray);font-weight:800;">unidades sugeridas</div>
+        </div>`;
+        })()}
+      `).join("")}
+    </div>
+  </div>
+
+  <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+      <div>
+        <div class="section-title" style="color:var(--lavender);margin-bottom:4px;">4. Categoría seleccionada</div>
+        <div style="font-size:24px;color:white;font-weight:900;">${category.label}</div>
+        <div style="font-size:12px;color:var(--lavender);font-weight:700;">${category.note}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:var(--lavender);font-weight:800;">Lote digitado</div>
+        <div style="font-size:26px;font-weight:900;color:var(--lime);">${totalTypedUnits} und</div>
+        <div style="font-size:11px;color:var(--lavender);font-weight:800;">Ideal ${totalIdealUnits} und · ${formatHours(totalTypedTime)}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="overflow-x:auto;">
+    <div class="section-title">5. Plan de categoría</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:920px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--lavender);">
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">SKU</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">Producto</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Forecast</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Stock</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Necesidad</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Lote ideal</th>
+          <th style="text-align:center;padding:8px 4px;color:var(--purple);font-weight:900;">Lote a producir</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Costo</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Tiempo</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Cobertura</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${activeRows.map(r=>{
+          const limitColor = r.limiter==="Ok" || r.limiter==="Stock ok" ? "var(--green)" : "var(--amber)";
+          return `<tr style="border-bottom:1px solid var(--lavender-light);">
+            <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${r.product.ref}</td>
+            <td style="padding:8px 4px;font-weight:700;color:var(--gray);">${r.product.emoji} ${r.product.name} <span style="font-weight:500;">${r.product.sub}</span></td>
+            <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.projected.toFixed(1)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.stock}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:${r.need>0?"var(--red)":"var(--green)"};">${r.need}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${r.idealUnits}</td>
+            <td style="text-align:center;padding:6px 4px;">
+              <input type="number" min="0" step="1" class="dispatch-input" data-production-units="${r.product.id}" value="${r.manualTypedUnits}" style="width:86px;text-align:center;padding:7px 8px;font-weight:900;">
+              <div style="font-size:10px;color:var(--gray);font-weight:800;margin-top:2px;">unidades</div>
+            </td>
+            <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${fmt(r.manualTypedCost)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${formatHours(r.manualTypedTime)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.manualTypedCoverage===null?"-":`${r.manualTypedCoverage.toFixed(1)} días`}</td>
+            <td style="padding:8px 4px;font-weight:900;color:${limitColor};">${r.limiter}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="overflow-x:auto;">
+    <div class="section-title">6. Materias primas para el lote digitado</div>
+    ${materialRows.length===0?`<div style="text-align:center;color:var(--gray);font-size:13px;padding:24px 8px;">No hay necesidad de producción en este escenario.</div>`:`
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:720px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">Material</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">% fórmula</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Requerido</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Disponible</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Faltante</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${materialRows.slice(0,60).map(m=>`
+            <tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:8px 4px;font-weight:800;color:var(--purple);">${m.name}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${m.formulaPct.toFixed(2)}%</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${m.required.toFixed(1)} ${m.unit}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${m.stock===null?"Sin registrar":`${m.stock.toFixed(1)} ${m.stockUnit}`}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:${m.shortage>0?"var(--red)":"var(--green)"};">${m.shortage===null?"Revisar":`${m.shortage.toFixed(1)} ${m.unit}`}</td>
+            </tr>
+          `).join("")}
+          <tr style="border-top:2px solid var(--purple);background:var(--lavender-light);">
+            <td style="padding:9px 4px;font-weight:900;color:var(--purple);">TOTAL FÓRMULA</td>
+            <td style="text-align:right;padding:9px 4px;font-weight:900;color:var(--purple);">${formulaPctTotal.toFixed(2)}%</td>
+            <td style="text-align:right;padding:9px 4px;font-weight:900;color:var(--purple);">${requiredTotalLabel}</td>
+            <td style="text-align:right;padding:9px 4px;font-weight:800;color:var(--gray);">-</td>
+            <td style="text-align:right;padding:9px 4px;font-weight:800;color:var(--gray);">-</td>
+          </tr>
+        </tbody>
+      </table>
+    `}
+  </div>
+
+  <div class="card" style="padding:12px;">
+    <div class="section-title">7. Resumen de orden</div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px;">
+      ${[
+        ["Demanda",`${totalProjected.toFixed(1)} und`],
+        ["Lote",`${totalTypedUnits} und`],
+        ["Materiales",missingMaterials?`${missingMaterials} revisar`:"Ok"],
+        ["Tiempo",formatHours(totalTypedTime)]
+      ].map(([label,value],idx)=>`
+        <div style="border:1.5px solid ${idx===2&&missingMaterials?"var(--amber)":"var(--lavender)"};border-radius:12px;padding:10px;background:${idx===2&&missingMaterials?"#FEF3C7":"white"};min-height:70px;">
+          <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">${label}</div>
+          <div style="font-size:16px;color:var(--purple);font-weight:900;margin-top:6px;">${value}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+      <div style="background:var(--lavender-light);border-radius:12px;padding:12px;">
+        <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">Familia</div>
+        <div style="font-size:18px;color:var(--purple);font-weight:900;">${category.label}</div>
+        <div style="font-size:12px;color:var(--gray);font-weight:700;margin-top:4px;">Stock total: ${totalStock} und · Necesidad: ${totalNeed} und</div>
+      </div>
+      <div style="background:var(--lavender-light);border-radius:12px;padding:12px;">
+        <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">Lote a preparar</div>
+        <div style="font-size:18px;color:var(--purple);font-weight:900;">${totalTypedUnits} unidades</div>
+        <div style="font-size:12px;color:var(--gray);font-weight:700;margin-top:4px;">Costo ${fmt(totalTypedCost)} · ${formatHours(totalTypedTime)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // ─── VENTAS ──────────────────────────────────────────────────
 function renderVentas() {
   const role = state.userInfo.role;
@@ -5322,6 +6358,103 @@ function renderVentas() {
   const breakdownMetaObject = getTrendChartMeta(breakdown);
   const breakdownMeta = encodeURIComponent(JSON.stringify(breakdownMetaObject));
   const breakdownMinWidth = getTrendChartMinWidth(breakdown);
+  const monthlyCompare = getMonthlySalesComparison(baseSales);
+  const monthlyComparePayload = encodeURIComponent(JSON.stringify({
+    labels:monthlyCompare.map(r=>r.label),
+    usd:monthlyCompare.map(r=>Number(r.usd.toFixed(2))),
+    units:monthlyCompare.map(r=>Number(r.units.toFixed(2))),
+    metric:state.ventasCompareMetric || "usd"
+  }));
+  const compareCategories = state.ventasCompareCategories || ["all"];
+  const compareSkus = state.ventasCompareSkus || ["all"];
+  const compareSkuOptions = getCompareSkuOptions(activeCompareCategories());
+  const compareWeekdays = state.ventasCompareWeekdays || ["all"];
+  const compareMetric = state.ventasCompareMetric || "usd";
+  const compareCategoryLabel = compareCategories.includes("all")
+    ? "Todas las categorías"
+    : SALES_CATEGORY_META.filter(c=>compareCategories.includes(c.id)).map(c=>c.label).join(", ");
+  const compareSkuLabel = compareSkus.includes("all")
+    ? "Todos los SKU"
+    : compareSkuOptions.filter(p=>compareSkus.includes(p.id)).map(p=>p.ref).join(", ");
+  const compareWeekdayLabel = compareWeekdays.includes("all")
+    ? "Todos los días"
+    : SALES_WEEKDAY_FILTERS.filter(d=>compareWeekdays.includes(d.id)).map(d=>d.label).join(", ");
+  const monthlyMax = monthlyCompare.reduce((max,r)=>Math.max(max,r.usd),0);
+  const skuRanking = getCompareSkuRanking(baseSales);
+  const maxSkuUsd = skuRanking.byUsd.reduce((max,r)=>Math.max(max,r.usd),0);
+  const maxSkuUnits = skuRanking.byUnits.reduce((max,r)=>Math.max(max,r.units),0);
+  const heatmap = getSalesHeatmap(baseSales);
+  const heatValueLabel = value => heatmap.metric==="usd" ? fmt(value) : heatmap.metric==="units" ? `${Number(value||0).toFixed(0)} und` : `${Number(value||0).toFixed(0)} tx`;
+  const heatCell = value => {
+    const intensity = heatmap.maxValue>0 ? Number(value||0)/heatmap.maxValue : 0;
+    const bg = intensity===0 ? "#F8F5FF" : `rgba(45,27,105,${0.10 + intensity*0.78})`;
+    const color = intensity > 0.55 ? "#FFFFFF" : "var(--purple)";
+    return { bg, color, intensity };
+  };
+  const renderSkuRanking = (title, rows, metric, maxValue) => `
+    <div style="border:1.5px solid var(--lavender);border-radius:14px;padding:12px;background:white;">
+      <div style="font-size:13px;color:var(--purple);font-weight:1000;margin-bottom:8px;">${title}</div>
+      ${rows.length===0?`<div style="font-size:12px;color:var(--gray);padding:18px 4px;text-align:center;">Sin datos con estos filtros.</div>`:rows.map((r,idx)=>{
+        const value = metric==="usd" ? r.usd : r.units;
+        const width = maxValue>0 ? Math.max(5,(value/maxValue)*100) : 0;
+        return `<div style="display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:8px;align-items:center;border-bottom:${idx===rows.length-1?"none":"1px solid var(--lavender-light)"};padding:8px 0;">
+          <div style="font-size:12px;font-weight:1000;color:var(--purple);">#${idx+1}</div>
+          <div style="min-width:0;">
+            <div style="font-size:12px;font-weight:1000;color:var(--purple);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.emoji} ${r.ref}</div>
+            <div style="font-size:10px;font-weight:700;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
+            <div style="height:6px;background:var(--lavender-light);border-radius:99px;margin-top:5px;overflow:hidden;">
+              <div style="height:100%;width:${width}%;background:${metric==="usd"?"var(--purple)":"var(--lime)"};border-radius:99px;"></div>
+            </div>
+          </div>
+          <div style="text-align:right;font-size:13px;font-weight:1000;color:${metric==="usd"?"var(--purple)":"var(--lime-dark)"};">${metric==="usd"?fmt(r.usd):`${r.units.toFixed(0)} und`}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
+  const renderHeatmap = () => `
+    <div style="border:1.5px solid var(--lavender);border-radius:14px;padding:12px;background:white;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px;">
+        <div>
+          <div style="font-size:13px;color:var(--purple);font-weight:1000;">Mapa de calor · días y horas</div>
+          <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:2px;">Dólares = ventas sin IVA · Horario comercial ${String(HEATMAP_START_HOUR).padStart(2,"0")}:00-${String(HEATMAP_END_HOUR).padStart(2,"0")}:00</div>
+        </div>
+        <div class="period-filter" style="margin:0;flex-wrap:wrap;">
+          ${[
+            ["usd","Dólares"],
+            ["units","Unidades"],
+            ["tx","Transacciones"]
+          ].map(([id,label])=>`<button class="period-btn ${heatmap.metric===id?"active":""}" data-ventas-heatmap-metric="${id}">${label}</button>`).join("")}
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <div style="min-width:${Math.max(760,heatmap.hours.length*64+120)}px;">
+          <div style="display:grid;grid-template-columns:104px repeat(${heatmap.hours.length},minmax(56px,1fr));gap:4px;margin-bottom:4px;">
+            <div></div>
+            ${heatmap.hours.map(h=>`<div style="font-size:10px;color:var(--gray);font-weight:1000;text-align:center;">${String(h).padStart(2,"0")}:00</div>`).join("")}
+          </div>
+          ${heatmap.dayLabels.map(day=>`
+            <div style="display:grid;grid-template-columns:104px repeat(${heatmap.hours.length},minmax(56px,1fr));gap:4px;margin-bottom:4px;align-items:stretch;">
+              <div style="font-size:11px;color:var(--purple);font-weight:1000;padding:8px 4px;">${day.label}</div>
+              ${heatmap.hours.map(h=>{
+                const value = Number(heatmap.values[day.id]?.[h]||0);
+                const cell = heatCell(value);
+                return `<div title="${day.label} ${String(h).padStart(2,"0")}:00 · ${heatValueLabel(value)}" style="min-height:42px;border-radius:8px;background:${cell.bg};border:1px solid rgba(200,184,232,.55);display:flex;align-items:center;justify-content:center;text-align:center;padding:5px;color:${cell.color};font-size:10px;font-weight:1000;">
+                  ${value>0?heatValueLabel(value):"-"}
+                </div>`;
+              }).join("")}
+            </div>
+          `).join("")}
+        </div>
+      </div>
+      ${heatmap.topCombos.length?`
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px;">
+          ${heatmap.topCombos.map((c,idx)=>`<div style="background:var(--lavender-light);border:1px solid var(--lavender);border-radius:12px;padding:9px;">
+            <div style="font-size:10px;color:var(--gray);font-weight:1000;text-transform:uppercase;">#${idx+1} mayor venta</div>
+            <div style="font-size:13px;color:var(--purple);font-weight:1000;margin-top:3px;">${c.day} · ${String(c.hour).padStart(2,"0")}:00</div>
+            <div style="font-size:16px;color:var(--lime-dark);font-weight:1000;margin-top:2px;">${heatValueLabel(c.value)}</div>
+          </div>`).join("")}
+        </div>
+      `:`<div style="font-size:12px;color:var(--gray);padding:18px 4px;text-align:center;">Sin datos por hora con estos filtros.</div>`}
+    </div>`;
 
   return `
   ${canFilterStore?`<div class="store-selector">
@@ -5354,9 +6487,9 @@ function renderVentas() {
   </div>`:""}
 
   <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
-    <div class="section-title" style="color:var(--lavender);margin-bottom:4px;">Ingresos · ${periodLabel}</div>
+    <div class="section-title" style="color:var(--lavender);margin-bottom:4px;">Ventas sin IVA · ${periodLabel}</div>
     <div style="font-size:30px;font-weight:900;color:var(--lime);">${fmt(totalRev)}</div>
-    <div style="font-size:11px;color:var(--lavender);">${filteredSales.length} transacciones · Ticket promedio ${fmt(filteredSales.length?totalRev/filteredSales.length:0)}</div>
+    <div style="font-size:11px;color:var(--lavender);">${filteredSales.length} transacciones · Ticket promedio sin IVA ${fmt(filteredSales.length?totalRev/filteredSales.length:0)}</div>
     ${renderTaxSummary(totalGross,true)}
   </div>
 
@@ -5371,6 +6504,83 @@ function renderVentas() {
   </div>
 
   ${renderPaymentConsolidado(filteredSales, `Consolidado por medio de pago · ${periodLabel}`)}
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Comparativo mensual de ventas</div>
+    <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:10px;">${compareCategoryLabel} · ${compareSkuLabel} · ${compareWeekdayLabel} · ${state.adminStoreFilter==="all"?"Todos los puntos":PUNTOS_VENTA.find(s=>s.id===state.adminStoreFilter)?.name||state.adminStoreFilter}</div>
+    <div class="section-title" style="margin-top:4px;">Ver información en</div>
+    <div class="period-filter" style="flex-wrap:wrap;margin-bottom:10px;">
+      ${[
+        ["usd","Dólares"],
+        ["units","Unidades"],
+        ["both","Ambos"]
+      ].map(([id,label])=>`<button class="period-btn ${compareMetric===id?"active":""}" data-ventas-compare-metric="${id}">${label}</button>`).join("")}
+    </div>
+    <div class="section-title" style="margin-top:4px;">Categorías</div>
+    <div class="period-filter" style="flex-wrap:wrap;margin-bottom:10px;">
+      <button class="period-btn ${compareCategories.includes("all")?"active":""}" data-ventas-compare-category="all">Todas</button>
+      ${SALES_CATEGORY_META.map(c=>`<button class="period-btn ${compareCategories.includes(c.id)?"active":""}" data-ventas-compare-category="${c.id}">${c.label}</button>`).join("")}
+    </div>
+    <div class="section-title">SKU</div>
+    <div class="period-filter" style="flex-wrap:wrap;margin-bottom:10px;">
+      <button class="period-btn ${compareSkus.includes("all")?"active":""}" data-ventas-compare-sku="all">Todos</button>
+      ${compareSkuOptions.map(p=>`<button class="period-btn ${compareSkus.includes(p.id)?"active":""}" data-ventas-compare-sku="${p.id}">${p.ref} · ${p.sub}</button>`).join("")}
+    </div>
+    <div class="section-title">Días de la semana</div>
+    <div class="period-filter" style="flex-wrap:wrap;margin-bottom:12px;">
+      <button class="period-btn ${compareWeekdays.includes("all")?"active":""}" data-ventas-compare-weekday="all">Todos</button>
+      ${SALES_WEEKDAY_FILTERS.map(d=>`<button class="period-btn ${compareWeekdays.includes(d.id)?"active":""}" data-ventas-compare-weekday="${d.id}">${d.label}</button>`).join("")}
+    </div>
+    <div class="section-title">SKU más vendidos</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:12px;">
+      ${renderSkuRanking("Top por dólares", skuRanking.byUsd, "usd", maxSkuUsd)}
+      ${renderSkuRanking("Top por unidades", skuRanking.byUnits, "units", maxSkuUnits)}
+    </div>
+    ${renderHeatmap()}
+    ${monthlyCompare.length===0?`<div style="text-align:center;padding:28px 8px;color:var(--gray);font-size:13px;">Sin ventas para comparar con estos filtros.</div>`:`
+      <div class="sales-chart-scroll">
+        <div class="sales-chart-inner" style="min-width:${Math.max(520,monthlyCompare.length*92)}px;" data-monthly-compare="${monthlyComparePayload}">
+          <canvas id="ventasMonthlyCompareChart" role="img" aria-label="Comparativo mensual de ventas">Comparativo mensual de ventas.</canvas>
+        </div>
+      </div>
+      <div style="overflow-x:auto;margin-top:12px;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:680px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--lavender);">
+              <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">Mes</th>
+              <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Ventas sin IVA</th>
+              <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Unidades</th>
+              <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Transacciones</th>
+              <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Ticket prom.</th>
+              <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">Vs mes anterior</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${monthlyCompare.map(r=>{
+              const width = monthlyMax>0 ? Math.max(5,(r.usd/monthlyMax)*100) : 0;
+              const growthColor = r.growth===null ? "var(--gray)" : r.growth>=0 ? "var(--green)" : "var(--red)";
+              const growthLabel = r.growth===null ? "-" : `${r.growth>=0?"+":""}${r.growth.toFixed(1)}%`;
+              return `<tr style="border-bottom:1px solid var(--lavender-light);">
+                <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${r.label}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(r.usd)}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.units.toFixed(0)}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.tx}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${fmt(r.avgTicket)}</td>
+                <td style="padding:8px 4px;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="min-width:52px;font-weight:900;color:${growthColor};">${growthLabel}</span>
+                    <span style="height:8px;width:80px;background:var(--lavender-light);border-radius:99px;overflow:hidden;display:inline-block;">
+                      <span style="display:block;height:100%;width:${width}%;background:var(--lime);border-radius:99px;"></span>
+                    </span>
+                  </div>
+                </td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `}
+  </div>
 
   ${filteredSales.length===0
     ?`<div style="text-align:center;padding:32px;color:var(--gray);font-size:14px;">Sin ventas en este período</div>`
@@ -5949,6 +7159,68 @@ function bindApp() {
   document.getElementById("ventas-mes")?.addEventListener("change",e=>{ state.ventasMesAno=e.target.value; render(); });
   document.getElementById("ventas-rango-desde")?.addEventListener("change",e=>{ state.ventasRangoDesde=e.target.value; render(); });
   document.getElementById("ventas-rango-hasta")?.addEventListener("change",e=>{ state.ventasRangoHasta=e.target.value; render(); });
+  document.querySelectorAll("[data-ventas-compare-metric]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.ventasCompareMetric = btn.dataset.ventasCompareMetric || "usd";
+      render();
+    });
+  });
+  document.querySelectorAll("[data-ventas-heatmap-metric]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.ventasHeatmapMetric = btn.dataset.ventasHeatmapMetric || "usd";
+      render();
+    });
+  });
+  document.querySelectorAll("[data-ventas-compare-category]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.ventasCompareCategory;
+      if(id==="all") {
+        state.ventasCompareCategories = ["all"];
+        state.ventasCompareSkus = ["all"];
+      } else {
+        const current = (state.ventasCompareCategories||["all"]).filter(x=>x!=="all");
+        state.ventasCompareCategories = current.includes(id)
+          ? current.filter(x=>x!==id)
+          : [...current,id];
+        if(!state.ventasCompareCategories.length) state.ventasCompareCategories = ["all"];
+        const allowedSkus = new Set(getCompareSkuOptions(activeCompareCategories()).map(p=>p.id));
+        const currentSkus = (state.ventasCompareSkus||["all"]).filter(x=>x==="all" || allowedSkus.has(x));
+        state.ventasCompareSkus = currentSkus.length ? currentSkus : ["all"];
+      }
+      render();
+    });
+  });
+  document.querySelectorAll("[data-ventas-compare-sku]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.ventasCompareSku;
+      if(id==="all") {
+        state.ventasCompareSkus = ["all"];
+      } else {
+        const allowedSkus = new Set(getCompareSkuOptions(activeCompareCategories()).map(p=>p.id));
+        const current = (state.ventasCompareSkus||["all"]).filter(x=>x!=="all" && allowedSkus.has(x));
+        state.ventasCompareSkus = current.includes(id)
+          ? current.filter(x=>x!==id)
+          : [...current,id];
+        if(!state.ventasCompareSkus.length) state.ventasCompareSkus = ["all"];
+      }
+      render();
+    });
+  });
+  document.querySelectorAll("[data-ventas-compare-weekday]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id = btn.dataset.ventasCompareWeekday;
+      if(id==="all") {
+        state.ventasCompareWeekdays = ["all"];
+      } else {
+        const current = (state.ventasCompareWeekdays||["all"]).filter(x=>x!=="all");
+        state.ventasCompareWeekdays = current.includes(id)
+          ? current.filter(x=>x!==id)
+          : [...current,id];
+        if(!state.ventasCompareWeekdays.length) state.ventasCompareWeekdays = ["all"];
+      }
+      render();
+    });
+  });
 
   // Product cards
   document.querySelectorAll("[data-product]").forEach(btn=>{
@@ -6164,6 +7436,55 @@ function bindApp() {
   document.getElementById("forecast-days-custom")?.addEventListener("change",e=>{
     state.forecastDays=Math.max(1, parseInt(e.target.value)||1);
     render();
+  });
+
+  // Producción: escenarios flexibles por lote, presupuesto y tiempo
+  document.getElementById("production-category")?.addEventListener("change",e=>{
+    state.productionCategory=e.target.value;
+    render();
+  });
+  document.querySelectorAll("[data-production-category]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.productionCategory=btn.dataset.productionCategory;
+      render();
+    });
+  });
+  document.getElementById("production-product")?.addEventListener("change",e=>{
+    state.productionProduct=e.target.value;
+    render();
+  });
+  document.querySelectorAll("[data-production-product]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.productionProduct=btn.dataset.productionProduct;
+      render();
+    });
+  });
+  document.getElementById("production-manual-units")?.addEventListener("change",e=>{
+    const id = state.productionProduct;
+    state.productionManualUnits = { ...(state.productionManualUnits||{}), [id]: Math.max(0, parseInt(e.target.value)||0) };
+    render();
+  });
+  document.querySelectorAll("[data-production-units]").forEach(inp=>{
+    inp.addEventListener("change",e=>{
+      const id = e.target.dataset.productionUnits;
+      state.productionManualUnits = { ...(state.productionManualUnits||{}), [id]: Math.max(0, parseInt(e.target.value)||0) };
+      render();
+    });
+  });
+  document.querySelectorAll("[data-production-days]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.productionDays=parseInt(btn.dataset.productionDays)||15; render(); });
+  });
+  document.getElementById("production-days-custom")?.addEventListener("change",e=>{
+    state.productionDays=Math.max(1, parseInt(e.target.value)||1);
+    render();
+  });
+  document.querySelectorAll("[data-production-lot]").forEach(inp=>{
+    inp.addEventListener("change",e=>{
+      const id = e.target.dataset.productionLot;
+      const value = Math.max(1, parseInt(e.target.value)||1);
+      state.productionLots = { ...(state.productionLots||{}), [id]: value };
+      render();
+    });
   });
 
   // Finanzas: form gasto
@@ -6813,7 +8134,7 @@ async function handleHistSell() {
   const sale = {
     id: genId(),
     fecha: state.histFecha,
-    timestamp: new Date(state.histFecha+"T12:00:00").toISOString(),
+    timestamp: timestampFromEcuadorLocal(state.histFecha, 12, 0),
     stand: state.histStand,
     items: state.histCart.map(i=>{
       const cp = state.histCustomPrices[i.id];
@@ -6939,7 +8260,7 @@ function handleHistFileSelected(file) {
       const subtotal = v.items.reduce((s,i)=>s+i.subtotal,0);
       const descuentoAmt = subtotal * v.descPct/100;
       return {
-        id: v.id, fecha: v.fecha, timestamp: new Date(v.fecha+"T12:00:00").toISOString(),
+        id: v.id, fecha: v.fecha, timestamp: timestampFromEcuadorLocal(v.fecha, 12, 0),
         stand: v.stand, items: v.items,
         subtotal, descuento: v.descPct, descuentoAmt, total: subtotal-descuentoAmt,
         pago: v.pago, nota: "", historica: true,
@@ -7459,7 +8780,7 @@ function setupListeners(userInfo) {
   const sellingContext = !!state.selectedStand && sellingTabs.includes(activeTab);
   const needsFinance = !!userInfo.canFinanzas && ["finanzas","rentabilidad","ventas"].includes(activeTab);
   const needsKardex = (userInfo.role==="full" || userInfo.role==="bodega") && ["kardex","bodega","despachar"].includes(activeTab);
-  const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega") && activeTab==="materiales";
+  const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega") && ["materiales","produccion"].includes(activeTab);
 
   // Listen to all inventories
   state.unsubInventory = db.collection("inventarios").onSnapshot(snap=>{
@@ -7469,7 +8790,7 @@ function setupListeners(userInfo) {
 
   // Ventas en vivo: para vender solo se escucha el punto seleccionado.
   let salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(LIVE_SALES_LIMIT);
-  if (activeTab === "forecast") {
+  if (activeTab === "forecast" || activeTab === "produccion" || activeTab === "ventas") {
     salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(LIVE_FORECAST_SALES_LIMIT);
   }
   if((userInfo.role==="asesor" || userInfo.fixedStand || sellingContext) && state.selectedStand) {
