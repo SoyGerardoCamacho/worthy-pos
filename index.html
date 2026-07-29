@@ -948,6 +948,307 @@ body {
   .login-isotipo-img { animation:none; }
 }
 
+/* WORTHY BRAND SYSTEM */
+body {
+  background:
+    linear-gradient(180deg, rgba(247,240,255,.70), rgba(248,246,252,.92) 45%, rgba(246,244,251,.96)),
+    url("assets/worthy-brand-bg.png");
+  background-size:cover;
+  background-position:center top;
+  background-attachment:fixed;
+}
+
+.app {
+  background:rgba(249,247,255,.72);
+  backdrop-filter:blur(2px);
+}
+
+.header {
+  background:
+    linear-gradient(135deg, rgba(45,27,105,.96) 0%, rgba(61,42,133,.94) 100%);
+  border-bottom:1px solid rgba(255,255,255,.16);
+}
+
+.content {
+  position:relative;
+}
+
+.content::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(188,205,0,.16), transparent 23%),
+    radial-gradient(circle at 92% 18%, rgba(45,27,105,.18), transparent 24%),
+    radial-gradient(circle at 10% 92%, rgba(45,27,105,.15), transparent 24%),
+    radial-gradient(circle at 95% 92%, rgba(188,205,0,.13), transparent 20%);
+  z-index:-1;
+}
+
+.login-screen,
+.loading-screen {
+  background:
+    linear-gradient(180deg, rgba(45,27,105,.08), rgba(45,27,105,.34)),
+    url("assets/worthy-brand-bg.png");
+  background-size:cover;
+  background-position:center top;
+}
+
+.login-card {
+  background:rgba(255,255,255,.88);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 24px 60px rgba(45,27,105,.20);
+}
+
+.brand-logo-img {
+  height:34px;
+}
+
+.worthy-world-shell {
+  min-height:calc(100vh - 170px);
+}
+
+.worthy-world-hero {
+  position:relative;
+  overflow:hidden;
+  border:1.5px solid rgba(200,184,232,.78);
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:16px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.86), rgba(246,240,255,.78)),
+    url("assets/worthy-brand-bg.png");
+  background-size:cover;
+  background-position:center 14%;
+  box-shadow:0 18px 42px rgba(45,27,105,.12);
+}
+
+.worthy-world-hero::after {
+  content:"";
+  position:absolute;
+  right:-36px;
+  bottom:-46px;
+  width:170px;
+  height:170px;
+  border-radius:50%;
+  background:rgba(188,205,0,.28);
+  filter:blur(.2px);
+}
+
+.worthy-kicker {
+  position:relative;
+  z-index:1;
+  font-size:11px;
+  color:var(--purple);
+  font-weight:1000;
+  text-transform:uppercase;
+  letter-spacing:1.4px;
+}
+
+.worthy-world-title {
+  position:relative;
+  z-index:1;
+  font-size:30px;
+  color:var(--purple);
+  font-weight:1000;
+  line-height:1;
+  margin-top:6px;
+}
+
+.worthy-world-user {
+  position:relative;
+  z-index:1;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 11px;
+  border-radius:999px;
+  color:var(--purple);
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(200,184,232,.8);
+  font-size:12px;
+  font-weight:900;
+}
+
+.worthy-world-grid,
+.worthy-module-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:14px;
+}
+
+.worthy-world-card,
+.worthy-module-card {
+  position:relative;
+  overflow:hidden;
+  border:none;
+  text-align:left;
+  cursor:pointer;
+  font-family:inherit;
+  border-radius:18px;
+  min-height:184px;
+  padding:18px;
+  background:rgba(255,255,255,.90);
+  border:1.5px solid rgba(200,184,232,.72);
+  box-shadow:0 16px 36px rgba(45,27,105,.11);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+
+.worthy-world-card::before,
+.worthy-module-card::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(188,205,0,.22), transparent 33%),
+    radial-gradient(circle at 0% 100%, rgba(45,27,105,.12), transparent 34%);
+  pointer-events:none;
+}
+
+.worthy-world-card.primary {
+  background:
+    linear-gradient(135deg, rgba(45,27,105,.96), rgba(61,42,133,.94)),
+    url("assets/worthy-brand-bg.png");
+  background-size:cover;
+  background-position:center;
+  color:white;
+  border-color:rgba(45,27,105,.96);
+}
+
+.worthy-world-card.primary::before {
+  background:
+    radial-gradient(circle at 102% -8%, rgba(188,205,0,.38), transparent 35%),
+    radial-gradient(circle at -5% 106%, rgba(255,255,255,.18), transparent 32%);
+}
+
+.worthy-world-card > *,
+.worthy-module-card > * {
+  position:relative;
+  z-index:1;
+}
+
+.worthy-world-icon,
+.worthy-module-icon {
+  width:52px;
+  height:52px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:28px;
+  background:rgba(45,27,105,.10);
+  color:var(--purple);
+  margin-bottom:12px;
+}
+
+.worthy-world-card.primary .worthy-world-icon {
+  background:rgba(255,255,255,.15);
+  color:white;
+}
+
+.worthy-world-name,
+.worthy-module-name {
+  color:var(--purple);
+  font-size:22px;
+  font-weight:1000;
+  letter-spacing:.2px;
+}
+
+.worthy-world-card.primary .worthy-world-name {
+  color:white;
+}
+
+.worthy-world-desc,
+.worthy-module-desc {
+  color:var(--gray);
+  font-size:12px;
+  line-height:1.35;
+  margin-top:7px;
+  font-weight:760;
+}
+
+.worthy-world-card.primary .worthy-world-desc {
+  color:rgba(232,223,246,.95);
+}
+
+.worthy-world-foot,
+.worthy-module-foot {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:18px;
+  color:var(--purple);
+  font-size:11px;
+  font-weight:1000;
+  text-transform:uppercase;
+}
+
+.worthy-world-card.primary .worthy-world-foot {
+  color:var(--lime);
+}
+
+.worthy-module-card {
+  min-height:138px;
+  border-radius:16px;
+  padding:15px;
+}
+
+.worthy-module-card::before {
+  background:radial-gradient(circle at 100% 0%, rgba(188,205,0,.16), transparent 34%);
+}
+
+.worthy-module-name {
+  font-size:16px;
+}
+
+.worthy-module-desc {
+  font-size:11px;
+}
+
+.worthy-world-heading {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:16px;
+  padding:16px;
+  border:1.5px solid rgba(200,184,232,.72);
+  border-radius:18px;
+  background:rgba(255,255,255,.88);
+  box-shadow:0 14px 32px rgba(45,27,105,.10);
+}
+
+.worthy-world-heading-icon {
+  width:60px;
+  height:60px;
+  border-radius:18px;
+  background:linear-gradient(135deg, var(--purple), var(--purple-mid));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:28px;
+  box-shadow:0 12px 24px rgba(45,27,105,.20);
+}
+
+@media (min-width:1024px) {
+  .app {
+    max-width:none;
+    background:rgba(249,247,255,.64);
+  }
+  .worthy-world-grid {
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+}
+
+@media (max-width:599px) {
+  .worthy-world-title { font-size:26px; }
+  .worthy-world-grid,
+  .worthy-module-grid { grid-template-columns:1fr; }
+  .worthy-world-card { min-height:160px; }
+}
+
 </style>
 </head>
 <body>
@@ -1165,15 +1466,74 @@ const STANDS = [
   { id:"puembo",       name:"Puembo" },
 ];
 
+const ROTATIVA_ID = "rotativa";
+const ROTATIVA_NAME = "Bodega Rotativa";
+const ROTATIVA_STAND_IDS = ["sanfrancisco", "parque_cumbaya", "puembo"];
+const ROTATIVA_STANDS = new Set(ROTATIVA_STAND_IDS);
+
 // Puntos de venta para el POS (incluye Oficina, que vende desde el inventario de Bodega Central)
 const PUNTOS_VENTA = [
-  ...STANDS,
+  ...STANDS.map(s=>ROTATIVA_STANDS.has(s.id) ? {...s, invSource:ROTATIVA_ID} : s),
   { id:"oficina", name:"Oficina", invSource:"bodega" },
 ];
 
 function getInvSourceForStand(standId) {
   const pv = PUNTOS_VENTA.find(p=>p.id===standId);
   return (pv && pv.invSource) ? pv.invSource : standId;
+}
+
+const STOCK_POINTS = [
+  { id:"quicentro",    name:"Quicentro Norte", emoji:"🏪" },
+  { id:"mercadito",    name:"El Mercadito",    emoji:"🏪" },
+  { id:ROTATIVA_ID,    name:ROTATIVA_NAME,      emoji:"🔁" },
+  { id:"bodega",       name:"Bodega Central",  emoji:"🏭" },
+];
+
+function getInventoryLocations({ includeBodega = true } = {}) {
+  return STOCK_POINTS.filter(pt=>includeBodega || pt.id !== "bodega");
+}
+
+function getInventoryLocationName(id) {
+  if (id === ROTATIVA_ID) return ROTATIVA_NAME;
+  if (id === "bodega") return "Bodega Central";
+  return STOCK_POINTS.find(pt=>pt.id===id)?.name || PUNTOS_VENTA.find(s=>s.id===id)?.name || id || "";
+}
+
+function getUniqueInvSourceIdsForSalesPoints(points=PUNTOS_VENTA) {
+  return [...new Set(points.map(p=>getInvSourceForStand(p.id)).filter(Boolean))];
+}
+
+function getTotalStockAcrossSaleSources(productId, points=PUNTOS_VENTA) {
+  return getUniqueInvSourceIdsForSalesPoints(points).reduce((sum,id)=>sum+Number((state.inventory[id]||{})[productId]||0),0);
+}
+
+function inventoryHasStock(inv) {
+  return CATALOG.some(p=>Number((inv||{})[p.id]||0)>0);
+}
+
+function buildLegacyRotativaInventory() {
+  return CATALOG.reduce((acc,p)=>{
+    acc[p.id] = ROTATIVA_STAND_IDS.reduce((sum,id)=>sum+Number((state.inventory[id]||{})[p.id]||0),0);
+    return acc;
+  },{});
+}
+
+async function ensureRotativaInventoryMigrated() {
+  if (state.rotativaMigrationChecked) return;
+  const currentRotativa = state.inventory[ROTATIVA_ID] || {};
+  if (inventoryHasStock(currentRotativa)) {
+    state.rotativaMigrationChecked = true;
+    return;
+  }
+  const legacyRotativa = buildLegacyRotativaInventory();
+  if (!inventoryHasStock(legacyRotativa)) {
+    state.rotativaMigrationChecked = true;
+    return;
+  }
+  state.rotativaMigrationChecked = true;
+  await db.collection("inventarios").doc(ROTATIVA_ID).set(legacyRotativa, { merge:true });
+  state.inventory[ROTATIVA_ID] = legacyRotativa;
+  showToast("✅ Stock de Puembo, Parque Cumbayá y San Francisco agrupado en Bodega Rotativa");
 }
 
 // El punto de venta activo (donde se registra la venta): para full/asesor/bodega es selectedStand, para "stand" es su propio stand
@@ -1474,11 +1834,11 @@ function getInvStandId() {
   const role = state.userInfo.role;
   if (role === "admin" || role === "full" || role === "bodega") {
     const view = state.stockView || "consolidado";
-    return view === "consolidado" ? "quicentro" : view;
+    return view === "consolidado" ? "quicentro" : getInvSourceForStand(view);
   }
-  if (role === "asesor") return state.selectedStand;
-  if (state.userInfo.fixedStand) return state.userInfo.fixedStand;
-  return state.userInfo.stand;
+  if (role === "asesor") return getInvSourceForStand(state.selectedStand);
+  if (state.userInfo.fixedStand) return getInvSourceForStand(state.userInfo.fixedStand);
+  return getInvSourceForStand(state.userInfo.stand);
 }
 
 // Costo unitario de un producto (para valorizar inventario). Si no hay costo definido, retorna 0.
@@ -2975,7 +3335,8 @@ let state = {
   user: null,
   userInfo: null,
   selectedStand: null,
-  tab: "dashboard",
+  tab: "worlds",
+  world: null,
   inventory: {},
   costs: {},
   prices: {},
@@ -3224,12 +3585,12 @@ async function exportToExcel() {
     // Hoja 2: Inventario
     const invMap = {};
     inventarios.forEach(inv=>{ invMap[inv._docId] = inv; });
-    const invData = [["SKU","Nombre","Sub",...PUNTOS_VENTA.map(s=>s.name),"Bodega","Precio PVP","Costo"]];
+    const inventoryLocations = getInventoryLocations();
+    const invData = [["SKU","Nombre","Sub",...inventoryLocations.map(s=>s.name),"Precio PVP","Costo"]];
     CATALOG.forEach(p=>{
       invData.push([
         p.ref, p.name, p.sub,
-        ...PUNTOS_VENTA.map(s=>invMap[s.id]?.[p.id]||0),
-        invMap["bodega"]?.[p.id]||0,
+        ...inventoryLocations.map(s=>invMap[s.id]?.[p.id]||0),
         precios[p.id] ?? p.price,
         costos[p.id] ?? ""
       ]);
@@ -3358,7 +3719,9 @@ function normalizeText(value) {
 
 function standIdFromName(value) {
   const raw = String(value||"").trim();
-  return PUNTOS_VENTA.find(s=>s.id===raw || normalizeText(s.name)===normalizeText(raw))?.id || raw || "";
+  return PUNTOS_VENTA.find(s=>s.id===raw || normalizeText(s.name)===normalizeText(raw))?.id
+    || STOCK_POINTS.find(s=>s.id===raw || normalizeText(s.name)===normalizeText(raw))?.id
+    || raw || "";
 }
 
 function paymentIdFromLabel(value) {
@@ -3493,12 +3856,21 @@ function buildRestoreDocsFromWorkbook(workbook) {
   }).filter(v=>v.id);
 
   const inventarioMap = {};
-  [...PUNTOS_VENTA.map(s=>s.id), "bodega"].forEach(id=>{ inventarioMap[id] = {}; });
+  STOCK_POINTS.forEach(pt=>{ inventarioMap[pt.id] = {}; });
   invRows.forEach(r=>{
     const product = CATALOG.find(p=>p.ref===rowValue(r,"SKU")) || CATALOG.find(p=>p.id===rowValue(r,"SKU"));
     if (!product) return;
-    PUNTOS_VENTA.forEach(s=>{ inventarioMap[s.id][product.id] = Number(rowValue(r,s.name)||0); });
-    inventarioMap.bodega[product.id] = Number(rowValue(r,"Bodega")||0);
+    STOCK_POINTS.forEach(pt=>{
+      if (pt.id === ROTATIVA_ID) return;
+      const legacyBodega = pt.id === "bodega" ? Number(rowValue(r,"Bodega")||0) : 0;
+      inventarioMap[pt.id][product.id] = Number(rowValue(r,pt.name)||0) || legacyBodega;
+    });
+    const rotativaNew = Number(rowValue(r,ROTATIVA_NAME)||0);
+    const rotativaLegacy = ROTATIVA_STAND_IDS.reduce((sum,id)=>{
+      const standName = STANDS.find(s=>s.id===id)?.name || id;
+      return sum + Number(rowValue(r,standName)||0);
+    },0);
+    inventarioMap[ROTATIVA_ID][product.id] = rotativaNew || rotativaLegacy;
   });
   const inventarios = Object.entries(inventarioMap).map(([id,data])=>({ id, ...data }));
 
@@ -3680,10 +4052,10 @@ async function restoreBackupWorkbook(file) {
 
 function renderAjusteModal() {
   const p = CATALOG.find(c=>c.id===state.ajusteModal?.productId);
-  const standId = state.ajusteModal?.standId;
+  const standId = getInvSourceForStand(state.ajusteModal?.standId);
   const inv = state.inventory[standId]||{};
   const currentStock = inv[state.ajusteModal?.productId]||0;
-  const standName = standId==="bodega" ? "Bodega Central" : (PUNTOS_VENTA.find(s=>s.id===standId)?.name||standId);
+  const standName = getInventoryLocationName(standId);
   return `<div class="ajuste-modal">
     <div class="ajuste-card">
       <div class="ajuste-title">⚖️ Ajuste de Inventario</div>
@@ -3826,7 +4198,8 @@ function renderGlobalDownloadButton() {
 function renderApp() {
   const u = state.userInfo;
   const todayTotal = salesNetTotal(state.sales.filter(s=>s.fecha===today()));
-  const tabs = getTabsForRole(u.role);
+  const worlds = getWorldsForRole();
+  const activeWorld = state.tab==="worlds" ? null : state.tab==="world" ? state.world : getWorldForTab(state.tab);
 
   return `
   ${state.toast ? `<div class="toast toast-${state.toast.type}">${state.toast.msg}</div>` : ""}
@@ -3850,11 +4223,11 @@ function renderApp() {
     </div>
 
     <div class="bottom-nav">
-      ${tabs.map(t => `
-        <button class="nav-item ${state.tab===t.id?"active":""}" data-tab="${t.id}">
-          <span class="nav-icon">${t.icon}</span>
-          <span class="nav-label">${t.label}</span>
-          ${state.tab===t.id?'<div class="nav-dot"></div>':""}
+      ${worlds.map(w => `
+        <button class="nav-item ${activeWorld===w.id?"active":""}" data-world="${w.id}">
+          <span class="nav-icon">${w.icon}</span>
+          <span class="nav-label">${w.title.charAt(0)+w.title.slice(1).toLowerCase()}</span>
+          ${activeWorld===w.id?'<div class="nav-dot"></div>':""}
         </button>
       `).join("")}
     </div>
@@ -3868,6 +4241,54 @@ function canUseDespachos() {
 function canUseProduction() {
   return ["gerardo@worthy.com","rosita@worthy.com"].includes((state.user?.email||"").toLowerCase());
 }
+
+const WORLD_DEFS = [
+  {
+    id:"ventas",
+    icon:"🛒",
+    title:"VENTAS",
+    subtitle:"Vender, jornadas, registros, usuarios y lectura comercial.",
+    tabs:["pos","jornada","ventas","dashboard","cambiar"]
+  },
+  {
+    id:"inventarios",
+    icon:"📦",
+    title:"INVENTARIOS",
+    subtitle:"Stock, bodega, despachos, kardex, materiales y diferencias.",
+    tabs:["inventario","bodega","despachar","kardex","materiales"]
+  },
+  {
+    id:"produccion",
+    icon:"🏭",
+    title:"PRODUCCIÓN",
+    subtitle:"Forecast, lote ideal, plan de producción y materias primas.",
+    tabs:["forecast","produccion","materiales"]
+  },
+  {
+    id:"finanzas",
+    icon:"💰",
+    title:"FINANZAS",
+    subtitle:"Dirección, rentabilidad, caja, gastos, margen y utilidad.",
+    tabs:["rentabilidad","finanzas","dashboard","ventas"]
+  },
+];
+
+const MODULE_COPY = {
+  dashboard:{title:"Dirección / Inicio", desc:"Resumen del negocio, ventas, alertas y desempeño."},
+  rentabilidad:{title:"Dirección", desc:"Vista ejecutiva de rentabilidad y salud del negocio."},
+  pos:{title:"Vender", desc:"Registro rápido de ventas del punto activo."},
+  jornada:{title:"Jornadas", desc:"Inicio y cierre de turno con conteo físico."},
+  ventas:{title:"Informes de ventas", desc:"Ventas sin IVA, SKUs, horarios, usuarios y comparativos."},
+  inventario:{title:"Stock", desc:"Inventario por punto de venta y disponibilidad."},
+  bodega:{title:"Bodega", desc:"Inventario central y control de existencias."},
+  despachar:{title:"Despachos", desc:"Movimientos desde bodega hacia puntos de venta."},
+  kardex:{title:"Kardex", desc:"Trazabilidad de movimientos de inventario."},
+  materiales:{title:"Materiales", desc:"Materias primas, mínimos, costos y disponibilidad."},
+  forecast:{title:"Forecast", desc:"Proyección basada en histórico de ventas."},
+  produccion:{title:"Plan de producción", desc:"Categoría, lote ideal, lote manual y consumos."},
+  finanzas:{title:"Finanzas", desc:"P&G, gastos, caja, margen y reportes."},
+  cambiar:{title:"Cambiar punto", desc:"Seleccionar otro punto de venta."}
+};
 
 function getTabsForRole(role) {
   const u = state.userInfo;
@@ -3928,23 +4349,104 @@ function getTabsForRole(role) {
   ];
 }
 
+function getAvailableTabIds() {
+  return new Set(getTabsForRole(state.userInfo.role).map(t=>t.id));
+}
+
+function getWorldsForRole() {
+  const allowed = getAvailableTabIds();
+  return WORLD_DEFS.map(world=>({
+    ...world,
+    modules:world.tabs
+      .filter(id=>allowed.has(id))
+      .map(id=>getTabsForRole(state.userInfo.role).find(t=>t.id===id))
+      .filter(Boolean)
+  })).filter(world=>world.modules.length>0);
+}
+
+function getWorldForTab(tabId) {
+  return WORLD_DEFS.find(world=>world.tabs.includes(tabId))?.id || state.world || null;
+}
+
+function renderWorldHub() {
+  const worlds = getWorldsForRole();
+  return `<div class="worthy-world-shell">
+    <div class="worthy-world-hero" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div>
+        <div class="worthy-kicker">WORTHY Control Center</div>
+        <div class="worthy-world-title">Elige un mundo</div>
+      </div>
+      <div class="worthy-world-user">${state.userInfo?.emoji||"👤"} ${state.userInfo?.name||""}</div>
+    </div>
+    <div class="worthy-world-grid">
+      ${worlds.map((world,idx)=>`
+        <button data-world="${world.id}" class="worthy-world-card ${idx===0?"primary":""}">
+          <div>
+            <div class="worthy-world-icon">${world.icon}</div>
+            <div class="worthy-world-name">${world.title}</div>
+            <div class="worthy-world-desc">${world.subtitle}</div>
+          </div>
+          <div class="worthy-world-foot">
+            <span>${world.modules.length} módulos</span>
+            <span>→</span>
+          </div>
+        </button>
+      `).join("")}
+    </div>
+  </div>`;
+}
+
+function renderWorldModules(worldId) {
+  const world = getWorldsForRole().find(w=>w.id===worldId) || getWorldsForRole()[0];
+  if(!world) return renderWorldHub();
+  return `<div class="worthy-world-shell">
+    <button class="btn-ghost" id="world-back-btn" style="margin-bottom:12px;">← Mundos</button>
+    <div class="worthy-world-heading">
+      <div class="worthy-world-heading-icon">${world.icon}</div>
+      <div>
+        <div class="worthy-kicker">Mundo</div>
+        <div class="worthy-world-title">${world.title}</div>
+        <div class="worthy-world-desc">${world.subtitle}</div>
+      </div>
+    </div>
+    <div class="worthy-module-grid">
+      ${world.modules.map(module=>{
+        const copy = MODULE_COPY[module.id] || {title:module.label, desc:"Abrir módulo"};
+        return `<button data-tab="${module.id}" class="worthy-module-card">
+          <div>
+            <div class="worthy-module-icon">${module.icon}</div>
+            <div class="worthy-module-name">${copy.title}</div>
+            <div class="worthy-module-desc">${copy.desc}</div>
+          </div>
+          <div class="worthy-module-foot">Abrir →</div>
+        </button>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
 function renderTab() {
   const role = state.userInfo.role;
+  if (state.tab === "worlds") return renderWorldHub();
+  if (state.tab === "world") return renderWorldModules(state.world);
   if (state.tab === "cambiar" && role === "asesor") {
     state.selectedStand = null;
-    state.tab = "pos";
+    state.tab = "worlds";
+    state.world = null;
     render();
     return "";
   }
   if (state.tab === "cambiar" && role === "full") {
     state.selectedStand = null;
-    state.tab = "dashboard";
+    state.tab = "worlds";
+    state.world = null;
     render();
     return "";
   }
   if (state.tab === "cambiar" && role === "bodega") {
     state.selectedStand = null;
-    state.tab = "dashboard";
+    state.tab = "worlds";
+    state.world = null;
     render();
     return "";
   }
@@ -3981,7 +4483,7 @@ function renderStandDashboard() {
   todaySales.forEach(s=>s.items&&s.items.forEach(i=>{topMap[i.id]=(topMap[i.id]||0)+i.qty;}));
   const top = Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
   const standId = (state.userInfo.role==="full"||state.userInfo.role==="asesor") ? state.selectedStand : state.userInfo.stand;
-  const inv = state.inventory[standId] || {};
+  const inv = state.inventory[getInvSourceForStand(standId)] || {};
   const lowStock = CATALOG.filter(p=>((inv[p.id]||0)>0&&(inv[p.id]||0)<=6));
   const outStock = CATALOG.filter(p=>(inv[p.id]||0)===0);
 
@@ -4031,8 +4533,9 @@ function renderStandDashboard() {
 
 // ─── BODEGA DASHBOARD ────────────────────────────────────────
 function renderBodegaDashboard() {
-  const view = state.bodegaView || "bodega";
   const options = [{id:"all",name:"Todos los puntos",emoji:"📊"},...STOCK_POINTS];
+  const requestedView = state.bodegaView || "bodega";
+  const view = options.some(o=>o.id===requestedView) ? requestedView : getInvSourceForStand(requestedView);
   const selected = options.find(o=>o.id===view) || options.find(o=>o.id==="bodega");
   const inv = view === "all"
     ? CATALOG.reduce((acc,p)=>{
@@ -5341,7 +5844,7 @@ function renderJornada() {
   if(!state.userInfo?.canSell) return "<p>No autorizado</p>";
   const standId = getActiveSaleStandId();
   const invSourceId = getActiveInvSourceId();
-  const standName = PUNTOS_VENTA.find(s=>s.id===standId)?.name || standId;
+  const standName = getInventoryLocationName(standId);
   const inv = state.inventory[invSourceId] || {};
   const jornada = getActiveJornada();
   const mode = state.jornadaMode;
@@ -5516,21 +6019,15 @@ const GASTO_CATS = [
   { id:"otro",         label:"Otro",          icon:"📎" },
 ];
 
-const STOCK_POINTS = [
-  { id:"quicentro",    name:"Quicentro Norte", emoji:"🏪" },
-  { id:"sanfrancisco", name:"San Francisco",   emoji:"🏪" },
-  { id:"mercadito",    name:"El Mercadito",    emoji:"🏪" },
-  { id:"parque_cumbaya", name:"Parque Cumbayá", emoji:"🏪" },
-  { id:"puembo",       name:"Puembo",          emoji:"🏪" },
-  { id:"bodega",       name:"Bodega Central",  emoji:"🏭" },
-];
-
 function renderInventario() {
   const role = state.userInfo.role;
 
   // Roles con vista multi-punto: full y bodega (Gerardo, Rosita, Bodega Central)
   if (role==="admin" || role==="full" || role==="bodega") {
-    const view = state.stockView || "consolidado";
+    const requestedView = state.stockView || "consolidado";
+    const view = requestedView === "consolidado" || STOCK_POINTS.some(pt=>pt.id===requestedView)
+      ? requestedView
+      : getInvSourceForStand(requestedView);
     const canSeeCosts = (role==="full" || role==="bodega");
 
     if (view === "consolidado") {
@@ -5748,7 +6245,7 @@ function getForecastRowsForHorizon(horizonOverride) {
     const invSource = state.forecastStand === "all" ? null : getInvSourceForStand(state.forecastStand);
     const stock = invSource
       ? Number((state.inventory[invSource]||{})[p.id]||0)
-      : PUNTOS_VENTA.reduce((sum,st)=>sum+Number((state.inventory[getInvSourceForStand(st.id)]||{})[p.id]||0),0);
+      : getTotalStockAcrossSaleSources(p.id);
     const coverage = avg > 0 ? stock / avg : null;
     const need = Math.max(0, Math.ceil(projected - stock));
     return { product:p, sold, avg, projected, stock, coverage, need };
@@ -5916,7 +6413,7 @@ function getProductionDemandRows(horizonOverride) {
       const sold = Number(totals[p.id]||0);
       const avg = sold / dayCount;
       const projected = avg * horizon;
-      const stock = PUNTOS_VENTA.reduce((sum,st)=>sum+Number((state.inventory[getInvSourceForStand(st.id)]||{})[p.id]||0),0);
+      const stock = getTotalStockAcrossSaleSources(p.id);
       const coverage = avg > 0 ? stock / avg : null;
       const need = Math.max(0, Math.ceil(projected - stock));
       return { product:p, sold, avg, projected, stock, coverage, need };
@@ -6662,6 +7159,8 @@ function renderDespachar() {
   const inv = state.inventory["bodega"] || {};
   const mode = state.dispatchMode || "bodega_punto";
   const isPlantEntry = mode === "planta_bodega";
+  const dispatchTargets = getInventoryLocations({ includeBodega:false });
+  const selectedDispatchTarget = dispatchTargets.some(s=>s.id===state.dispatchTarget) ? state.dispatchTarget : ROTATIVA_ID;
   return `
   <div class="card card-purple" style="margin-bottom:12px;padding:16px;">
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Despachos</div>
@@ -6687,7 +7186,7 @@ function renderDespachar() {
       ${!isPlantEntry?`<div>
         <div class="section-title">Destino</div>
         <select class="dispatch-select" id="dispatch-target">
-          ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.dispatchTarget===s.id?"selected":""}>${s.name}</option>`).join("")}
+          ${dispatchTargets.map(s=>`<option value="${s.id}" ${selectedDispatchTarget===s.id?"selected":""}>${s.name}</option>`).join("")}
         </select>
       </div>`:`<div style="background:var(--lavender-light);border-radius:12px;padding:10px;">
         <div style="font-size:11px;font-weight:900;color:var(--purple);text-transform:uppercase;letter-spacing:.8px;">Destino</div>
@@ -6715,10 +7214,13 @@ function renderDespachar() {
 // ─── ADMIN BODEGA ────────────────────────────────────────────
 function renderAdminBodega() {
   const role = state.userInfo.role;
-  const adjStand = state.bodegaAdjStand || "bodega";
+  const requestedAdjStand = state.bodegaAdjStand || "bodega";
+  const adjStand = STOCK_POINTS.some(pt=>pt.id===requestedAdjStand) ? requestedAdjStand : getInvSourceForStand(requestedAdjStand);
   const inv = state.inventory["bodega"] || {};
   const canSeeCosts = (role==="full" || role==="bodega");
   const canEditPrices = (role==="full");
+  const adjLocations = getInventoryLocations();
+  const stockLocations = getInventoryLocations({ includeBodega:false });
   return `
   <div class="card card-purple" style="margin-bottom:12px;padding:16px;">
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Bodega Central</div>
@@ -6798,11 +7300,10 @@ function renderAdminBodega() {
   <div class="card" style="margin-top:12px;margin-bottom:12px;background:var(--lavender-light);">
     <div class="section-title">⚖️ Punto para ajuste de inventario</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button data-bodega-adj="bodega" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${adjStand==="bodega"?"var(--purple)":"var(--lavender)"};background:${adjStand==="bodega"?"var(--purple)":"white"};color:${adjStand==="bodega"?"white":"var(--gray)"};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🏭 Bodega</button>
-      ${PUNTOS_VENTA.map(s=>`<button data-bodega-adj="${s.id}" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${adjStand===s.id?"var(--purple)":"var(--lavender)"};background:${adjStand===s.id?"var(--purple)":"white"};color:${adjStand===s.id?"white":"var(--gray)"};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🏪 ${s.name}</button>`).join("")}
+      ${adjLocations.map(s=>`<button data-bodega-adj="${s.id}" style="padding:8px 14px;border-radius:20px;border:1.5px solid ${adjStand===s.id?"var(--purple)":"var(--lavender)"};background:${adjStand===s.id?"var(--purple)":"white"};color:${adjStand===s.id?"white":"var(--gray)"};font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">${s.emoji} ${s.name}</button>`).join("")}
     </div>
     <div style="margin-top:12px;">
-      <div style="font-size:13px;color:var(--purple);font-weight:700;margin-bottom:8px;">Stock en: ${adjStand==="bodega"?"Bodega Central":PUNTOS_VENTA.find(s=>s.id===adjStand)?.name||adjStand}</div>
+      <div style="font-size:13px;color:var(--purple);font-weight:700;margin-bottom:8px;">Stock en: ${getInventoryLocationName(adjStand)}</div>
       ${CATALOG.map(p=>{
         const adjInv = state.inventory[adjStand]||{};
         const adjStock = adjInv[p.id]||0;
@@ -6817,13 +7318,13 @@ function renderAdminBodega() {
   </div>
 
   <div class="card" style="margin-top:12px;">
-    <div class="section-title">Inventario por Stand</div>
-    ${STANDS.map(st=>{
+    <div class="section-title">Inventario por ubicación</div>
+    ${stockLocations.map(st=>{
       const stInv = state.inventory[st.id]||{};
       const total = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0)*getCost(p.id),0);
       const units = CATALOG.reduce((s,p)=>s+(stInv[p.id]||0),0);
       return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px;background:var(--lavender-light);border-radius:12px;">
-        <div><div style="font-size:13px;font-weight:700;color:var(--purple);">🏪 ${st.name}</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--purple);">${st.emoji} ${st.name}</div>
         <div style="font-size:11px;color:var(--gray);">${units} unidades</div></div>
         <div style="font-size:15px;font-weight:800;color:var(--purple);">${fmt(total)}</div>
       </div>`;
@@ -6851,13 +7352,14 @@ function renderInventoryAudit() {
   const date = state.auditDate || today();
   const stand = state.auditStand || "quicentro";
   const product = state.auditProduct || "balm_all";
+  const saleStandsForAudit = stand === ROTATIVA_ID ? ROTATIVA_STAND_IDS : [stand];
   const productOptions = [
     { id:"balm_all", label:"Todos Lip Balm" },
     ...CATALOG.map(p=>({ id:p.id, label:`${p.name} ${p.sub}` }))
   ];
   const standOptions = STOCK_POINTS.filter(s=>s.id!=="bodega");
   const salesRows = (state.sales||[])
-    .filter(s=>s.fecha===date && s.stand===stand)
+    .filter(s=>s.fecha===date && saleStandsForAudit.includes(s.stand))
     .map(s=>({ sale:s, qty:auditSaleQtyForProduct(s,product) }))
     .filter(r=>r.qty>0)
     .sort((a,b)=>String(a.sale.timestamp||"").localeCompare(String(b.sale.timestamp||"")));
@@ -7114,10 +7616,26 @@ function bindApp() {
   document.querySelectorAll("[data-tab]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       state.tab=btn.dataset.tab;
+      state.world = getWorldForTab(state.tab);
       const needsStandFirst = state.userInfo?.canSell && (state.tab==="pos" || state.tab==="jornada") && !state.selectedStand;
       if (state.userInfo && !needsStandFirst) setupListeners(state.userInfo);
       render();
     });
+  });
+
+  document.querySelectorAll("[data-world]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.world = btn.dataset.world;
+      state.tab = "world";
+      setupListeners(state.userInfo);
+      render();
+    });
+  });
+
+  document.getElementById("world-back-btn")?.addEventListener("click",()=>{
+    state.tab = "worlds";
+    state.world = null;
+    render();
   });
 
   // Store filter (admin dashboard & ventas)
@@ -8543,7 +9061,8 @@ async function handleCajaReabrir() {
 }
 
 async function handleAjusteInventario() {
-  const { productId, standId } = state.ajusteModal || {};
+  const { productId } = state.ajusteModal || {};
+  const standId = getInvSourceForStand(state.ajusteModal?.standId);
   const delta = parseInt(state.ajusteDelta)||0;
   const nota = state.ajusteNota.trim();
   if (!productId || delta === 0) { showToast("Ingresa un ajuste (+/−)","err"); return; }
@@ -8596,7 +9115,8 @@ async function handleAjusteInventario() {
 
 async function handleDispatch() {
   const product = state.dispatchProduct;
-  const target = state.dispatchTarget;
+  const validTargets = getInventoryLocations({ includeBodega:false }).map(pt=>pt.id);
+  const target = validTargets.includes(state.dispatchTarget) ? state.dispatchTarget : ROTATIVA_ID;
   const qty = parseInt(state.dispatchQty)||0;
   const mode = state.dispatchMode || "bodega_punto";
   const isPlantEntry = mode === "planta_bodega";
@@ -8656,8 +9176,8 @@ async function handleDispatch() {
     state.inventory["bodega"] = updatedBodegaInv;
     if (updatedStandInv) state.inventory[target] = updatedStandInv;
 
-    state.dispatchProduct=""; state.dispatchQty=""; state.dispatching=false;
-    showToast(isPlantEntry ? "✅ Entrada registrada en Bodega" : `✅ Despachado a ${PUNTOS_VENTA.find(s=>s.id===target)?.name}`);
+    state.dispatchProduct=""; state.dispatchQty=""; state.dispatchTarget=target; state.dispatching=false;
+    showToast(isPlantEntry ? "✅ Entrada registrada en Bodega" : `✅ Despachado a ${getInventoryLocationName(target)}`);
     render();
   } catch(e) {
     state.dispatching=false;
@@ -8785,6 +9305,7 @@ function setupListeners(userInfo) {
   // Listen to all inventories
   state.unsubInventory = db.collection("inventarios").onSnapshot(snap=>{
     snap.forEach(doc=>{ state.inventory[doc.id]=doc.data(); });
+    ensureRotativaInventoryMigrated().catch(e=>console.warn("Migración Bodega Rotativa no aplicada:", e));
     render();
   });
 
@@ -8874,7 +9395,8 @@ auth.onAuthStateChanged(user=>{
     state.user = user;
     state.userInfo = userInfo;
     if (userInfo.fixedStand) state.selectedStand = userInfo.fixedStand;
-    state.tab = (userInfo.role==="asesor"||userInfo.role==="venta_only")?"pos":(userInfo.canFinanzas?"rentabilidad":"dashboard");
+    state.tab = "worlds";
+    state.world = null;
     state.loading = false;
     setupListeners(userInfo);
     state.pendingSales = loadPendingSales();
@@ -8892,7 +9414,7 @@ auth.onAuthStateChanged(user=>{
     if(state.unsubCosts) state.unsubCosts();
     if(state.unsubPrices) state.unsubPrices();
     state.user=null; state.userInfo=null;
-    state.selectedStand=null; state.tab="dashboard";
+    state.selectedStand=null; state.tab="worlds"; state.world=null;
     state.inventory={}; state.sales=[]; state.jornadas=[]; state.materials=[];
     state.pendingSales = loadPendingSales();
     state.loading=false;
