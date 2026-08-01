@@ -6,8 +6,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY Control Center</title>
-<!-- v2026-08-01-sales-monthly-history -->
-<meta name="app-version" content="2026-08-01-05">
+<!-- v2026-08-01-production-purchase-logic -->
+<meta name="app-version" content="2026-08-01-09">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY Control Center">
@@ -2650,6 +2650,142 @@ const PURCHASE_MATERIALS = [
     nota:"Botella vidrio frosted 80ml + gotero + tapa bamboo",
     estado:"Compra registrada"
   },
+  ...[
+    ["HIDROLATO DE MENTA","Mentha Piperita Leaf Water",3350,87.10,82.745,0.0247],
+    ["SCI","Sodium Cocoyl Isethionate",3200,76.4765,72.6527,0.022704],
+    ["ACEITE DE COCO","Cocos Nucifera Oil",2150,73.10,69.445,0.0323],
+    ["CERA CANDELILLA","Euphorbia Cerifera Wax",1380,76.0413,72.2392,0.052347],
+    ["ACEITE DE SEMILLA DE UVA","Vitis Vinifera Seed Oil",1050,63.00,59.85,0.057],
+    ["ACEITE DE RICINO","Ricinus Communis Seed Oil",925,17.11,16.2545,0.017572],
+    ["ACEITE DE COCO FRACCIONADO","Caprylic/Capryc Triglyceride",750,69.60,66.12,0.08816],
+    ["BETAINA DE COCO","Cocamidopropyl Betaine",550,4.51,4.2845,0.00779],
+    ["ACEITE DE JOJOBA","Simmondsia Chinensis Seed Oil",550,28.38,26.961,0.04902],
+    ["ACEITE DE LINO","Linum Usitatissimun Seed Oil",350,17.50,16.625,0.0475],
+    ["EXTRACTO DE PAPAYA","Carica Papaya Fruit Extract",250,18.3346,17.4178,0.069671],
+    ["VITAMINA E","Tocopherol",250,38.50,36.575,0.1463],
+    ["EXTRACTO DE ORTIGA","Urtica Dioica Extract",225,12.8652,12.2219,0.05432],
+    ["EXTRACTO DE COLA DE CABALLO","Equisetum Arvense Extract",225,12.8652,12.2219,0.05432],
+    ["EXTRACTO DE CEBOLLA","Allium Cepa Bulb Extract",225,12.8652,12.2219,0.05432],
+    ["EXTRACTO DE GERMEN DE TRIGO","Triticum Vulgare Germ Extract",200,14.6655,13.9322,0.069661],
+    ["EXTRACTO GINKGO BILOBA","Ginkgo Biloba Leaf Extract",225,26.70,25.365,0.112733],
+    ["EXTRACTO DE NEEM","Azadirachta Indica Leaf Extract",200,16.3323,15.5157,0.077578],
+    ["INULINA VEGETAL POWDER","Inulin",200,8.2359,7.8241,0.039121],
+    ["ACEITE DE CALENDULA","Calendula Officinalis Flower Oil",165,11.05,10.4975,0.063621],
+    ["ACEITE DE AGUACATE","Persea Gratissima Oil",150,10.05,9.5475,0.06365],
+    ["EXTRACTO DE SALVIA","Salvia Officinalis Extract",200,20.66,19.627,0.098135],
+    ["ACEITE DE SESAMO","Sesamum Indicum Seed Oil",150,10.05,9.5475,0.06365],
+    ["EXTRACTO DE TE VERDE","Camellia Sinensis Leaf Extract",150,8.3733,7.9547,0.053031],
+    ["EXTRACTO DE LIMON","Citrus Limon Fruit Extract",150,16.2188,15.4078,0.102719],
+    ["ACEITE DE ZANAHORIA","Daucus Carota Seed Oil",125,12.87,12.2265,0.097812],
+    ["EXTRACTO DE ALOE","Aloe Barbadensis Extract",150,7.7475,7.3601,0.049068],
+    ["CONSERVANTE SHAROMIX","Benzoic Acid, Sorbic Acid, Dehydroacetic Acid, Benzyl Alcohol",125,10.50,9.975,0.0798],
+    ["ACEITE DE ALBARICOQUE","Prunus Armeniaca Kernel Oil",100,8.20,7.79,0.0779],
+    ["ACEITE DE BROCOLI","Brassica Oleracea Italica Seed Oil",100,20.60,19.57,0.1957],
+    ["ACEITE DE ARROZ","Oryza Sativa Bran Oil",100,4.10,3.895,0.03895],
+    ["ACIDO ASTEARICO","Stearic Acid",265,2.75,2.6125,0.009858],
+    ["MANTECA DE KARITE","Butyrospermum Parkii Butter",150,7.80,7.41,0.0494],
+    ["DANOX","Behenamidopropyl Dimethylamine blend",100,4.00,3.80,0.038],
+    ["PROTEINA DE SEDA","Hydrolyzed Silk",100,13.80,13.11,0.1311],
+    ["GLICERINA VEGETAL","Glycerin",250,2.10,1.995,0.00798],
+    ["CETHYL ALCOHOL","Cetyl Alcohol",250,5.20,4.94,0.01976],
+    ["A.E. ARBOL DEL TE","Melaleuca Alternifolia Leaf Oil",100,107.50,102.125,1.02125],
+    ["A.E. MENTHA","Mentha Piperita Oil",200,186.00,176.70,0.8835],
+    ["OXIDO DE HIERRO ROJO","Oxido de hierro rojo",50,7.6625,7.2794,0.145588],
+    ["MICA ROSADA","Mica rosada",50,15.50,14.725,0.2945],
+    ["ACEITE ESENCIAL DE MANDARINA","Citrus Reticulata Peel Oil",25,38.25,36.3375,1.4535],
+    ["ACEITE ESENCIAL DE GERANIO","Pelargonium Graveolens Oil",100,125.50,119.225,1.19225],
+    ["A.E. CEDRO","Juniperus Virginiana Oil",10,20.00,19.00,1.90],
+    ["A.E. YLANG YLANG","Cananga Odorata Flower Oil",5,21.00,19.95,3.99],
+    ["A.E. LAVANDA","Lavandula Angustifolia Oil",10,20.00,19.00,1.90],
+    ["A.E. EUCALIPTO","Eucalyptus Globulus Leaf Oil",10,20.00,19.00,1.90],
+    ["A.E. LIMON","Citrus Limon Oil",10,20.00,19.00,1.90],
+    ["A.E. BERGAMOTA","Citrus Aurantium Bergamia Oil",10,20.00,19.00,1.90],
+  ].map(([material, inci, cantidad, valorMercancia, costoTotal, costoUnitario])=>({
+    id:`denika_oc_251112_${normalizeMaterialName(material).replace(/\s+/g,"_")}`,
+    proveedor:"DENIKA",
+    material,
+    uso:"Materia prima para producción",
+    skus:CATALOG.filter(p=>PRODUCTION_RECIPES[p.id] && JSON.stringify(PRODUCTION_RECIPES[p.id].materials||[]).toUpperCase().includes(String(material).toUpperCase())).map(p=>p.id),
+    cantidad,
+    valorMercancia,
+    fleteAgente:0,
+    costoTotal,
+    costoUnitario,
+    nota:`OC 251112 · Noviembre 13 de 2025 · INCI: ${inci} · valores con descuento proveedor cuando aplica`,
+    estado:"Compra local registrada"
+  })),
+  {
+    id:"fraterworks_fw19993_triethyl_citrate",
+    proveedor:"Fraterworks",
+    material:"TRIETHYL CITRATE",
+    uso:"Desodorantes adultos y kids",
+    skus:["WDS30","WDS45","WDSK30","WDSK45"],
+    cantidad:615,
+    valorMercancia:120.36,
+    fleteAgente:0,
+    costoTotal:120.36,
+    nota:"Orden FW19993 · Noviembre 17 de 2025 · 15g + 100g + 500g",
+    estado:"Compra internacional registrada"
+  },
+  {
+    id:"makingcosmetics_mc00734289_zinc_ricinoleate",
+    proveedor:"MakingCosmetics",
+    material:"ZINC RICINOLEATO",
+    uso:"Desodorantes adultos y kids",
+    skus:["WDS30","WDS45","WDSK30","WDSK45"],
+    cantidad:500,
+    valorMercancia:42.90,
+    fleteAgente:15.69,
+    costoTotal:58.59,
+    nota:"Orden MC-00734289 · Noviembre 17 de 2025 · Zinc Ricinoleate 17.6oz / 500g",
+    estado:"Compra internacional registrada"
+  },
+  ...[
+    ["COLA DE CABALLO POWDER","Starwest / Golden Daffodil",454,39.99,"Polvo organico cola de caballo · cantidad estimada 1 lb"],
+    ["MANTECA DE MURUMURU","Oslove Organics",227,28.99,"Mantequilla de murumuru 8 oz"],
+    ["HIDROXIDO DE MAGNESIO","BulkSupplements",0,15.97,"Hidroxido de magnesio · presentacion exacta no visible en PDF","hidroxido_magnesio_presentacion_no_visible"],
+    ["HIDROXIDO DE MAGNESIO","BulkSupplements",1000,24.97,"Hidroxido de magnesio 2.2 lb"],
+    ["A.E. SALVIA","SVA Organics",9.86,12.94,"Aceite esencial salvia clara 1/3 fl oz"],
+    ["ACEITE DE BORRAJA","US Organic Group Corp",0,15.99,"Aceite de semilla de borraja 18% GLA · cantidad exacta no visible en PDF"],
+    ["CERA DE GIRASOL","Amazon / North Mountain Supply",454,28.78,"Pellets de cera de girasol 1 lb"],
+    ["ORTIGA POWDER","Starwest Botanicals / Golden Daffodil",454,34.99,"Polvo hoja de ortiga 1 lb"],
+  ].map(([material, proveedor, cantidad, price, nota, idSuffix])=>{
+    const factor = 213.66 / 202.62;
+    return {
+      id:`amazon_112_5834789_${idSuffix || normalizeMaterialName(material).replace(/\s+/g,"_")}`,
+      proveedor,
+      material,
+      uso:"Materia prima para producción",
+      skus:CATALOG.filter(p=>PRODUCTION_RECIPES[p.id] && JSON.stringify(PRODUCTION_RECIPES[p.id].materials||[]).toUpperCase().includes(String(material).toUpperCase())).map(p=>p.id),
+      cantidad,
+      valorMercancia:price,
+      fleteAgente:0,
+      costoTotal:Number((price*factor).toFixed(2)),
+      nota:`Amazon pedido 112-5834789-3621869 · Noviembre 17 de 2025 · ${nota} · costo prorrateado con impuestos/credito`,
+      estado:"Compra internacional registrada"
+    };
+  }),
+  ...[
+    ["ICELANDIC SEAMOSS","Wholesale Supplies Plus",59.15,19.45,"Icelandic Seamoss - Natural Fragrance Oil · 2 fl oz"],
+    ["LAVENDER & COCONUT MILK","Wholesale Supplies Plus",118.29,46.45,"Lavender & Coconut Milk - Natural FO · 4 fl oz"],
+    ["AUSTRALIAN SANDALO","Wholesale Supplies Plus",118.29,36.95,"Australian Sandalwood - Natural Fragrance Oil · 4 fl oz"],
+    ["FRAGANCIA BABY POWDER","Wholesale Supplies Plus",118.29,34.45,"Baby Powder Classic - Natural Fragrance Oil · 4 fl oz"],
+  ].map(([material, proveedor, cantidad, price, nota])=>{
+    const factor = 156.51 / 137.30;
+    return {
+      id:`wsp_3323759_${normalizeMaterialName(material).replace(/\s+/g,"_")}`,
+      proveedor,
+      material,
+      uso:"Fragancia / insumo aromatico",
+      skus:CATALOG.filter(p=>PRODUCTION_RECIPES[p.id] && JSON.stringify(PRODUCTION_RECIPES[p.id].materials||[]).toUpperCase().includes(String(material).toUpperCase())).map(p=>p.id),
+      cantidad,
+      valorMercancia:price,
+      fleteAgente:0,
+      costoTotal:Number((price*factor).toFixed(2)),
+      nota:`WSP orden 3323759 · Noviembre 17 de 2025 · ${nota} · costo prorrateado con handling/tax`,
+      estado:"Compra internacional registrada"
+    };
+  }),
 ];
 
 const SALES_PLAN_STORAGE_KEY = "worthy_sales_plan_v1";
@@ -4763,6 +4899,7 @@ let state = {
   productionProduct: "WMO30",
   productionLots: {},
   productionManualUnits: {},
+  purchaseRequirementCategory: "all",
   gastoFecha: today(),
   gastoStand: "quicentro",
   gastoCat: "arriendo",
@@ -5596,8 +5733,8 @@ const WORLD_DEFS = [
     icon:"📦",
     title:"CADENA DE ABASTECIMIENTO",
     navLabel:"Abastec.",
-    subtitle:"Stock seguro, inventarios, bodega, despachos, trazabilidad y materiales.",
-    tabs:["compras","inventario","stock_seguro","bodega","despachar","kardex","materiales"]
+    subtitle:"Stock seguro, inventarios, compras, bodega, despachos, trazabilidad y materiales.",
+    tabs:["requerimiento_compra","compras","inventario","stock_seguro","bodega","despachar","kardex","materiales"]
   },
   {
     id:"produccion",
@@ -5624,6 +5761,7 @@ const MODULE_COPY = {
   pos:{title:"Vender", desc:"Registro rápido de ventas del punto activo."},
   jornada:{title:"Jornadas", desc:"Inicio y cierre de turno con conteo físico."},
   ventas:{title:"Informes de ventas", desc:"Ventas sin IVA, SKUs, horarios, usuarios y comparativos."},
+  requerimiento_compra:{title:"Requerimiento de compra", desc:"Dinero requerido para comprar materias primas y materiales desde el plan de producción."},
   compras:{title:"Compras", desc:"Compras de materiales y cobertura frente al plan de ventas."},
   inventario:{title:"Stock", desc:"Inventario por punto de venta y disponibilidad."},
   stock_seguro:{title:"Stock Seguro", desc:"Objetivo de cobertura y plan de redistribución."},
@@ -5652,6 +5790,7 @@ function getTabsForRole(role) {
     {id:"dashboard",icon:"🧭",label:"Centro"},
     {id:"planificacion_ventas",icon:"🎯",label:"Planificación"},
     {id:"ventas",icon:"📋",label:"Ventas"},
+    {id:"requerimiento_compra",icon:"🧮",label:"Req. compra"},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"inventario",icon:"📦",label:"Inventario"},
     {id:"stock_seguro",icon:"🛡️",label:"Stock Seguro"},
@@ -5665,6 +5804,7 @@ function getTabsForRole(role) {
     {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"inventario",icon:"📦",label:"Bodega"},
     {id:"stock_seguro",icon:"🛡️",label:"Stock Seguro"},
+    {id:"requerimiento_compra",icon:"🧮",label:"Req. compra"},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"materiales",icon:"🧾",label:"Materiales"},
     {id:"despachar",icon:"🚚",label:"Despachos"},
@@ -5682,6 +5822,7 @@ function getTabsForRole(role) {
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"ventas",icon:"📋",label:"Ventas"},
+    {id:"requerimiento_compra",icon:"🧮",label:"Req. compra"},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"inventario",icon:"📦",label:"Stock"},
     {id:"stock_seguro",icon:"🛡️",label:"Stock Seguro"},
@@ -5957,6 +6098,7 @@ function renderTab() {
     case "jornada":    return renderJornada();
     case "inventario": return renderInventario();
     case "stock_seguro": return (role==="admin"||role==="full"||role==="bodega") ? renderStockSeguro() : "<p>No autorizado</p>";
+    case "requerimiento_compra": return (role==="admin"||role==="full"||role==="bodega") ? renderRequerimientoCompra() : "<p>No autorizado</p>";
     case "compras": return (role==="admin"||role==="full"||role==="bodega") ? renderCompras() : "<p>No autorizado</p>";
     case "materiales": return (role==="full"||role==="bodega") ? renderMateriales() : "<p>No autorizado</p>";
     case "planificacion_ventas": return (state.userInfo?.canFinanzas || role==="admin") ? renderPlanificacionVentas() : "<p>No autorizado</p>";
@@ -8513,9 +8655,30 @@ function normalizeMaterialName(name) {
     .toLowerCase();
 }
 
+function canonicalMaterialKey(name) {
+  const key = normalizeMaterialName(name);
+  const aliases = {
+    "zinc ricinoleate":"zinc ricinoleato",
+    "aceite de linaza":"aceite de lino",
+    "acido estearico":"acido astearico",
+    "a e mentha":"a e mentha",
+    "aceite esencial de geranio":"a e geranio",
+    "aceite esencial de mandarina":"a e mandarina",
+    "aceite esencial de salvia":"a e salvia",
+    "sva aceite esencial de salvia":"a e salvia",
+    "salvia clara":"a e salvia",
+    "lavender coconut milk natural fo":"lavender coconut milk",
+    "australian sandalwood":"australian sandalo",
+    "baby powder classic natural fragrance oil":"fragancia baby powder",
+    "cethyl alcohol":"cethyl alcohol",
+    "cetyl alcohol":"cethyl alcohol",
+  };
+  return aliases[key] || key;
+}
+
 function getMaterialStockInRecipeUnit(materialName) {
-  const target = normalizeMaterialName(materialName);
-  const material = (state.materials||[]).find(m=>normalizeMaterialName(m.nombre)===target);
+  const target = canonicalMaterialKey(materialName);
+  const material = (state.materials||[]).find(m=>canonicalMaterialKey(m.nombre)===target);
   if (!material) return { stock:null, unit:"g" };
   const rawStock = Number(material.stock||0);
   const unit = String(material.unidad||"g").toLowerCase();
@@ -8641,7 +8804,7 @@ function getProductionMaterialRows(rows, unitsKey="idealUnits") {
       ...productPackaging
     ];
     materialRequirements.forEach(mat=>{
-      const key = normalizeMaterialName(mat.name);
+      const key = canonicalMaterialKey(mat.name);
       if (!map[key]) map[key] = { name:mat.name, unit:mat.unit||"g", required:0, kind:mat.kind||"ingredient", costExw:mat.costExw };
       map[key].required += Number(mat.qtyPerUnit||0) * units;
     });
@@ -8685,6 +8848,332 @@ function getProductionCategoryPlan() {
     categoryRows,
     materialRows:getProductionMaterialRows(categoryRows, "manualTypedUnits")
   };
+}
+
+function getMaterialCatalogRecordByName(materialName) {
+  const target = canonicalMaterialKey(materialName);
+  return (state.materials||[]).find(m=>canonicalMaterialKey(m.nombre)===target) || null;
+}
+
+function formatMaterialQty(value, unit) {
+  const n = Number(value||0);
+  const decimals = Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2;
+  return `${n.toFixed(decimals)} ${unit||""}`.trim();
+}
+
+function getPurchaseProductionPlanRows() {
+  const model = getSalesPlanModel();
+  const months = model.months || [];
+  const skuMap = {};
+  (model.skus||[]).forEach(row=>{ skuMap[row.product.id] = row; });
+  const categoryId = state.purchaseRequirementCategory || "all";
+  const category = PRODUCTION_CATEGORIES.find(c=>c.id===categoryId);
+
+  const rows = CATALOG
+    .filter(product=>PRODUCTION_RECIPES[product.id])
+    .filter(product=>!category || category.productIds.includes(product.id))
+    .map(product=>{
+      const recipe = PRODUCTION_RECIPES[product.id];
+      const salesPlanRow = skuMap[product.id];
+      const projectedUnits = months.reduce((sum,month)=>sum+Number(salesPlanRow?.byMonth?.[month]?.units||0),0);
+      const stock = getTotalStockAcrossSaleSources(product.id);
+      const rawNeed = Math.max(0, Math.ceil(projectedUnits - stock));
+      const lotSize = Math.max(1, Number(state.productionLots?.[product.id] || recipe.batchDefault || 1));
+      const suggestedUnits = rawNeed > 0 ? roundToLot(rawNeed, lotSize) : 0;
+      const typed = state.productionManualUnits?.[product.id];
+      const productionUnits = typed === undefined || typed === "" || typed === null
+        ? suggestedUnits
+        : Math.max(0, parseInt(typed)||0);
+      const avgDaily = months.reduce((sum,month)=>sum+Number(salesPlanRow?.byMonth?.[month]?.units||0),0) /
+        Math.max(1, months.reduce((sum,month)=>sum+getDaysInMonthKey(month),0));
+      return {
+        product,
+        recipe,
+        months,
+        byMonth:salesPlanRow?.byMonth || {},
+        projectedUnits,
+        stock,
+        rawNeed,
+        lotSize,
+        suggestedUnits,
+        productionUnits,
+        avgDaily,
+        coverageAfter: avgDaily > 0 ? (stock + productionUnits) / avgDaily : null
+      };
+    })
+    .filter(row=>row.projectedUnits>0 || row.stock>0 || row.productionUnits>0)
+    .sort((a,b)=>b.productionUnits-a.productionUnits || b.projectedUnits-a.projectedUnits);
+
+  const hasSalesPlan = rows.some(row=>row.projectedUnits>0);
+  return { rows, months, category, hasSalesPlan };
+}
+
+function getPurchaseRequirementMaterialRows(planRows) {
+  const purchases = getResolvedPurchaseMaterials();
+  const purchaseBySku = {};
+  const referenceByMaterial = {};
+  purchases.forEach(item=>{
+    (item.skus||[]).forEach(sku=>{
+      if (!purchaseBySku[sku]) purchaseBySku[sku] = [];
+      purchaseBySku[sku].push(item);
+    });
+    const key = canonicalMaterialKey(item.material);
+    if (!referenceByMaterial[key]) referenceByMaterial[key] = { qty:0, cost:0, providers:new Set(), notes:[] };
+    referenceByMaterial[key].qty += Number(item.cantidad||0);
+    referenceByMaterial[key].cost += Number(item.costoTotal||0);
+    if (item.proveedor) referenceByMaterial[key].providers.add(item.proveedor);
+    if (item.nota) referenceByMaterial[key].notes.push(item.nota);
+  });
+
+  const map = {};
+  const addRequirement = (key, row, required, unit, kind, costHint, sourceSku, sourceName)=>{
+    if (!map[key]) {
+      map[key] = {
+        name:row.name,
+        unit,
+        kind,
+        required:0,
+        costHint:Number(costHint||0),
+        sourceSkus:new Set(),
+        sourceNames:new Set(),
+      };
+    }
+    map[key].required += Number(required||0);
+    if (costHint && !map[key].costHint) map[key].costHint = Number(costHint||0);
+    if (sourceSku) map[key].sourceSkus.add(sourceSku);
+    if (sourceName) map[key].sourceNames.add(sourceName);
+  };
+
+  planRows.forEach(plan=>{
+    const units = Number(plan.productionUnits||0);
+    if (units <= 0) return;
+    (plan.recipe.materials||[]).forEach(mat=>{
+      addRequirement(
+        canonicalMaterialKey(mat.name),
+        mat,
+        Number(mat.qtyPerUnit||0) * units,
+        mat.unit||"g",
+        "ingredient",
+        0,
+        plan.product.id,
+        `${plan.product.name} ${plan.product.sub}`
+      );
+    });
+    (PRODUCTION_PACKAGING_MATERIALS[plan.product.id]||[]).forEach(mat=>{
+      const matchedPurchase = (purchaseBySku[plan.product.id]||[]).find(item=>
+        canonicalMaterialKey(item.material).includes(canonicalMaterialKey(mat.name)) ||
+        canonicalMaterialKey(mat.name).includes(canonicalMaterialKey(item.material).replace(canonicalMaterialKey(plan.product.ref),"").trim())
+      ) || (purchaseBySku[plan.product.id]||[])[0];
+      const purchaseMaterialName = matchedPurchase?.material || mat.name;
+      addRequirement(
+        canonicalMaterialKey(purchaseMaterialName),
+        { ...mat, name:purchaseMaterialName },
+        Number(mat.qtyPerUnit||0) * units,
+        mat.unit||"uds",
+        "packaging",
+        Number(matchedPurchase?.cantidad||0)>0
+          ? Number(matchedPurchase.costoTotal||0) / Number(matchedPurchase.cantidad||0)
+          : Number(mat.costToAgent||mat.costExw||0),
+        plan.product.id,
+        `${plan.product.name} ${plan.product.sub}`
+      );
+    });
+  });
+
+  return Object.entries(map).map(([key,row])=>{
+    const stockInfo = getMaterialStockInRecipeUnit(row.name);
+    const stock = stockInfo.stock === null ? 0 : Number(stockInfo.stock||0);
+    const reference = referenceByMaterial[key] || { qty:0, cost:0, providers:new Set(), notes:[] };
+    const catalogRecord = getMaterialCatalogRecordByName(row.name);
+    const unitCost = Number(catalogRecord?.costoUnitario||0) > 0
+      ? Number(catalogRecord.costoUnitario)
+      : Number(row.costHint||0) > 0
+        ? Number(row.costHint)
+        : Number(reference.qty||0) > 0
+          ? Number(reference.cost||0) / Number(reference.qty||1)
+          : 0;
+    const available = stock;
+    const shortage = Math.max(0, Number(row.required||0) - available);
+    return {
+      ...row,
+      stock,
+      stockUnit:stockInfo.unit || row.unit,
+      referenceQty:Number(reference.qty||0),
+      referenceCost:Number(reference.cost||0),
+      providers:[...reference.providers],
+      sourceSkus:[...row.sourceSkus],
+      sourceNames:[...row.sourceNames],
+      available,
+      shortage,
+      unitCost,
+      requiredMoney:shortage * unitCost,
+      missingCost:shortage > 0 && unitCost <= 0
+    };
+  }).sort((a,b)=>b.requiredMoney-a.requiredMoney || b.shortage-a.shortage || a.name.localeCompare(b.name));
+}
+
+function renderRequerimientoCompra() {
+  const plan = getPurchaseProductionPlanRows();
+  const materialRows = getPurchaseRequirementMaterialRows(plan.rows);
+  const totalProductionUnits = plan.rows.reduce((sum,row)=>sum+Number(row.productionUnits||0),0);
+  const totalProjectedUnits = plan.rows.reduce((sum,row)=>sum+Number(row.projectedUnits||0),0);
+  const totalRequiredMoney = materialRows.reduce((sum,row)=>sum+Number(row.requiredMoney||0),0);
+  const missingMaterials = materialRows.filter(row=>row.shortage>0).length;
+  const missingCostRows = materialRows.filter(row=>row.missingCost);
+  const coveredMaterials = materialRows.filter(row=>row.required>0 && row.shortage<=0).length;
+  const categoryId = state.purchaseRequirementCategory || "all";
+  const monthLabel = plan.months.length ? `${salesPlanMonthLabel(plan.months[0])} → ${salesPlanMonthLabel(plan.months[plan.months.length-1])}` : "Sin meses";
+  const providerRows = materialRows
+    .filter(row=>row.requiredMoney>0)
+    .reduce((acc,row)=>{
+      const provider = row.providers[0] || "Proveedor por definir";
+      if(!acc[provider]) acc[provider] = { provider, money:0, materials:0 };
+      acc[provider].money += Number(row.requiredMoney||0);
+      acc[provider].materials += 1;
+      return acc;
+    },{});
+  const actions = materialRows.filter(row=>row.shortage>0).slice(0,8);
+
+  return `<div>
+    <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:900;text-transform:uppercase;letter-spacing:.7px;">Cadena de abastecimiento</div>
+          <div style="font-size:26px;color:white;font-weight:900;margin-top:4px;">Requerimiento de compra</div>
+          <div style="font-size:12px;color:var(--lavender);font-weight:700;margin-top:4px;">Plan de ventas → plan de producción → explosión de materiales → dinero requerido.</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--lavender);font-weight:800;">Plan comercial conectado</div>
+          <div style="font-size:17px;font-weight:900;color:var(--lime);">${monthLabel}</div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:800;">Usa metas, mix de canales y demanda por SKU</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;">
+      ${[
+        ["Dinero requerido",fmt(totalRequiredMoney),missingCostRows.length?"Hay costos por definir":"Compra adicional estimada"],
+        ["Producción a cubrir",`${totalProductionUnits.toFixed(0)} uds`,`${totalProjectedUnits.toFixed(0)} uds proyectadas`],
+        ["Materiales con faltante",`${missingMaterials}`,"Materias primas + empaques"],
+        ["Materiales cubiertos",`${coveredMaterials}`,"Con stock actual de materiales"]
+      ].map((c,idx)=>`
+        <div class="card" style="padding:13px;border-left:5px solid ${idx===0?"var(--lime)":idx===2 && missingMaterials?"var(--red)":"var(--purple)"};">
+          <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">${c[0]}</div>
+          <div style="font-size:22px;color:${idx===2 && missingMaterials?"var(--red)":"var(--purple)"};font-weight:900;margin-top:4px;">${c[1]}</div>
+          <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:3px;">${c[2]}</div>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="card" style="padding:12px;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:8px;">Categoría a evaluar</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="period-btn ${categoryId==="all"?"active":""}" data-purchase-requirement-category="all">Todo el negocio</button>
+        ${PRODUCTION_CATEGORIES.map(c=>`<button class="period-btn ${categoryId===c.id?"active":""}" data-purchase-requirement-category="${c.id}">${c.label}</button>`).join("")}
+      </div>
+      <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:8px;">Para cambiar meses, metas, descuentos o participación por canal, usa el módulo Planificación de ventas. Aquí se traduce ese plan en producción y compras.</div>
+    </div>
+
+    <div class="card" style="overflow-x:auto;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:2px;">1. Plan de producción base</div>
+      <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:8px;">Producción sugerida = unidades proyectadas por SKU menos inventario total de producto terminado. La orden de producción se puede ajustar manualmente.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:940px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">SKU</th>
+            ${plan.months.map(month=>`<th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">${salesPlanMonthLabel(month)}</th>`).join("")}
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Venta proyectada</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Inventario total</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Requerido</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Orden de Producción</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Cobertura final</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${plan.rows.map(row=>`
+            <tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.product.ref}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.product.name} ${row.product.sub}</div></td>
+              ${plan.months.map(month=>`<td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${Number(row.byMonth?.[month]?.units||0).toFixed(0)} uds</td>`).join("")}
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${row.projectedUnits.toFixed(0)} uds</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">${row.stock.toFixed(0)} uds</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:${row.rawNeed>0?"var(--red)":"var(--green)"};">${row.rawNeed.toFixed(0)} uds</td>
+              <td style="text-align:right;padding:8px 4px;">
+                <input type="number" min="0" step="1" class="dispatch-input" data-purchase-production-units="${row.product.id}" value="${row.productionUnits}" style="width:92px;text-align:right;">
+                <div style="font-size:10px;color:var(--gray);font-weight:800;margin-top:2px;">lote ${row.lotSize}</div>
+              </td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${row.coverageAfter===null?"Sin venta":`${row.coverageAfter.toFixed(0)} días`}</td>
+            </tr>
+          `).join("") || `<tr><td colspan="${6+plan.months.length}" style="padding:14px;text-align:center;color:var(--gray);font-weight:800;">No hay SKUs con proyección o recetas para esta categoría.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="overflow-x:auto;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:2px;">2. Explosión de materiales y dinero requerido</div>
+      <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:8px;">El faltante se calcula contra el stock actual registrado en Materiales. Las compras históricas quedan como referencia de costo/proveedor, pero no se descuentan como inventario disponible.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1080px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Material</th>
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Tipo / uso</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Requerido</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Stock actual</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Faltante a comprar</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Costo unit.</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Dinero requerido</th>
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${materialRows.map(row=>{
+            const action = row.shortage<=0 ? "Cubierto" : row.missingCost ? "Definir costo unitario" : "Comprar";
+            const color = row.shortage<=0 ? "var(--green)" : row.missingCost ? "var(--amber)" : "var(--red)";
+            return `<tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.name}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.sourceSkus.join(", ")}</div></td>
+              <td style="padding:8px 4px;font-weight:800;color:var(--gray);">${row.kind==="packaging"?"Material de empaque":"Materia prima"}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.sourceNames.slice(0,3).join(" · ")}${row.sourceNames.length>3?" · ...":""}</div></td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${formatMaterialQty(row.required,row.unit)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${formatMaterialQty(row.stock,row.stockUnit||row.unit)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:${color};">${formatMaterialQty(row.shortage,row.unit)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${row.unitCost>0?fmt(row.unitCost):"-"}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:${color};">${row.requiredMoney>0?fmt(row.requiredMoney):"-"}</td>
+              <td style="padding:8px 4px;font-weight:900;color:${color};">${action}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.providers[0]||"Proveedor por definir"}</div></td>
+            </tr>`;
+          }).join("") || `<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--gray);font-weight:800;">No hay requerimiento de materiales para el plan seleccionado.</td></tr>`}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--purple);background:var(--lavender-light);">
+            <td colspan="6" style="padding:8px 4px;font-weight:900;color:var(--purple);">Total dinero requerido para compra adicional</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(totalRequiredMoney)}</td>
+            <td style="padding:8px 4px;font-weight:900;color:${missingCostRows.length?"var(--amber)":"var(--green)"};">${missingCostRows.length?`${missingCostRows.length} costos por definir`:"Costos completos"}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start;">
+      <div class="card" style="padding:12px;">
+        <div class="section-title" style="margin-bottom:8px;">3. Plan de acción de compras</div>
+        ${actions.length ? actions.map(row=>`
+          <div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--lavender-light);">
+            <div>
+              <div style="font-weight:900;color:var(--purple);font-size:12px;">Comprar ${formatMaterialQty(row.shortage,row.unit)} de ${row.name}</div>
+              <div style="font-size:10px;color:var(--gray);font-weight:700;">Para: ${row.sourceNames.slice(0,4).join(" · ")}</div>
+            </div>
+            <div style="text-align:right;font-weight:900;color:var(--purple);">${row.requiredMoney>0?fmt(row.requiredMoney):"Costo pendiente"}</div>
+          </div>
+        `).join("") : `<div style="font-size:12px;color:var(--green);font-weight:900;">El plan está cubierto con el stock actual registrado en Materiales.</div>`}
+      </div>
+      <div class="card" style="padding:12px;">
+        <div class="section-title" style="margin-bottom:8px;">Proveedor sugerido</div>
+        ${Object.values(providerRows).length ? Object.values(providerRows).sort((a,b)=>b.money-a.money).map(row=>`
+          <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--lavender-light);">
+            <div style="font-size:11px;color:var(--gray);font-weight:800;">${row.provider}<div style="font-size:10px;">Referencia histórica · ${row.materials} material${row.materials===1?"":"es"}</div></div>
+            <div style="font-size:13px;color:var(--purple);font-weight:900;">${fmt(row.money)}</div>
+          </div>
+        `).join("") : `<div style="font-size:12px;color:var(--gray);font-weight:800;">Sin compras adicionales por proveedor.</div>`}
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderProduccion() {
@@ -10851,6 +11340,19 @@ function bindApp() {
       render();
     });
   });
+  document.querySelectorAll("[data-purchase-requirement-category]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.purchaseRequirementCategory = btn.dataset.purchaseRequirementCategory || "all";
+      render();
+    });
+  });
+  document.querySelectorAll("[data-purchase-production-units]").forEach(input=>{
+    input.addEventListener("change",e=>{
+      const id = e.target.dataset.purchaseProductionUnits;
+      state.productionManualUnits = { ...(state.productionManualUnits||{}), [id]: Math.max(0, parseInt(e.target.value)||0) };
+      render();
+    });
+  });
 
   // Finanzas: form gasto
   document.getElementById("gasto-fecha")?.addEventListener("change",e=>{ state.gastoFecha=e.target.value; });
@@ -12147,13 +12649,13 @@ function setupListeners(userInfo) {
   const sellingTabs = ["pos","jornada","ventas"];
   const sellingContext = !!state.selectedStand && sellingTabs.includes(activeTab);
   const lightTabs = ["worlds","world","cambiar"];
-  const needsInventory = ["dashboard","pos","jornada","inventario","stock_seguro","bodega","despachar"].includes(activeTab);
-  const needsSales = ["dashboard","pos","jornada","ventas","forecast","produccion","inventario","stock_seguro","planificacion_ventas","compras","finanzas","rentabilidad"].includes(activeTab);
+  const needsInventory = ["dashboard","pos","jornada","inventario","stock_seguro","requerimiento_compra","bodega","despachar"].includes(activeTab);
+  const needsSales = ["dashboard","pos","jornada","ventas","forecast","produccion","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"].includes(activeTab);
   const needsJornadas = activeTab === "jornada";
   const needsConfig = !lightTabs.includes(activeTab);
   const needsFinance = !!userInfo.canFinanzas && ["finanzas","rentabilidad","ventas","planificacion_ventas"].includes(activeTab);
   const needsKardex = (userInfo.role==="full" || userInfo.role==="bodega") && ["kardex","bodega","despachar"].includes(activeTab);
-  const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega") && ["materiales","produccion","compras"].includes(activeTab);
+  const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega" || userInfo.role==="admin") && ["materiales","produccion","requerimiento_compra","compras"].includes(activeTab);
   const listenerKey = JSON.stringify({
     role:userInfo.role,
     tab:activeTab,
@@ -12182,7 +12684,7 @@ function setupListeners(userInfo) {
   if (needsSales) {
     // Ventas en vivo: para vender solo se escucha el punto seleccionado.
     let salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(LIVE_SALES_LIMIT);
-    if (["forecast","produccion","ventas","inventario","stock_seguro","planificacion_ventas","compras","finanzas","rentabilidad"].includes(activeTab)) {
+    if (["forecast","produccion","ventas","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"].includes(activeTab)) {
       salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(LIVE_FORECAST_SALES_LIMIT);
     }
     if((userInfo.role==="asesor" || userInfo.fixedStand || sellingContext) && state.selectedStand) {
