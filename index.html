@@ -6,8 +6,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY Control Center</title>
-<!-- v2026-08-01-production-purchase-logic -->
-<meta name="app-version" content="2026-08-01-09">
+<!-- v2026-08-01-pending-sales-backoff -->
+<meta name="app-version" content="2026-08-01-10">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY Control Center">
@@ -2071,7 +2071,7 @@ const RUTINAS = [
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-08-01-05";
+const APP_VERSION = "2026-08-01-10";
 const APP_UPDATED_LABEL = "Actualizado: 1 ago 2026";
 const PENDING_SALES_KEY = "worthy-pos-pending-sales-v1";
 const RETRYABLE_ERROR_RE = /(quota|rate.?limit|resource.?exhausted|too many requests|deadline|unavailable|network|offline)/i;
@@ -2205,6 +2205,10 @@ const today = () => {
   const d = new Date(Date.now() - 5*60*60*1000); // ajusta a hora Ecuador
   return d.toISOString().slice(0,10);
 };
+const currentEcuadorTimeInput = () => {
+  const d = new Date(Date.now() - 5*60*60*1000);
+  return `${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;
+};
 const fmtDate = iso => new Date(iso+"T12:00:00").toLocaleDateString("es-EC",{day:"2-digit",month:"short",year:"numeric"});
 const APP_TIME_ZONE = "America/Guayaquil";
 function parseTimestampValue(ts) {
@@ -2230,6 +2234,14 @@ function formatTimeInAppZone(ts) {
   if(isUtcNoonBackupTimestamp(ts)) return "12:00";
   const d = parseTimestampValue(ts);
   return d ? d.toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit",timeZone:APP_TIME_ZONE}) : "";
+}
+function timeInputFromTimestamp(ts) {
+  const d = parseTimestampValue(ts);
+  if(!d) return currentEcuadorTimeInput();
+  const parts = new Intl.DateTimeFormat("en-GB", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:APP_TIME_ZONE }).formatToParts(d);
+  const hour = parts.find(p=>p.type==="hour")?.value || "12";
+  const minute = parts.find(p=>p.type==="minute")?.value || "00";
+  return `${hour}:${minute}`;
 }
 const fmtTime = ts => formatTimeInAppZone(ts);
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -4448,6 +4460,7 @@ function renderHistoricoManual(visible, subtotal, discAmt, total) {
     <div class="section-title">Fecha y punto de venta</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <input type="date" class="dispatch-input" id="hist-fecha" value="${state.histFecha}" max="${today()}">
+      <input type="time" class="dispatch-input" id="hist-hora" value="${state.histHora||currentEcuadorTimeInput()}" aria-label="Hora de venta">
       <select class="dispatch-select" id="hist-stand">
         ${PUNTOS_VENTA.map(s=>`<option value="${s.id}" ${state.histStand===s.id?"selected":""}>${s.name}</option>`).join("")}
       </select>
@@ -4561,6 +4574,13 @@ function renderHistoricoManual(visible, subtotal, discAmt, total) {
   </div>
 
   <textarea placeholder="Nota opcional..." id="hist-note">${state.histNote}</textarea>
+  <label style="display:flex;align-items:flex-start;gap:10px;margin-top:10px;padding:10px;border:1.5px solid var(--lavender);border-radius:12px;background:var(--lavender-light);font-size:12px;color:var(--purple);font-weight:800;">
+    <input type="checkbox" id="hist-affect-inventory" ${state.histAffectInventory?"checked":""} style="width:18px;height:18px;margin-top:1px;">
+    <span>
+      Descontar inventario del punto seleccionado
+      <div style="font-size:11px;color:var(--gray);font-weight:600;margin-top:2px;">Úsalo solo para ventas reales que faltan por registrar, no para históricos antiguos ya conciliados.</div>
+    </span>
+  </label>
   `:""}
 
   <button class="btn-lime btn-lime-full" id="hist-save-btn" ${state.histCart.length===0||state.histSaving?"disabled":""}>
@@ -4933,6 +4953,8 @@ let state = {
   backupRestoring: false,
   // Edicion de ventas
   editingSale: null,
+  evEditFecha: "",
+  evEditHora: "",
   evEditPago: "",
   evEditDescuento: 0,
   evEditNota: "",
@@ -4952,10 +4974,12 @@ let state = {
   histCart: [],
   histCustomPrices: {},
   histFecha: today(),
+  histHora: currentEcuadorTimeInput(),
   histStand: "quicentro",
   histPayment: "efectivo",
   histDiscount: 0,
   histNote: "",
+  histAffectInventory: false,
   histSaving: false,
   histCatFilter: "all",
   histBulkMode: false,
@@ -5680,7 +5704,7 @@ function renderApp() {
         <div class="brand-stand">${u.emoji} ${u.name}${(u.role==="full"||u.role==="asesor"||u.role==="bodega"||u.fixedStand)&&state.selectedStand?" · "+PUNTOS_VENTA.find(s=>s.id===state.selectedStand)?.name:""}</div>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:6px;">
-        ${state.pendingSales.length?`<button class="logout-btn" id="download-pending-btn" title="Descargar respaldo de ventas pendientes">Backup pendientes</button><button class="logout-btn" id="sync-pending-btn" title="Reintentar ventas pendientes">${state.queueProcessing?"Sincronizando":"Pendientes"} ${state.pendingSales.length}</button>`:""}
+        ${state.pendingSales.length?`<button class="logout-btn" id="download-pending-btn" title="Descargar respaldo de ventas pendientes">Backup</button><button class="logout-btn" id="sync-pending-btn" title="Reintentar ventas pendientes">${state.queueProcessing?"Sync":"Pend."} ${state.pendingSales.length}${state.queueProcessing?"":` · ${pendingSalesNextRetryLabel()}`}</button>`:""}
         ${u.role==="stand"?`<div><div class="today-total">${fmt(todayTotal)} hoy</div><div class="today-date">${fmtDate(today())}</div></div>`:""}
         <button class="logout-btn" id="logout-btn">Salir</button>
       </div>
@@ -5726,7 +5750,7 @@ const WORLD_DEFS = [
     title:"PROCESO COMERCIAL",
     navLabel:"Ventas",
     subtitle:"Registro de ventas, jornadas, puntos de venta e informes comerciales.",
-    tabs:["pos","jornada","ventas","cambiar"]
+    tabs:["pos","jornada","ventas","historico_ventas","cambiar"]
   },
   {
     id:"inventarios",
@@ -5761,6 +5785,7 @@ const MODULE_COPY = {
   pos:{title:"Vender", desc:"Registro rápido de ventas del punto activo."},
   jornada:{title:"Jornadas", desc:"Inicio y cierre de turno con conteo físico."},
   ventas:{title:"Informes de ventas", desc:"Ventas sin IVA, SKUs, horarios, usuarios y comparativos."},
+  historico_ventas:{title:"Carga manual", desc:"Registrar ventas faltantes con fecha, hora, pago e inventario opcional."},
   requerimiento_compra:{title:"Requerimiento de compra", desc:"Dinero requerido para comprar materias primas y materiales desde el plan de producción."},
   compras:{title:"Compras", desc:"Compras de materiales y cobertura frente al plan de ventas."},
   inventario:{title:"Stock", desc:"Inventario por punto de venta y disponibilidad."},
@@ -5790,6 +5815,7 @@ function getTabsForRole(role) {
     {id:"dashboard",icon:"🧭",label:"Centro"},
     {id:"planificacion_ventas",icon:"🎯",label:"Planificación"},
     {id:"ventas",icon:"📋",label:"Ventas"},
+    {id:"historico_ventas",icon:"✍️",label:"Carga manual"},
     {id:"requerimiento_compra",icon:"🧮",label:"Req. compra"},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"inventario",icon:"📦",label:"Inventario"},
@@ -5822,6 +5848,7 @@ function getTabsForRole(role) {
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"ventas",icon:"📋",label:"Ventas"},
+    {id:"historico_ventas",icon:"✍️",label:"Carga manual"},
     {id:"requerimiento_compra",icon:"🧮",label:"Req. compra"},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"inventario",icon:"📦",label:"Stock"},
@@ -6103,6 +6130,7 @@ function renderTab() {
     case "materiales": return (role==="full"||role==="bodega") ? renderMateriales() : "<p>No autorizado</p>";
     case "planificacion_ventas": return (state.userInfo?.canFinanzas || role==="admin") ? renderPlanificacionVentas() : "<p>No autorizado</p>";
     case "ventas":     return renderVentas();
+    case "historico_ventas": return (role==="admin"||role==="full") ? renderHistorico() : "<p>No autorizado</p>";
     case "despachar":  return canUseDespachos() ? renderDespachar() : "<p>No autorizado</p>";
     case "produccion": return canUseProduction() ? renderProduccion() : "<p>No autorizado</p>";
     case "bodega":     return renderAdminBodega();
@@ -10218,6 +10246,17 @@ function renderVentas() {
             ${[0,5,10,15,20].map(d=>`<button class="discount-btn ${state.evEditDescuento===d?"active":""}" data-ev-discount="${d}">${d}%</button>`).join("")}
           </div>
 
+          <div style="margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Fecha</div>
+              <input type="date" class="dispatch-input" id="ev-edit-fecha" value="${state.evEditFecha||sale.fecha}" max="${today()}">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Hora</div>
+              <input type="time" class="dispatch-input" id="ev-edit-hora" value="${state.evEditHora||timeInputFromTimestamp(sale.timestamp)}">
+            </div>
+          </div>
+
           <div style="margin-top:10px;">
             <div class="section-title">Método de pago</div>
             <div class="payment-methods">
@@ -10710,7 +10749,7 @@ function getLastN(sales, n) {
 function bindApp() {
   // Logout
   document.getElementById("logout-btn")?.addEventListener("click", ()=>auth.signOut());
-  document.getElementById("sync-pending-btn")?.addEventListener("click", processPendingSalesQueue);
+  document.getElementById("sync-pending-btn")?.addEventListener("click", ()=>processPendingSalesQueue({ force:true }));
   document.getElementById("download-pending-btn")?.addEventListener("click", exportPendingSalesBackup);
   document.getElementById("restore-backup-btn")?.addEventListener("click",()=>document.getElementById("restore-backup-file")?.click());
   document.getElementById("restore-backup-file")?.addEventListener("change",e=>{
@@ -11180,6 +11219,8 @@ function bindApp() {
       const sale = state.sales.find(s=>s.id===id);
       if(!sale) return;
       state.editingSale = id;
+      state.evEditFecha = sale.fecha || today();
+      state.evEditHora = timeInputFromTimestamp(sale.timestamp);
       state.evEditPago = sale.pago;
       state.evEditDescuento = sale.descuento||0;
       state.evEditNota = sale.nota||"";
@@ -11188,6 +11229,8 @@ function bindApp() {
     });
   });
   document.getElementById("ev-edit-cancel")?.addEventListener("click",()=>{ state.editingSale=null; render(); });
+  document.getElementById("ev-edit-fecha")?.addEventListener("change",e=>{ state.evEditFecha=e.target.value || today(); });
+  document.getElementById("ev-edit-hora")?.addEventListener("change",e=>{ state.evEditHora=e.target.value || currentEcuadorTimeInput(); });
   document.getElementById("ev-edit-nota")?.addEventListener("input",e=>{ state.evEditNota=e.target.value; });
   document.querySelectorAll("[data-ev-payment]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.evEditPago=btn.dataset.evPayment; render(); });
@@ -11369,7 +11412,9 @@ function bindApp() {
 
   // Historico: form manual
   document.getElementById("hist-fecha")?.addEventListener("change",e=>{ state.histFecha=e.target.value; });
+  document.getElementById("hist-hora")?.addEventListener("change",e=>{ state.histHora=e.target.value || currentEcuadorTimeInput(); });
   document.getElementById("hist-stand")?.addEventListener("change",e=>{ state.histStand=e.target.value; });
+  document.getElementById("hist-affect-inventory")?.addEventListener("change",e=>{ state.histAffectInventory=!!e.target.checked; });
   document.querySelectorAll("[data-hist-cat]").forEach(btn=>{
     btn.addEventListener("click",()=>{ state.histCatFilter=btn.dataset.histCat; render(); });
   });
@@ -11710,9 +11755,28 @@ function isRetryableQuotaError(error) {
   return RETRYABLE_ERROR_RE.test(msg);
 }
 
-function retryDelayMs(attempts=0) {
-  const base = Math.min(30000, 3000 * Math.pow(2, Math.max(0, attempts)));
+function isQuotaLimitError(error) {
+  const msg = `${error?.code||""} ${error?.message||""} ${error?.name||""}`;
+  return /(quota|rate.?limit|resource.?exhausted|too many requests)/i.test(msg);
+}
+
+function retryDelayMs(attempts=0, error=null) {
+  const quota = isQuotaLimitError(error);
+  const baseMs = quota ? 60000 : 3000;
+  const maxMs = quota ? 30*60*1000 : 60000;
+  const base = Math.min(maxMs, baseMs * Math.pow(2, Math.max(0, attempts)));
   return base + Math.floor(Math.random()*1000);
+}
+
+function pendingSalesNextRetryLabel() {
+  const rows = loadPendingSales();
+  if (!rows.length) return "";
+  const next = Math.min(...rows.map(r=>Number(r.nextRetryAt||Date.now())));
+  const seconds = Math.max(0, Math.ceil((next-Date.now())/1000));
+  if (seconds <= 0) return "listo";
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.ceil(seconds/60);
+  return `${minutes}m`;
 }
 
 function loadPendingSales() {
@@ -11738,7 +11802,7 @@ function enqueuePendingSale(entry, error) {
     attempts,
     queuedAt: existing?.queuedAt || new Date().toISOString(),
     lastError: error?.message || String(error||""),
-    nextRetryAt: Date.now() + retryDelayMs(attempts),
+    nextRetryAt: Date.now() + retryDelayMs(attempts, error),
   };
   savePendingSales([...rows.filter(r=>r.sale?.id!==entry.sale?.id), queued]);
   schedulePendingSalesRetry();
@@ -11752,11 +11816,15 @@ function schedulePendingSalesRetry() {
   state.pendingRetryTimer = setTimeout(processPendingSalesQueue, next);
 }
 
-async function processPendingSalesQueue() {
-  if (state.queueProcessing) return;
+async function processPendingSalesQueue(options={}) {
+  const force = options === true || !!options?.force;
+  if (state.queueProcessing) {
+    if (force) showToast("Ya hay una sincronización en curso");
+    return;
+  }
   const now = Date.now();
   const rows = loadPendingSales();
-  const due = rows.filter(r=>Number(r.nextRetryAt||0)<=now);
+  const due = force ? rows : rows.filter(r=>Number(r.nextRetryAt||0)<=now);
   if (!due.length) { schedulePendingSalesRetry(); return; }
 
   state.queueProcessing = true;
@@ -11779,7 +11847,7 @@ async function processPendingSalesQueue() {
         ...entry,
         attempts,
         lastError: e.message || String(e),
-        nextRetryAt: Date.now() + retryDelayMs(attempts),
+        nextRetryAt: Date.now() + retryDelayMs(attempts, e),
       };
       savePendingSales([...remaining, updated]);
       if (!isRetryableQuotaError(e)) break;
@@ -11807,8 +11875,21 @@ async function updateInventoryWithTransaction(invSourceId, delta, writeCallback)
 
 async function persistSaleTransaction(entry) {
   const { invSourceId, delta, sale, extraGastos=[] } = entry;
-  const invRef = db.collection("inventarios").doc(invSourceId);
   const saleRef = db.collection("ventas").doc(sale.id);
+  if (!invSourceId) {
+    await db.runTransaction(async tx=>{
+      const saleDoc = await tx.get(saleRef);
+      if (saleDoc.exists) {
+        extraGastos.forEach(g=>tx.set(db.collection("gastos").doc(g.id), g, { merge:true }));
+        return;
+      }
+      tx.set(saleRef, sale);
+      extraGastos.forEach(g=>tx.set(db.collection("gastos").doc(g.id), g));
+    });
+    return null;
+  }
+
+  const invRef = db.collection("inventarios").doc(invSourceId);
   let updatedInv = null;
   await db.runTransaction(async tx=>{
     const saleDoc = await tx.get(saleRef);
@@ -11839,12 +11920,16 @@ async function handleSaleEditSave(id) {
   const subtotal = newItems.reduce((s,it)=>s+it.price*it.qty,0);
   const discAmt = subtotal*(state.evEditDescuento||0)/100;
   const total = subtotal - discAmt;
+  const editedFecha = state.evEditFecha || sale.fecha || today();
+  const editedTime = normalizeBackupTime(state.evEditHora || timeInputFromTimestamp(sale.timestamp));
 
   state.evEditSaving = true; render();
   try {
     const invSourceId = getInvSourceForStand(sale.stand);
     const updatedSale = {
       ...sale,
+      fecha: editedFecha,
+      timestamp: timestampFromEcuadorLocal(editedFecha, editedTime.hours, editedTime.minutes),
       items: newItems.map(it=>({...it, subtotal: it.price*it.qty})),
       subtotal, descuento: state.evEditDescuento||0, descuentoAmt: discAmt, total,
       pago: state.evEditPago, nota: state.evEditNota.trim(),
@@ -11997,11 +12082,12 @@ async function handleHistSell() {
   },0);
   const discAmt = subtotal*state.histDiscount/100;
   const total = subtotal - discAmt;
+  const histTime = normalizeBackupTime(state.histHora || "12:00");
 
   const sale = {
     id: genId(),
     fecha: state.histFecha,
-    timestamp: timestampFromEcuadorLocal(state.histFecha, 12, 0),
+    timestamp: timestampFromEcuadorLocal(state.histFecha, histTime.hours, histTime.minutes),
     stand: state.histStand,
     items: state.histCart.map(i=>{
       const cp = state.histCustomPrices[i.id];
@@ -12022,6 +12108,7 @@ async function handleHistSell() {
     subtotal, descuento:state.histDiscount, descuentoAmt:discAmt, total,
     pago: state.histPayment, nota: state.histNote,
     historica: true,
+    afectaInventario: !!state.histAffectInventory,
     vendedorEmail: state.user?.email || "",
     vendedorNombre: state.userInfo?.name || "",
     usuarioEmail: state.user?.email || "",
@@ -12029,35 +12116,41 @@ async function handleHistSell() {
     registradoPor: state.user?.email || ""
   };
 
-  try {
-    await db.collection("ventas").doc(sale.id).set(sale);
+  const invSourceId = sale.afectaInventario ? getInvSourceForStand(sale.stand) : null;
+  const delta = sale.afectaInventario ? getSaleInventoryDelta(sale.items||[], -1) : {};
+  const extraGastos = [];
+  const autoCommission = buildAutomaticCommissionExpense(sale);
+  if (autoCommission) extraGastos.push(autoCommission);
+  const queueEntry = { sale, invSourceId, delta, extraGastos };
 
-    // Comision bancaria automatica (igual que venta normal)
-    const comisionRate = getComisionRate(sale.pago);
-    if (comisionRate > 0) {
-      const comisionMonto = total * comisionRate;
-      const gastoCom = {
-        id: genId(),
-        fecha: sale.fecha,
-        timestamp: new Date().toISOString(),
-        stand: sale.stand,
-        cat: "comisiones",
-        monto: Number(comisionMonto.toFixed(2)),
-        nota: `Comisión ${PAYMENTS.find(p=>p.id===sale.pago)?.label||sale.pago} (${(comisionRate*100).toFixed(0)}%) · venta histórica ${sale.id}`,
-      };
-      await db.collection("gastos").doc(gastoCom.id).set(gastoCom);
-      state.gastos = [...(state.gastos||[]), gastoCom];
-    }
+  try {
+    const updatedInv = await persistSaleTransaction(queueEntry);
+    if (invSourceId && updatedInv) state.inventory[invSourceId] = updatedInv;
+    const gastoCom = extraGastos[0] || null;
+    if (gastoCom) state.gastos = [...(state.gastos||[]), gastoCom];
 
     state.sales = [...state.sales, sale];
     state.histCart = [];
     state.histCustomPrices = {};
     state.histDiscount = 0;
     state.histNote = "";
+    state.histAffectInventory = false;
     state.histSaving = false;
     showToast("✅ Venta histórica registrada");
     render();
   } catch(e) {
+    if (isRetryableQuotaError(e)) {
+      enqueuePendingSale(queueEntry, e);
+      state.histCart = [];
+      state.histCustomPrices = {};
+      state.histDiscount = 0;
+      state.histNote = "";
+      state.histAffectInventory = false;
+      state.histSaving = false;
+      showToast("⚠️ Cuota alcanzada. Venta guardada en este dispositivo y se reintentará sola.", "err");
+      render();
+      return;
+    }
     state.histSaving = false;
     showToast("⚠️ Error: "+e.message,"err");
     render();
