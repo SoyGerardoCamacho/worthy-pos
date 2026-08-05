@@ -6,8 +6,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY Control Center</title>
-<!-- v2026-08-01-pending-sales-backoff -->
-<meta name="app-version" content="2026-08-01-10">
+<!-- v2026-08-04-material-expected-stock -->
+<meta name="app-version" content="2026-08-04-05">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY Control Center">
@@ -1278,6 +1278,10 @@ body {
   transform-origin:50% 50%;
 }
 
+.loading-screen .login-isotipo-img {
+  animation-duration:3s;
+}
+
 .login-system-name {
   color:white;
   font-size:clamp(28px, 7vw, 46px);
@@ -2071,8 +2075,9 @@ const RUTINAS = [
 // ─── HELPERS ─────────────────────────────────────────────────
 const fmt = n => `$${Number(n||0).toFixed(2)}`;
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-08-02-01";
-const APP_UPDATED_LABEL = "Actualizado: 1 ago 2026";
+const APP_VERSION = "2026-08-04-05";
+const APP_UPDATED_LABEL = "Actualizado: 4 ago 2026";
+const LOGIN_SPLASH_MS = 3000;
 const PENDING_SALES_KEY = "worthy-pos-pending-sales-v1";
 const RETRYABLE_ERROR_RE = /(quota|rate.?limit|resource.?exhausted|too many requests|deadline|unavailable|network|offline)/i;
 const LIVE_SALES_LIMIT = 350;
@@ -2379,18 +2384,36 @@ const PRODUCTION_RECIPES = {
   ])
 };
 
+const PACKAGING_MATERIAL_MASTER = {
+  TDA30: { code:"TDA30", name:"Tubo Desodorante Adultos 30g", unit:"uds", kind:"packaging", costExw:0.61 },
+  TDK30: { code:"TDK30", name:"Tubo Desodorante Kids 30g", unit:"uds", kind:"packaging", costExw:0.61 },
+  TDA45: { code:"TDA45", name:"Tubo Desodorante Adultos 45g", unit:"uds", kind:"packaging", costExw:0.705 },
+  TDK45: { code:"TDK45", name:"Tubo Desodorante Kids 45g", unit:"uds", kind:"packaging", costExw:0.705 },
+  BVF30: { code:"BVF30", name:"Botella de Vidrio Frosted 30ml", unit:"uds", kind:"packaging", costExw:0.30, costToAgent:0.3517 },
+  BVF50: { code:"BVF50", name:"Botella de Vidrio Frosted 50ml", unit:"uds", kind:"packaging", costExw:0.35, costToAgent:0.4103 },
+  BVF80: { code:"BVF80", name:"Botella de Vidrio Frosted 80ml", unit:"uds", kind:"packaging", costExw:0.40, costToAgent:0.4690 },
+  TLB6N: { code:"TLB6N", name:"Tubo Lip Balm Nude 6g", unit:"uds", kind:"packaging", costExw:0.59 },
+  TLB6P: { code:"TLB6P", name:"Tubo Lip Balm Pink 6g", unit:"uds", kind:"packaging", costExw:0.59 },
+  TLB6R: { code:"TLB6R", name:"Tubo Lip Balm Red 6g", unit:"uds", kind:"packaging", costExw:0.59 }
+};
+
+function packagingMaterial(code) {
+  const material = PACKAGING_MATERIAL_MASTER[code];
+  return { ...material, materialCode:material.code, qtyPerUnit:1 };
+}
+
 const PRODUCTION_PACKAGING_MATERIALS = {
-  WMO30: [{ name:"ENVASE VIDRIO 30ML", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.30, costToAgent:0.3517 }],
-  WMO45: [{ name:"ENVASE VIDRIO 50ML", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.35, costToAgent:0.4103 }],
-  WLBN6: [{ name:"ENVASE CARTON LIP BALM 6G", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.59 }],
-  WLBP6: [{ name:"ENVASE CARTON LIP BALM 6G", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.59 }],
-  WLBR6: [{ name:"ENVASE CARTON LIP BALM 6G", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.59 }],
-  WDS30: [{ name:"ENVASE CARTON DESODORANTE 30G", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.61 }],
-  WDSK30: [{ name:"ENVASE CARTON DESODORANTE 30G", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.61 }],
-  WDS45: [{ name:"ENVASE CARTON DESODORANTE 45G", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.705 }],
-  WDSK45: [{ name:"ENVASE CARTON DESODORANTE 45G", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.705 }],
-  WHT50: [{ name:"ENVASE VIDRIO 50ML", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.35, costToAgent:0.4103 }],
-  WHT80: [{ name:"ENVASE VIDRIO 80ML", unit:"uds", qtyPerUnit:1, kind:"packaging", costExw:0.40, costToAgent:0.4690 }],
+  WMO30: [packagingMaterial("BVF30")],
+  WMO45: [packagingMaterial("BVF50")],
+  WLBN6: [packagingMaterial("TLB6N")],
+  WLBP6: [packagingMaterial("TLB6P")],
+  WLBR6: [packagingMaterial("TLB6R")],
+  WDS30: [packagingMaterial("TDA30")],
+  WDSK30: [packagingMaterial("TDK30")],
+  WDS45: [packagingMaterial("TDA45")],
+  WDSK45: [packagingMaterial("TDK45")],
+  WHT50: [packagingMaterial("BVF50")],
+  WHT80: [packagingMaterial("BVF80")],
 };
 
 // ─── HELPERS GENERICOS DE PERIODO ──────────────────────────────
@@ -2533,8 +2556,9 @@ const SALES_WEEKDAY_FILTERS = [
 const PURCHASE_MATERIALS = [
   {
     id:"carton_lip_balm_nude_6g",
+    materialCode:"TLB6N",
     proveedor:"Hallpack (Heshan) Packaging Products Co., Ltd.",
-    material:"ENVASE CARTON LIP BALM NUDE 6G",
+    material:"Tubo Lip Balm Nude 6g",
     uso:"Lip Balm Nude 6g",
     skus:["WLBN6"],
     cantidad:300,
@@ -2542,12 +2566,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:0,
     costoTotal:177,
     nota:"6g D21×H60 mm · diseño Nude · 300 uds",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"carton_lip_balm_pink_6g",
+    materialCode:"TLB6P",
     proveedor:"Hallpack (Heshan) Packaging Products Co., Ltd.",
-    material:"ENVASE CARTON LIP BALM PINK 6G",
+    material:"Tubo Lip Balm Pink 6g",
     uso:"Lip Balm Pink 6g",
     skus:["WLBP6"],
     cantidad:300,
@@ -2555,12 +2580,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:0,
     costoTotal:177,
     nota:"6g D21×H60 mm · diseño Pink · 300 uds",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"carton_lip_balm_red_6g",
+    materialCode:"TLB6R",
     proveedor:"Hallpack (Heshan) Packaging Products Co., Ltd.",
-    material:"ENVASE CARTON LIP BALM RED 6G",
+    material:"Tubo Lip Balm Red 6g",
     uso:"Lip Balm Red 6g",
     skus:["WLBR6"],
     cantidad:300,
@@ -2568,12 +2594,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:0,
     costoTotal:177,
     nota:"6g D21×H60 mm · diseño Red · 300 uds",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"carton_deo_adult_30g",
+    materialCode:"TDA30",
     proveedor:"Hallpack (Heshan) Packaging Products Co., Ltd.",
-    material:"ENVASE CARTON DESODORANTE ADULT 30G",
+    material:"Tubo Desodorante Adultos 30g",
     uso:"Desodorante Adult 30g",
     skus:["WDS30"],
     cantidad:300,
@@ -2581,12 +2608,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:0,
     costoTotal:183,
     nota:"30g D41×H70 mm · diseño Adult · 300 uds",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"carton_deo_kids_30g",
+    materialCode:"TDK30",
     proveedor:"Hallpack (Heshan) Packaging Products Co., Ltd.",
-    material:"ENVASE CARTON DESODORANTE KIDS 30G",
+    material:"Tubo Desodorante Kids 30g",
     uso:"Desodorante Kids 30g",
     skus:["WDSK30"],
     cantidad:300,
@@ -2594,12 +2622,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:0,
     costoTotal:183,
     nota:"30g D41×H70 mm · diseño Kids · 300 uds",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"carton_deo_adult_45g",
+    materialCode:"TDA45",
     proveedor:"Hallpack (Heshan) Packaging Products Co., Ltd.",
-    material:"ENVASE CARTON DESODORANTE ADULT 45G",
+    material:"Tubo Desodorante Adultos 45g",
     uso:"Desodorante Adult 45g",
     skus:["WDS45"],
     cantidad:300,
@@ -2607,12 +2636,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:0,
     costoTotal:211.5,
     nota:"45g D41×H90 mm · diseño Adult · 300 uds",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"carton_deo_kids_45g",
+    materialCode:"TDK45",
     proveedor:"Hallpack (Heshan) Packaging Products Co., Ltd.",
-    material:"ENVASE CARTON DESODORANTE KIDS 45G",
+    material:"Tubo Desodorante Kids 45g",
     uso:"Desodorante Kids 45g",
     skus:["WDSK45"],
     cantidad:300,
@@ -2620,12 +2650,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:0,
     costoTotal:211.5,
     nota:"45g D41×H90 mm · diseño Kids · 300 uds",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"vidrio_oleo_tonico_30ml",
+    materialCode:"BVF30",
     proveedor:"Hebei Shuchen Packing Products Co., Ltd.",
-    material:"ENVASE VIDRIO 30ML",
+    material:"Botella de Vidrio Frosted 30ml",
     uso:"Óleo 30ml",
     skus:["WMO30"],
     cantidad:480,
@@ -2633,12 +2664,13 @@ const PURCHASE_MATERIALS = [
     fleteAgente:24.83,
     costoTotal:168.83,
     nota:"Botella vidrio frosted 30ml + gotero + tapa bamboo",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"vidrio_oleo_tonico_50ml",
+    materialCode:"BVF50",
     proveedor:"Hebei Shuchen Packing Products Co., Ltd.",
-    material:"ENVASE VIDRIO 50ML",
+    material:"Botella de Vidrio Frosted 50ml",
     uso:"Óleo 50ml y Tónico 50ml",
     skus:["WMO45","WHT50"],
     cantidad:640,
@@ -2647,12 +2679,13 @@ const PURCHASE_MATERIALS = [
     costoTotal:262.62,
     nota:"Botella vidrio frosted 50ml + gotero + tapa bamboo",
     distributeByHistoricalSales:true,
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   {
     id:"vidrio_oleo_tonico_80ml",
+    materialCode:"BVF80",
     proveedor:"Hebei Shuchen Packing Products Co., Ltd.",
-    material:"ENVASE VIDRIO 80ML",
+    material:"Botella de Vidrio Frosted 80ml",
     uso:"Tónico 80ml",
     skus:["WHT80"],
     cantidad:240,
@@ -2660,7 +2693,7 @@ const PURCHASE_MATERIALS = [
     fleteAgente:16.55,
     costoTotal:112.55,
     nota:"Botella vidrio frosted 80ml + gotero + tapa bamboo",
-    estado:"Compra registrada"
+    estado:"En tránsito"
   },
   ...[
     ["HIDROLATO DE MENTA","Mentha Piperita Leaf Water",3350,87.10,82.745,0.0247],
@@ -3386,6 +3419,10 @@ function getResolvedPurchaseMaterials() {
       };
     });
   });
+}
+
+function materialKeyFromRecord(record, fallbackName) {
+  return record?.materialCode || canonicalMaterialKey(record?.material || record?.name || record?.nombre || fallbackName || "");
 }
 
 function getPurchaseCoverageRows() {
@@ -4865,6 +4902,8 @@ let state = {
   bodegaAdjStand: "bodega",
   customPrices: {},
   loading: true,
+  loginSplashActive: false,
+  loginSplashTimer: null,
   toast: null,
   dispatching: false,
   dispatchMode: "bodega_punto",
@@ -4889,6 +4928,7 @@ let state = {
   kxEditSaving: false,
   // Materias primas y materiales
   materials: [],
+  materialMasterCode: "",
   materialNombre: "",
   materialCategoria: "materia_prima",
   materialUnidad: "unidad",
@@ -5966,6 +6006,7 @@ function renderCompras() {
   const rows = getPurchaseCoverageRows();
   const totalUnits = rows.reduce((sum,row)=>sum+Number(row.cantidad||0),0);
   const totalCost = rows.reduce((sum,row)=>sum+Number(row.costoTotal||0),0);
+  const transitUnits = rows.filter(row=>String(row.estado||"").toLowerCase().includes("tránsito") || String(row.estado||"").toLowerCase().includes("transito")).reduce((sum,row)=>sum+Number(row.cantidad||0),0);
   const totalDemand = rows.reduce((sum,row)=>sum+Number(row.totalDemand||0),0);
   const alertRows = rows.filter(row=>{
     const signal = getPurchaseCoverageSignal(row.coverageDays);
@@ -5993,12 +6034,13 @@ function renderCompras() {
       ${[
         ["Materiales comprados",`${totalUnits.toFixed(0)} uds`,"Envases registrados"],
         ["Valor compras",fmt(totalCost),"Costo hasta agente cuando aplica"],
+        ["En tránsito",`${transitUnits.toFixed(0)} uds`,"No comprar de nuevo hasta recibir"],
         ["Consumo plan",`${totalDemand.toFixed(0)} uds`,`${months.length} ${months.length===1?"mes":"meses"} proyectados`],
         ["Alertas cobertura",alertRows?`${alertRows} revisar`:"Ok",alertRows?"Fuera de objetivo 90 días":"Cobertura ideal"]
       ].map((c,idx)=>`
-        <div class="card" style="padding:13px;border-left:5px solid ${idx===3?coverageTone:idx===1?"var(--lime)":"var(--purple)"};">
+        <div class="card" style="padding:13px;border-left:5px solid ${idx===4?coverageTone:idx===1?"var(--lime)":idx===2?"var(--amber)":"var(--purple)"};">
           <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">${c[0]}</div>
-          <div style="font-size:22px;color:${idx===3?coverageTone:"var(--purple)"};font-weight:900;margin-top:4px;">${c[1]}</div>
+          <div style="font-size:22px;color:${idx===4?coverageTone:"var(--purple)"};font-weight:900;margin-top:4px;">${c[1]}</div>
           <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:3px;">${c[2]}</div>
         </div>
       `).join("")}
@@ -6018,19 +6060,21 @@ function renderCompras() {
             <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Flete agente</th>
             <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Costo total</th>
             <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Costo unit.</th>
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Estado</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map(row=>`
             <tr style="border-bottom:1px solid var(--lavender-light);">
-              <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.material}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.nota}</div></td>
-              <td style="padding:8px 4px;font-weight:800;color:var(--gray);">${row.uso}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.skus.join(", ")}</div></td>
+              <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.material}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.materialCode?`${row.materialCode} · `:""}${row.nota}</div></td>
+              <td style="padding:8px 4px;font-weight:800;color:var(--gray);">${row.uso}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.materialCode||"-"} · ${row.skus.join(", ")}</div></td>
               <td style="padding:8px 4px;font-weight:800;color:var(--gray);">${row.proveedor}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${Number(row.cantidad||0).toFixed(0)} uds</td>
               <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${fmt(row.valorMercancia)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${fmt(row.fleteAgente)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(row.costoTotal)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(row.unitCost)}</td>
+              <td style="padding:8px 4px;font-weight:900;color:${String(row.estado||"").toLowerCase().includes("tránsito") || String(row.estado||"").toLowerCase().includes("transito") ? "var(--amber)" : "var(--gray)"};">${row.estado||"Compra registrada"}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -6042,6 +6086,7 @@ function renderCompras() {
             <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(rows.reduce((sum,row)=>sum+Number(row.fleteAgente||0),0))}</td>
             <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(totalCost)}</td>
             <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">-</td>
+            <td style="padding:8px 4px;font-weight:900;color:var(--amber);">${transitUnits.toFixed(0)} uds en tránsito</td>
           </tr>
         </tfoot>
       </table>
@@ -7806,6 +7851,17 @@ async function handleSaveJornada(mode) {
 // ─── INVENTARIO ──────────────────────────────────────────────
 function renderMateriales() {
   const rows = [...(state.materials||[])].sort((a,b)=>String(a.nombre||"").localeCompare(String(b.nombre||"")));
+  const packagingRows = Object.values(PACKAGING_MATERIAL_MASTER).map(material=>{
+    const usedBy = CATALOG.filter(product=>
+      (PRODUCTION_PACKAGING_MATERIALS[product.id]||[]).some(item=>item.materialCode===material.code)
+    );
+    const stockRecord = rows.find(row=>row.materialCode===material.code || row.id===`MAT-${material.code}`);
+    const physicalStock = Number(stockRecord?.stock||0);
+    const transit = getResolvedPurchaseMaterials()
+      .filter(item=>item.materialCode===material.code && (String(item.estado||"").toLowerCase().includes("tránsito") || String(item.estado||"").toLowerCase().includes("transito")))
+      .reduce((sum,item)=>sum+Number(item.cantidad||0),0);
+    return { ...material, usedBy, physicalStock, transit, expectedStock:physicalStock + transit };
+  }).sort((a,b)=>a.code.localeCompare(b.code));
   const totalValue = rows.reduce((sum,m)=>sum+Number(m.stock||0)*Number(m.costoUnitario||0),0);
   const lowRows = rows.filter(m=>Number(m.minimo||0)>0 && Number(m.stock||0)<=Number(m.minimo||0));
 
@@ -7813,7 +7869,7 @@ function renderMateriales() {
   <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
     <div style="font-size:11px;color:var(--lavender);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Materias primas y materiales</div>
     <div style="font-size:28px;font-weight:900;color:var(--lime);margin-top:4px;">${fmt(totalValue)}</div>
-    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${rows.length} ítems registrados · valor estimado al costo</div>
+    <div style="font-size:12px;color:var(--lavender);margin-top:2px;">${rows.length} ítems con stock físico · ${packagingRows.length} materiales parametrizados · valor estimado al costo</div>
   </div>
 
   ${lowRows.length>0?`<div class="alert-card alert-amber">
@@ -7822,9 +7878,15 @@ function renderMateriales() {
   </div>`:""}
 
   <div class="card">
-    <div class="section-title">${state.editingMaterial?"Editar material":"Nuevo material"}</div>
+    <div class="section-title">${state.editingMaterial?"Editar inventario de material":"Ingresar inventario disponible en bodega"}</div>
+    <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:10px;">Selecciona el material parametrizado y registra la cantidad física disponible. Esto alimenta el requerimiento de compra y la explosión de materiales.</div>
     <div class="dispatch-form">
-      <input type="text" class="dispatch-input" id="material-nombre" placeholder="Nombre del material" value="${state.materialNombre}">
+      <select class="dispatch-select" id="material-master-code">
+        <option value="">Seleccionar material parametrizado...</option>
+        ${packagingRows.map(row=>`<option value="${row.code}" ${state.materialMasterCode===row.code?"selected":""}>${row.code} · ${row.name}</option>`).join("")}
+        <option value="__manual__" ${state.materialMasterCode==="__manual__"?"selected":""}>Otro material no parametrizado</option>
+      </select>
+      <input type="text" class="dispatch-input" id="material-nombre" placeholder="Nombre del material" value="${state.materialNombre}" ${state.materialMasterCode && state.materialMasterCode!=="__manual__" ? "readonly" : ""}>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <select class="dispatch-select" id="material-categoria">
           ${[
@@ -7835,7 +7897,7 @@ function renderMateriales() {
             ["insumo","Insumo"]
           ].map(([id,label])=>`<option value="${id}" ${state.materialCategoria===id?"selected":""}>${label}</option>`).join("")}
         </select>
-        <input type="text" class="dispatch-input" id="material-unidad" placeholder="Unidad: kg, g, ml, und" value="${state.materialUnidad}">
+        <input type="text" class="dispatch-input" id="material-unidad" placeholder="Unidad: kg, g, ml, und" value="${state.materialUnidad}" ${state.materialMasterCode && state.materialMasterCode!=="__manual__" ? "readonly" : ""}>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
         <input type="number" class="dispatch-input" id="material-stock" min="0" step="0.01" placeholder="Stock" value="${state.materialStock}">
@@ -7844,10 +7906,43 @@ function renderMateriales() {
       </div>
       <textarea id="material-nota" placeholder="Nota opcional">${state.materialNota}</textarea>
       <div style="display:flex;gap:8px;">
-        <button class="btn-lime" style="flex:1;" id="material-save-btn" ${state.materialSaving?"disabled":""}>${state.materialSaving?"Guardando...":state.editingMaterial?"Guardar cambios":"Agregar material"}</button>
+        <button class="btn-lime" style="flex:1;" id="material-save-btn" ${state.materialSaving?"disabled":""}>${state.materialSaving?"Guardando...":state.editingMaterial?"Guardar cambios":"Guardar inventario disponible"}</button>
         ${state.editingMaterial?`<button class="btn-ghost" style="flex:1;" id="material-cancel-btn">Cancelar</button>`:""}
       </div>
     </div>
+  </div>
+
+  <div class="card" style="overflow-x:auto;margin-bottom:12px;">
+    <div class="section-title" style="margin-bottom:2px;">Materiales parametrizados</div>
+    <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:8px;">Catálogo maestro conectado con producción, compras en tránsito y requerimiento de compra. Stock disponible es solo lo físico en bodega; stock esperado suma lo físico más lo que viene en tránsito.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1080px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--lavender);">
+          <th style="text-align:left;padding:8px 4px;color:var(--purple);font-weight:900;">Código</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Material</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Usado en SKU</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--green);font-weight:900;">Stock disponible</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">En tránsito</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Stock esperado</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Costo ref.</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${packagingRows.map(row=>`
+          <tr style="border-bottom:1px solid var(--lavender-light);">
+            <td style="padding:8px 4px;font-weight:1000;color:var(--purple);">${row.code}</td>
+            <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.name}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.kind==="packaging"?"Material de empaque":"Material"}</div></td>
+            <td style="padding:8px 4px;font-weight:800;color:var(--gray);">${row.usedBy.map(p=>p.ref).join(", ") || "-"}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.usedBy.slice(0,3).map(p=>`${p.name} ${p.sub}`).join(" · ")}${row.usedBy.length>3?" · ...":""}</div></td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:${row.physicalStock>0?"var(--green)":"var(--gray)"};">${row.physicalStock>0?`${row.physicalStock.toFixed(0)} uds`:"-"}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:${row.transit>0?"var(--amber)":"var(--gray)"};">${row.transit>0?`${row.transit.toFixed(0)} uds`:"-"}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${row.expectedStock>0?`${row.expectedStock.toFixed(0)} uds`:"-"}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(row.costToAgent||row.costExw||0)}</td>
+            <td style="padding:8px 4px;font-weight:900;color:${row.physicalStock>0?"var(--green)":row.transit>0?"var(--amber)":"var(--gray)"};">${row.physicalStock>0?"Stock disponible":row.transit>0?"Compra en tránsito":"Parametrizado"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
   </div>
 
   <div class="section-title">Inventario de materiales (${rows.length})</div>
@@ -7862,7 +7957,7 @@ function renderMateriales() {
         <div style="font-size:20px;">🧾</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:15px;font-weight:800;color:var(--purple);">${m.nombre||"Material"}</div>
-          <div style="font-size:11px;color:var(--gray);">${m.categoria||"materia_prima"} · Costo ${fmt(m.costoUnitario||0)} / ${m.unidad||"unidad"}</div>
+          <div style="font-size:11px;color:var(--gray);">${m.materialCode?`${m.materialCode} · `:""}${m.categoria||"materia_prima"} · Costo ${fmt(m.costoUnitario||0)} / ${m.unidad||"unidad"}</div>
           ${m.nota?`<div style="font-size:11px;color:var(--gray);margin-top:3px;">${m.nota}</div>`:""}
         </div>
         <div style="text-align:right;">
@@ -8832,8 +8927,8 @@ function getProductionMaterialRows(rows, unitsKey="idealUnits") {
       ...productPackaging
     ];
     materialRequirements.forEach(mat=>{
-      const key = canonicalMaterialKey(mat.name);
-      if (!map[key]) map[key] = { name:mat.name, unit:mat.unit||"g", required:0, kind:mat.kind||"ingredient", costExw:mat.costExw };
+      const key = materialKeyFromRecord(mat, mat.name);
+      if (!map[key]) map[key] = { materialCode:mat.materialCode||"", name:mat.name, unit:mat.unit||"g", required:0, kind:mat.kind||"ingredient", costExw:mat.costExw };
       map[key].required += Number(mat.qtyPerUnit||0) * units;
     });
   });
@@ -8945,10 +9040,14 @@ function getPurchaseRequirementMaterialRows(planRows) {
       if (!purchaseBySku[sku]) purchaseBySku[sku] = [];
       purchaseBySku[sku].push(item);
     });
-    const key = canonicalMaterialKey(item.material);
-    if (!referenceByMaterial[key]) referenceByMaterial[key] = { qty:0, cost:0, providers:new Set(), notes:[] };
+    const key = materialKeyFromRecord(item, item.material);
+    if (!referenceByMaterial[key]) referenceByMaterial[key] = { qty:0, cost:0, transitQty:0, transitCost:0, providers:new Set(), notes:[] };
     referenceByMaterial[key].qty += Number(item.cantidad||0);
     referenceByMaterial[key].cost += Number(item.costoTotal||0);
+    if (String(item.estado||"").toLowerCase().includes("tránsito") || String(item.estado||"").toLowerCase().includes("transito")) {
+      referenceByMaterial[key].transitQty += Number(item.cantidad||0);
+      referenceByMaterial[key].transitCost += Number(item.costoTotal||0);
+    }
     if (item.proveedor) referenceByMaterial[key].providers.add(item.proveedor);
     if (item.nota) referenceByMaterial[key].notes.push(item.nota);
   });
@@ -8957,6 +9056,7 @@ function getPurchaseRequirementMaterialRows(planRows) {
   const addRequirement = (key, row, required, unit, kind, costHint, sourceSku, sourceName)=>{
     if (!map[key]) {
       map[key] = {
+        materialCode:row.materialCode||"",
         name:row.name,
         unit,
         kind,
@@ -8989,13 +9089,14 @@ function getPurchaseRequirementMaterialRows(planRows) {
     });
     (PRODUCTION_PACKAGING_MATERIALS[plan.product.id]||[]).forEach(mat=>{
       const matchedPurchase = (purchaseBySku[plan.product.id]||[]).find(item=>
+        (item.materialCode && mat.materialCode && item.materialCode === mat.materialCode) ||
         canonicalMaterialKey(item.material).includes(canonicalMaterialKey(mat.name)) ||
         canonicalMaterialKey(mat.name).includes(canonicalMaterialKey(item.material).replace(canonicalMaterialKey(plan.product.ref),"").trim())
       ) || (purchaseBySku[plan.product.id]||[])[0];
       const purchaseMaterialName = matchedPurchase?.material || mat.name;
       addRequirement(
-        canonicalMaterialKey(purchaseMaterialName),
-        { ...mat, name:purchaseMaterialName },
+        materialKeyFromRecord(matchedPurchase || mat, purchaseMaterialName),
+        { ...mat, name:purchaseMaterialName, materialCode:matchedPurchase?.materialCode || mat.materialCode || "" },
         Number(mat.qtyPerUnit||0) * units,
         mat.unit||"uds",
         "packaging",
@@ -9011,7 +9112,7 @@ function getPurchaseRequirementMaterialRows(planRows) {
   return Object.entries(map).map(([key,row])=>{
     const stockInfo = getMaterialStockInRecipeUnit(row.name);
     const stock = stockInfo.stock === null ? 0 : Number(stockInfo.stock||0);
-    const reference = referenceByMaterial[key] || { qty:0, cost:0, providers:new Set(), notes:[] };
+    const reference = referenceByMaterial[key] || { qty:0, cost:0, transitQty:0, transitCost:0, providers:new Set(), notes:[] };
     const catalogRecord = getMaterialCatalogRecordByName(row.name);
     const unitCost = Number(catalogRecord?.costoUnitario||0) > 0
       ? Number(catalogRecord.costoUnitario)
@@ -9020,7 +9121,9 @@ function getPurchaseRequirementMaterialRows(planRows) {
         : Number(reference.qty||0) > 0
           ? Number(reference.cost||0) / Number(reference.qty||1)
           : 0;
-    const available = stock;
+    const transitQty = Number(reference.transitQty||0);
+    const available = stock + transitQty;
+    const physicalShortage = Math.max(0, Number(row.required||0) - stock);
     const shortage = Math.max(0, Number(row.required||0) - available);
     return {
       ...row,
@@ -9028,10 +9131,13 @@ function getPurchaseRequirementMaterialRows(planRows) {
       stockUnit:stockInfo.unit || row.unit,
       referenceQty:Number(reference.qty||0),
       referenceCost:Number(reference.cost||0),
+      transitQty,
+      transitCost:Number(reference.transitCost||0),
       providers:[...reference.providers],
       sourceSkus:[...row.sourceSkus],
       sourceNames:[...row.sourceNames],
       available,
+      physicalShortage,
       shortage,
       unitCost,
       requiredMoney:shortage * unitCost,
@@ -9049,6 +9155,8 @@ function renderRequerimientoCompra() {
   const missingMaterials = materialRows.filter(row=>row.shortage>0).length;
   const missingCostRows = materialRows.filter(row=>row.missingCost);
   const coveredMaterials = materialRows.filter(row=>row.required>0 && row.shortage<=0).length;
+  const transitMaterials = materialRows.filter(row=>row.physicalShortage>0 && Number(row.transitQty||0)>0 && row.shortage<=0).length;
+  const transitUnits = materialRows.reduce((sum,row)=>sum+Number(row.transitQty||0),0);
   const categoryId = state.purchaseRequirementCategory || "all";
   const monthLabel = plan.months.length ? `${salesPlanMonthLabel(plan.months[0])} → ${salesPlanMonthLabel(plan.months[plan.months.length-1])}` : "Sin meses";
   const providerRows = materialRows
@@ -9060,7 +9168,9 @@ function renderRequerimientoCompra() {
       acc[provider].materials += 1;
       return acc;
     },{});
-  const actions = materialRows.filter(row=>row.shortage>0).slice(0,8);
+  const actions = materialRows
+    .filter(row=>row.shortage>0 || (row.physicalShortage>0 && Number(row.transitQty||0)>0))
+    .slice(0,8);
 
   return `<div>
     <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
@@ -9082,12 +9192,13 @@ function renderRequerimientoCompra() {
       ${[
         ["Dinero requerido",fmt(totalRequiredMoney),missingCostRows.length?"Hay costos por definir":"Compra adicional estimada"],
         ["Producción a cubrir",`${totalProductionUnits.toFixed(0)} uds`,`${totalProjectedUnits.toFixed(0)} uds proyectadas`],
-        ["Materiales con faltante",`${missingMaterials}`,"Materias primas + empaques"],
-        ["Materiales cubiertos",`${coveredMaterials}`,"Con stock actual de materiales"]
+        ["Materiales con faltante",`${missingMaterials}`,"Después de sumar tránsito"],
+        ["Cubiertos por tránsito",`${transitMaterials}`,"Esperar llegada antes de comprar"],
+        ["Materiales cubiertos",`${coveredMaterials}`,"Stock físico + tránsito"]
       ].map((c,idx)=>`
-        <div class="card" style="padding:13px;border-left:5px solid ${idx===0?"var(--lime)":idx===2 && missingMaterials?"var(--red)":"var(--purple)"};">
+        <div class="card" style="padding:13px;border-left:5px solid ${idx===0?"var(--lime)":idx===2 && missingMaterials?"var(--red)":idx===3 && transitMaterials?"var(--amber)":"var(--purple)"};">
           <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">${c[0]}</div>
-          <div style="font-size:22px;color:${idx===2 && missingMaterials?"var(--red)":"var(--purple)"};font-weight:900;margin-top:4px;">${c[1]}</div>
+          <div style="font-size:22px;color:${idx===2 && missingMaterials?"var(--red)":idx===3 && transitMaterials?"var(--amber)":"var(--purple)"};font-weight:900;margin-top:4px;">${c[1]}</div>
           <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:3px;">${c[2]}</div>
         </div>
       `).join("")}
@@ -9138,15 +9249,17 @@ function renderRequerimientoCompra() {
 
     <div class="card" style="overflow-x:auto;margin-bottom:12px;">
       <div class="section-title" style="margin-bottom:2px;">2. Explosión de materiales y dinero requerido</div>
-      <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:8px;">El faltante se calcula contra el stock actual registrado en Materiales. Las compras históricas quedan como referencia de costo/proveedor, pero no se descuentan como inventario disponible.</div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1080px;">
+      <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:8px;">El faltante real se calcula con stock físico registrado en Materiales más compras en tránsito. Las compras antiguas quedan como referencia de costo/proveedor, pero no como stock disponible.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1180px;">
         <thead>
           <tr style="border-bottom:2px solid var(--lavender);">
             <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Material</th>
             <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Tipo / uso</th>
             <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Requerido</th>
             <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Stock actual</th>
-            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Faltante a comprar</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--amber);font-weight:900;">En tránsito</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Disponible esperado</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Faltante real a comprar</th>
             <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Costo unit.</th>
             <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Dinero requerido</th>
             <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Acción</th>
@@ -9154,23 +9267,32 @@ function renderRequerimientoCompra() {
         </thead>
         <tbody>
           ${materialRows.map(row=>{
-            const action = row.shortage<=0 ? "Cubierto" : row.missingCost ? "Definir costo unitario" : "Comprar";
-            const color = row.shortage<=0 ? "var(--green)" : row.missingCost ? "var(--amber)" : "var(--red)";
+            const coveredByPhysical = row.required <= row.stock;
+            const coveredByTransit = !coveredByPhysical && row.shortage <= 0 && Number(row.transitQty||0) > 0;
+            const action = coveredByPhysical ? "Cubierto" : coveredByTransit ? "Esperar llegada" : row.missingCost ? "Definir costo unitario" : "Comprar saldo";
+            const actionNote = coveredByTransit ? `${formatMaterialQty(Math.min(row.physicalShortage,row.transitQty),row.unit)} cubierto por tránsito` : row.providers[0] || "Proveedor por definir";
+            const color = coveredByPhysical ? "var(--green)" : coveredByTransit ? "var(--amber)" : row.missingCost ? "var(--amber)" : "var(--red)";
             return `<tr style="border-bottom:1px solid var(--lavender-light);">
-              <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.name}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.sourceSkus.join(", ")}</div></td>
+              <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.name}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.materialCode?`${row.materialCode} · `:""}${row.sourceSkus.join(", ")}</div></td>
               <td style="padding:8px 4px;font-weight:800;color:var(--gray);">${row.kind==="packaging"?"Material de empaque":"Materia prima"}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.sourceNames.slice(0,3).join(" · ")}${row.sourceNames.length>3?" · ...":""}</div></td>
               <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${formatMaterialQty(row.required,row.unit)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${formatMaterialQty(row.stock,row.stockUnit||row.unit)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:${row.transitQty>0?"var(--amber)":"var(--gray)"};">${row.transitQty>0?formatMaterialQty(row.transitQty,row.unit):"-"}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${formatMaterialQty(row.available,row.unit)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:900;color:${color};">${formatMaterialQty(row.shortage,row.unit)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${row.unitCost>0?fmt(row.unitCost):"-"}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:900;color:${color};">${row.requiredMoney>0?fmt(row.requiredMoney):"-"}</td>
-              <td style="padding:8px 4px;font-weight:900;color:${color};">${action}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${row.providers[0]||"Proveedor por definir"}</div></td>
+              <td style="padding:8px 4px;font-weight:900;color:${color};">${action}<div style="font-size:10px;color:var(--gray);font-weight:700;margin-top:2px;">${actionNote}</div></td>
             </tr>`;
-          }).join("") || `<tr><td colspan="8" style="padding:14px;text-align:center;color:var(--gray);font-weight:800;">No hay requerimiento de materiales para el plan seleccionado.</td></tr>`}
+          }).join("") || `<tr><td colspan="10" style="padding:14px;text-align:center;color:var(--gray);font-weight:800;">No hay requerimiento de materiales para el plan seleccionado.</td></tr>`}
         </tbody>
         <tfoot>
           <tr style="border-top:2px solid var(--purple);background:var(--lavender-light);">
-            <td colspan="6" style="padding:8px 4px;font-weight:900;color:var(--purple);">Total dinero requerido para compra adicional</td>
+            <td colspan="4" style="padding:8px 4px;font-weight:900;color:var(--purple);">Total dinero requerido para compra adicional</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--amber);">${formatMaterialQty(transitUnits,"uds")}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">-</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">-</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">-</td>
             <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(totalRequiredMoney)}</td>
             <td style="padding:8px 4px;font-weight:900;color:${missingCostRows.length?"var(--amber)":"var(--green)"};">${missingCostRows.length?`${missingCostRows.length} costos por definir`:"Costos completos"}</td>
           </tr>
@@ -9181,15 +9303,22 @@ function renderRequerimientoCompra() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start;">
       <div class="card" style="padding:12px;">
         <div class="section-title" style="margin-bottom:8px;">3. Plan de acción de compras</div>
-        ${actions.length ? actions.map(row=>`
+        ${actions.length ? actions.map(row=>{
+          const coveredByTransit = row.shortage <= 0 && Number(row.transitQty||0) > 0;
+          const title = coveredByTransit
+            ? `Esperar llegada de ${formatMaterialQty(Math.min(row.physicalShortage,row.transitQty),row.unit)} de ${row.name}`
+            : `Comprar ${formatMaterialQty(row.shortage,row.unit)} de ${row.name}`;
+          const value = coveredByTransit ? "En tránsito" : row.requiredMoney>0 ? fmt(row.requiredMoney) : "Costo pendiente";
+          const color = coveredByTransit ? "var(--amber)" : "var(--purple)";
+          return `
           <div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--lavender-light);">
             <div>
-              <div style="font-weight:900;color:var(--purple);font-size:12px;">Comprar ${formatMaterialQty(row.shortage,row.unit)} de ${row.name}</div>
+              <div style="font-weight:900;color:${color};font-size:12px;">${title}</div>
               <div style="font-size:10px;color:var(--gray);font-weight:700;">Para: ${row.sourceNames.slice(0,4).join(" · ")}</div>
             </div>
-            <div style="text-align:right;font-weight:900;color:var(--purple);">${row.requiredMoney>0?fmt(row.requiredMoney):"Costo pendiente"}</div>
+            <div style="text-align:right;font-weight:900;color:${color};">${value}</div>
           </div>
-        `).join("") : `<div style="font-size:12px;color:var(--green);font-weight:900;">El plan está cubierto con el stock actual registrado en Materiales.</div>`}
+        `}).join("") : `<div style="font-size:12px;color:var(--green);font-weight:900;">El plan está cubierto con el stock actual y las compras en tránsito.</div>`}
       </div>
       <div class="card" style="padding:12px;">
         <div class="section-title" style="margin-bottom:8px;">Proveedor sugerido</div>
@@ -11633,6 +11762,7 @@ function bindApp() {
   });
 
   // Materias primas y materiales
+  document.getElementById("material-master-code")?.addEventListener("change",e=>{ applyMaterialMasterSelection(e.target.value); render(); });
   document.getElementById("material-nombre")?.addEventListener("input",e=>{ state.materialNombre=e.target.value; });
   document.getElementById("material-categoria")?.addEventListener("change",e=>{ state.materialCategoria=e.target.value; });
   document.getElementById("material-unidad")?.addEventListener("input",e=>{ state.materialUnidad=e.target.value; });
@@ -11647,6 +11777,7 @@ function bindApp() {
       const mat = (state.materials||[]).find(m=>m.id===btn.dataset.materialEdit);
       if(!mat) return;
       state.editingMaterial = mat.id;
+      state.materialMasterCode = mat.materialCode || "";
       state.materialNombre = mat.nombre||"";
       state.materialCategoria = mat.categoria||"materia_prima";
       state.materialUnidad = mat.unidad||"unidad";
@@ -12673,6 +12804,7 @@ async function handleKardexEntrada() {
 
 function resetMaterialForm() {
   state.editingMaterial = null;
+  state.materialMasterCode = "";
   state.materialNombre = "";
   state.materialCategoria = "materia_prima";
   state.materialUnidad = "unidad";
@@ -12682,19 +12814,49 @@ function resetMaterialForm() {
   state.materialNota = "";
 }
 
+function applyMaterialMasterSelection(code) {
+  state.materialMasterCode = code || "";
+  if (!code || code === "__manual__") {
+    state.editingMaterial = null;
+    if (code === "__manual__") {
+      state.materialNombre = "";
+      state.materialCategoria = "materia_prima";
+      state.materialUnidad = "unidad";
+      state.materialCosto = "";
+      state.materialNota = "";
+    }
+    return;
+  }
+
+  const master = PACKAGING_MATERIAL_MASTER[code];
+  if (!master) return;
+  const existing = (state.materials||[]).find(m=>m.materialCode===code || m.id===`MAT-${code}`);
+  state.editingMaterial = existing?.id || null;
+  state.materialNombre = existing?.nombre || master.name;
+  state.materialCategoria = existing?.categoria || "envase";
+  state.materialUnidad = existing?.unidad || master.unit || "uds";
+  state.materialStock = existing ? String(existing.stock ?? "") : "";
+  state.materialMinimo = existing ? String(existing.minimo ?? "") : "";
+  state.materialCosto = existing ? String(existing.costoUnitario ?? "") : String(master.costToAgent || master.costExw || "");
+  state.materialNota = existing?.nota || `Material parametrizado ${code}`;
+}
+
 async function handleMaterialSave() {
   if (state.materialSaving) return;
-  const nombre = state.materialNombre.trim();
+  const masterCode = state.materialMasterCode && state.materialMasterCode !== "__manual__" ? state.materialMasterCode : "";
+  const master = masterCode ? PACKAGING_MATERIAL_MASTER[masterCode] : null;
+  const nombre = (master?.name || state.materialNombre).trim();
   if (!nombre) { showToast("Ingresa el nombre del material","err"); return; }
 
   const material = {
-    id: state.editingMaterial || genId(),
+    id: state.editingMaterial || (masterCode ? `MAT-${masterCode}` : genId()),
+    materialCode: masterCode,
     nombre,
-    categoria: state.materialCategoria || "materia_prima",
-    unidad: (state.materialUnidad || "unidad").trim(),
+    categoria: masterCode ? "envase" : (state.materialCategoria || "materia_prima"),
+    unidad: (master?.unit || state.materialUnidad || "unidad").trim(),
     stock: parseFloat(state.materialStock)||0,
     minimo: parseFloat(state.materialMinimo)||0,
-    costoUnitario: parseFloat(state.materialCosto)||0,
+    costoUnitario: parseFloat(state.materialCosto)||Number(master?.costToAgent||master?.costExw||0),
     nota: state.materialNota.trim(),
     actualizadoPor: state.user?.email||"",
     actualizadoEn: new Date().toISOString(),
@@ -12743,9 +12905,9 @@ function setupListeners(userInfo) {
   const sellingContext = !!state.selectedStand && sellingTabs.includes(activeTab);
   const lightTabs = ["worlds","world","cambiar"];
   const needsInventory = ["dashboard","pos","jornada","inventario","stock_seguro","requerimiento_compra","bodega","despachar"].includes(activeTab);
-  const needsSales = ["dashboard","pos","jornada","ventas","forecast","produccion","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"].includes(activeTab);
+  const needsSales = ["dashboard","jornada","ventas","forecast","produccion","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"].includes(activeTab);
   const needsJornadas = activeTab === "jornada";
-  const needsConfig = !lightTabs.includes(activeTab);
+  const needsConfig = ["dashboard","pos","ventas","forecast","produccion","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad","historico_ventas"].includes(activeTab);
   const needsFinance = !!userInfo.canFinanzas && ["finanzas","rentabilidad","ventas","planificacion_ventas"].includes(activeTab);
   const needsKardex = (userInfo.role==="full" || userInfo.role==="bodega") && ["kardex","bodega","despachar"].includes(activeTab);
   const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega" || userInfo.role==="admin") && ["materiales","produccion","requerimiento_compra","compras"].includes(activeTab);
@@ -12767,20 +12929,33 @@ function setupListeners(userInfo) {
 
   // Listen to all inventories
   if (needsInventory) {
-    state.unsubInventory = db.collection("inventarios").onSnapshot(snap=>{
-      snap.forEach(doc=>{ state.inventory[doc.id]=doc.data(); });
-      ensureRotativaInventoryMigrated().catch(e=>console.warn("Migración Bodega Rotativa no aplicada:", e));
-      render();
-    });
+    const canUseSingleInventoryDoc = (userInfo.role==="asesor" || userInfo.fixedStand || (activeTab==="pos" || activeTab==="jornada")) && state.selectedStand && !["dashboard","stock_seguro","requerimiento_compra","bodega","despachar"].includes(activeTab);
+    if (canUseSingleInventoryDoc) {
+      const invSourceId = getActiveInvSourceId();
+      state.unsubInventory = db.collection("inventarios").doc(invSourceId).onSnapshot(doc=>{
+        state.inventory[invSourceId] = doc.exists ? (doc.data()||{}) : {};
+        render();
+      });
+    } else {
+      state.unsubInventory = db.collection("inventarios").onSnapshot(snap=>{
+        snap.forEach(doc=>{ state.inventory[doc.id]=doc.data(); });
+        ensureRotativaInventoryMigrated().catch(e=>console.warn("Migración Bodega Rotativa no aplicada:", e));
+        render();
+      });
+    }
   }
 
   if (needsSales) {
     // Ventas en vivo: para vender solo se escucha el punto seleccionado.
     let salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(LIVE_SALES_LIMIT);
-    if (["forecast","produccion","ventas","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"].includes(activeTab)) {
+    if (activeTab === "jornada" && state.selectedStand) {
+      salesQuery = db.collection("ventas")
+        .where("stand","==",state.selectedStand)
+        .where("fecha","==",today())
+        .limit(80);
+    } else if (["forecast","produccion","ventas","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"].includes(activeTab)) {
       salesQuery = db.collection("ventas").orderBy("timestamp","desc").limit(LIVE_FORECAST_SALES_LIMIT);
-    }
-    if((userInfo.role==="asesor" || userInfo.fixedStand || sellingContext) && state.selectedStand) {
+    } else if((userInfo.role==="asesor" || userInfo.fixedStand || sellingContext) && state.selectedStand) {
       salesQuery = db.collection("ventas")
         .where("stand","==",state.selectedStand)
         .orderBy("timestamp","desc")
@@ -12857,24 +13032,45 @@ function setupListeners(userInfo) {
   }
 }
 
-// ─── AUTH LISTENER ────────────────────────────────────────────
-auth.onAuthStateChanged(user=>{
-  if(user) {
-    const userEmail = (user.email||"").toLowerCase();
-    const userInfo = USERS[userEmail];
-    if(!userInfo) { auth.signOut(); state.loading=false; render(); return; }
-    state.user = user;
-    state.userInfo = userInfo;
-    if (userInfo.fixedStand) state.selectedStand = userInfo.fixedStand;
-    state.tab = "worlds";
-    state.world = null;
+function clearLoginSplashTimer() {
+  if (state.loginSplashTimer) {
+    clearTimeout(state.loginSplashTimer);
+    state.loginSplashTimer = null;
+  }
+  state.loginSplashActive = false;
+}
+
+function openAppAfterLoginSplash(userInfo) {
+  clearLoginSplashTimer();
+  state.loginSplashActive = true;
+  state.loading = true;
+  render();
+  state.loginSplashTimer = setTimeout(() => {
+    state.loginSplashTimer = null;
+    state.loginSplashActive = false;
     state.loading = false;
     setupListeners(userInfo);
     state.pendingSales = loadPendingSales();
     schedulePendingSalesRetry();
     processPendingSalesQueue();
     render();
+  }, LOGIN_SPLASH_MS);
+}
+
+// ─── AUTH LISTENER ────────────────────────────────────────────
+auth.onAuthStateChanged(user=>{
+  if(user) {
+    const userEmail = (user.email||"").toLowerCase();
+    const userInfo = USERS[userEmail];
+    if(!userInfo) { clearLoginSplashTimer(); auth.signOut(); state.loading=false; render(); return; }
+    state.user = user;
+    state.userInfo = userInfo;
+    if (userInfo.fixedStand) state.selectedStand = userInfo.fixedStand;
+    state.tab = "worlds";
+    state.world = null;
+    openAppAfterLoginSplash(userInfo);
   } else {
+    clearLoginSplashTimer();
     clearLiveListeners();
     state.listenerKey = "";
     state.user=null; state.userInfo=null;
