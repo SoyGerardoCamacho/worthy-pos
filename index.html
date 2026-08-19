@@ -6,8 +6,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY Control Center</title>
-<!-- v2026-08-19-login-diagnostics -->
-<meta name="app-version" content="2026-08-19-02">
+<!-- v2026-08-19-login-diagnostics-visible -->
+<meta name="app-version" content="2026-08-19-03">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY Control Center">
@@ -2352,7 +2352,7 @@ function formatDecimalLatam(value, decimals=2) {
 const fmt = n => `$${formatDecimalLatam(n, 2)}`;
 const fmtQty = (n, decimals=0) => formatDecimalLatam(n, decimals);
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-08-19-02";
+const APP_VERSION = "2026-08-19-03";
 const APP_UPDATED_LABEL = "Actualizado: 19 ago 2026";
 const LOGIN_SPLASH_MS = 3000;
 const PENDING_SALES_KEY = "worthy-pos-pending-sales-v1";
@@ -8464,6 +8464,7 @@ function renderCaja() {
 let state = {
   user: null,
   userInfo: null,
+  loginError: "",
   selectedStand: null,
   tab: "worlds",
   world: null,
@@ -9521,6 +9522,9 @@ function loginErrorMessage(error, email) {
   if (code === "auth/network-request-failed") {
     return "No hay conexión con Firebase. Revisa internet e intenta nuevamente.";
   }
+  if (code === "app/login-timeout") {
+    return "Firebase está tardando demasiado en responder. Revisa internet, recarga la app e intenta otra vez.";
+  }
   return "No se pudo iniciar sesión. Revisa que el usuario exista en Firebase Authentication y que la clave sea correcta.";
 }
 
@@ -9542,7 +9546,7 @@ function renderLogin() {
         <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="btn-primary" id="login-btn">Ingresar</button>
-      <div class="login-error" id="login-error"></div>
+      <div class="login-error" id="login-error">${safeText(state.loginError||"")}</div>
     </div>
   </div>`;
 }
@@ -9554,12 +9558,19 @@ function bindLogin() {
     const pwd = document.getElementById("login-pwd").value;
     const err = document.getElementById("login-error");
     if (!email||!pwd) { err.textContent="Ingresa correo y contraseña"; return; }
+    state.loginError = "";
+    err.textContent = "Validando usuario en Firebase...";
     btn.disabled = true; btn.textContent = "Ingresando...";
     try {
-      await auth.signInWithEmailAndPassword(email, pwd);
+      await Promise.race([
+        auth.signInWithEmailAndPassword(email, pwd),
+        new Promise((_, reject)=>setTimeout(()=>reject({ code:"app/login-timeout" }), 15000))
+      ]);
+      err.textContent = "Usuario validado. Abriendo sistema...";
     } catch(e) {
       console.warn("Login error", e?.code, e?.message);
-      err.textContent = loginErrorMessage(e, email);
+      state.loginError = loginErrorMessage(e, email);
+      err.textContent = state.loginError;
       btn.disabled = false; btn.textContent = "Ingresar";
     }
   };
@@ -18602,7 +18613,15 @@ auth.onAuthStateChanged(user=>{
   if(user) {
     const userEmail = (user.email||"").toLowerCase();
     const userInfo = USERS[userEmail];
-    if(!userInfo) { clearLoginSplashTimer(); auth.signOut(); state.loading=false; render(); return; }
+    if(!userInfo) {
+      clearLoginSplashTimer();
+      state.loginError = `El correo ${userEmail} existe en Firebase, pero no está autorizado dentro de WORTHY Control Center.`;
+      auth.signOut();
+      state.loading=false;
+      render();
+      return;
+    }
+    state.loginError = "";
     state.user = user;
     state.userInfo = userInfo;
     if (userInfo.fixedStand) state.selectedStand = userInfo.fixedStand;
