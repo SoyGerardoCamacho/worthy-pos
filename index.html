@@ -4551,6 +4551,8 @@ function renderInventoryPurchasePlanning() {
   const groupRows = getInvPlanGroupedMoqRows(rows);
   const leadDays = getInvPlanLeadTimeDays();
   const period = state.invPlanPeriod || "ultimos90";
+  const salesPlanVisual = getPurchaseProductionPlanRows();
+  const salesPlanMaterialRows = getPurchaseRequirementMaterialRows(salesPlanVisual.rows);
   const totals = {
     physical: rows.reduce((sum,row)=>sum+Number(row.physical||0),0),
     monthlyBase: rows.reduce((sum,row)=>sum+Number(row.monthlyBase||0),0),
@@ -4572,6 +4574,8 @@ function renderInventoryPurchasePlanning() {
         </div>
       </div>
     </div>
+
+    ${renderAbastecimientoPlanDashboard(salesPlanVisual, salesPlanMaterialRows)}
 
     <div class="card" style="padding:12px;margin-bottom:12px;">
       <div class="section-title" style="margin-bottom:8px;">1. Base de demanda</div>
@@ -13899,6 +13903,7 @@ function renderAbastecimientoPlanDashboard(plan, materialRows) {
     const total = skuRows.reduce((sum,r)=>sum+r.units,0);
     return { month, skuRows, total };
   });
+  const maxMonthTotal = Math.max(1, ...monthSkuRows.map(row=>row.total));
   const totalDemand = rows.reduce((sum,row)=>sum+Number(row.projectedUnits||0),0);
   const totalFinishedStock = rows.reduce((sum,row)=>sum+Number(row.stock||0),0);
   const requiredMaterials = materialRows.reduce((sum,row)=>sum+Number(row.required||0),0);
@@ -13906,6 +13911,36 @@ function renderAbastecimientoPlanDashboard(plan, materialRows) {
   const materialCoveragePct = requiredMaterials > 0 ? Math.min(100, coveredMaterials/requiredMaterials*100) : 100;
   const finishedCoveragePct = totalDemand > 0 ? Math.min(100, totalFinishedStock/totalDemand*100) : 100;
   const totalRequiredMoney = materialRows.reduce((sum,row)=>sum+Number(row.requiredMoney||0),0);
+  const transitBySku = getTransitBySkuForInventoryPlan();
+  const planCoverageRows = rows
+    .map((row,idx)=>{
+      const planUnits = Number(row.projectedUnits||0);
+      const finishedStock = Number(row.stock||0);
+      const materialCodes = PRODUCTION_PACKAGING_MATERIALS[row.product.id] || [];
+      const physicalMaterials = materialCodes.reduce((sum,code)=>sum+getMaterialStockByCode(code),0);
+      const transitQty = Number(transitBySku[row.product.id]?.qty||0);
+      const finishedPct = planUnits > 0 ? Math.min(999, finishedStock/planUnits*100) : 100;
+      const materialPhysicalPct = planUnits > 0 ? Math.min(999, physicalMaterials/planUnits*100) : 100;
+      const materialExpectedPct = planUnits > 0 ? Math.min(999, (physicalMaterials+transitQty)/planUnits*100) : 100;
+      return {
+        ...row,
+        color:palette[idx%palette.length],
+        planUnits,
+        finishedStock,
+        physicalMaterials,
+        transitQty,
+        finishedPct,
+        materialPhysicalPct,
+        materialExpectedPct
+      };
+    })
+    .filter(row=>row.planUnits>0)
+    .sort((a,b)=>Number(b.planUnits||0)-Number(a.planUnits||0));
+  const packagingPlanUnits = planCoverageRows.reduce((sum,row)=>sum+row.planUnits,0);
+  const packagingPhysicalCovered = planCoverageRows.reduce((sum,row)=>sum+Math.min(row.planUnits,row.physicalMaterials),0);
+  const packagingExpectedCovered = planCoverageRows.reduce((sum,row)=>sum+Math.min(row.planUnits,row.physicalMaterials+row.transitQty),0);
+  const packagingPhysicalPct = packagingPlanUnits > 0 ? Math.min(100, packagingPhysicalCovered/packagingPlanUnits*100) : 100;
+  const packagingExpectedPct = packagingPlanUnits > 0 ? Math.min(100, packagingExpectedCovered/packagingPlanUnits*100) : 100;
   const categoryRows = PRODUCTION_CATEGORIES.map(cat=>{
     const units = rows
       .filter(row=>cat.productIds.includes(row.product.id))
@@ -13917,12 +13952,55 @@ function renderAbastecimientoPlanDashboard(plan, materialRows) {
     .map((row,idx)=>({ ...row, color:palette[idx%palette.length] }))
     .sort((a,b)=>Number(b.projectedUnits||0)-Number(a.projectedUnits||0))
     .slice(0,8);
+  const categoryDashboardRows = PRODUCTION_CATEGORIES.map(cat=>{
+    const catRows = planCoverageRows.filter(row=>cat.productIds.includes(row.product.id));
+    const planUnits = catRows.reduce((sum,row)=>sum+row.planUnits,0);
+    const finishedStock = catRows.reduce((sum,row)=>sum+row.finishedStock,0);
+    const materialPhysical = catRows.reduce((sum,row)=>sum+row.physicalMaterials,0);
+    const materialTransit = catRows.reduce((sum,row)=>sum+row.transitQty,0);
+    const materialExpected = materialPhysical + materialTransit;
+    const finishedGap = finishedStock - planUnits;
+    const unitsToProduce = Math.max(0, planUnits - finishedStock);
+    const materialGap = materialExpected - unitsToProduce;
+    return {
+      ...cat,
+      planUnits,
+      finishedStock,
+      materialPhysical,
+      materialTransit,
+      materialExpected,
+      finishedGap,
+      unitsToProduce,
+      materialGap
+    };
+  }).filter(row=>row.planUnits>0).sort((a,b)=>a.materialGap-b.materialGap || a.finishedGap-b.finishedGap);
+  const maxCategoryDashboardUnits = Math.max(
+    1,
+    ...categoryDashboardRows.map(row=>Math.max(row.planUnits,row.finishedStock,row.materialExpected))
+  );
+  const skuGapRows = planCoverageRows.map(row=>{
+    const unitsToProduce = Math.max(0, row.planUnits - row.finishedStock);
+    const materialExpected = row.physicalMaterials + row.transitQty;
+    const finishedGap = row.finishedStock - row.planUnits;
+    const materialGap = materialExpected - unitsToProduce;
+    let status = "Cubierto";
+    let color = "var(--green)";
+    if(finishedGap < 0 && materialGap >= 0) {
+      status = "Producir";
+      color = "var(--amber)";
+    }
+    if(finishedGap < 0 && materialGap < 0) {
+      status = "Comprar";
+      color = "var(--red)";
+    }
+    return { ...row, unitsToProduce, materialExpected, finishedGap, materialGap, status, statusColor:color };
+  }).sort((a,b)=>a.materialGap-b.materialGap || a.finishedGap-b.finishedGap).slice(0,8);
 
   return `<div class="card" style="padding:14px;margin-bottom:12px;border:2px solid rgba(42,23,104,.18);">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;">
       <div>
         <div class="section-title" style="margin-bottom:2px;">Dashboard gráfico del plan</div>
-        <div style="font-size:12px;color:var(--gray);font-weight:800;">Plan de ventas conectado · ${months.length ? `${salesPlanMonthLabel(months[0])} → ${salesPlanMonthLabel(months[months.length-1])}` : "sin meses"} · unidades por SKU.</div>
+        <div style="font-size:12px;color:var(--gray);font-weight:800;">Plan de ventas conectado · ${months.length ? `${salesPlanMonthLabel(months[0])} → ${salesPlanMonthLabel(months[months.length-1])}` : "sin meses"} · unidades por mes, categoría y SKU.</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">
@@ -13943,7 +14021,8 @@ function renderAbastecimientoPlanDashboard(plan, materialRows) {
       ${[
         ["Demanda del período", `${totalDemand.toFixed(0)} uds`, "Plan comercial por SKU", "var(--purple)"],
         ["Producto terminado", `${finishedCoveragePct.toFixed(0)}%`, `${totalFinishedStock.toFixed(0)} uds contra plan`, finishedCoveragePct>=100?"var(--green)":finishedCoveragePct>=60?"var(--amber)":"var(--red)"],
-        ["Materiales cubiertos", `${materialCoveragePct.toFixed(0)}%`, "Stock físico + tránsito esperado", materialCoveragePct>=100?"var(--green)":materialCoveragePct>=60?"var(--amber)":"var(--red)"],
+        ["Materiales físicos", `${packagingPhysicalPct.toFixed(0)}%`, "Empaques disponibles hoy", packagingPhysicalPct>=100?"var(--green)":packagingPhysicalPct>=60?"var(--amber)":"var(--red)"],
+        ["Materiales con tránsito", `${packagingExpectedPct.toFixed(0)}%`, "Disponible hoy + compras en camino", packagingExpectedPct>=100?"var(--green)":packagingExpectedPct>=60?"var(--amber)":"var(--red)"],
         ["Dinero por comprar", fmt(totalRequiredMoney), "Faltante real después del tránsito", totalRequiredMoney>0?"var(--red)":"var(--green)"]
       ].map(([label,value,note,color])=>`
         <div style="border-radius:16px;padding:14px;background:linear-gradient(135deg,rgba(42,23,104,.08),rgba(193,207,0,.10));border:1.5px solid var(--lavender);">
@@ -13953,18 +14032,101 @@ function renderAbastecimientoPlanDashboard(plan, materialRows) {
         </div>
       `).join("")}
     </div>
+    <div style="border:2px solid var(--purple);border-radius:18px;padding:14px;background:linear-gradient(135deg,rgba(42,23,104,.04),rgba(193,207,0,.08));margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;">
+        <div>
+          <div style="font-size:14px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.8px;">Tablero inicial de cumplimiento</div>
+          <div style="font-size:12px;color:var(--gray);font-weight:800;margin-top:3px;">Secuencia ejecutiva: plan de ventas → producto terminado → materiales físicos y en tránsito → diferencia para cumplir el período.</div>
+        </div>
+        <div style="font-size:12px;color:var(--gray);font-weight:900;background:white;border:1.5px solid var(--lavender);border-radius:999px;padding:8px 12px;">${months.length ? `${salesPlanMonthLabel(months[0])} a ${salesPlanMonthLabel(months[months.length-1])}` : "Sin período"}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">
+        ${categoryDashboardRows.length ? categoryDashboardRows.map(row=>{
+          const finishedPct = Math.min(100, row.finishedStock/maxCategoryDashboardUnits*100);
+          const physicalPct = Math.min(100, row.materialPhysical/maxCategoryDashboardUnits*100);
+          const expectedPct = Math.min(100, row.materialExpected/maxCategoryDashboardUnits*100);
+          const statusText = row.finishedGap >= 0
+            ? `A favor PT ${row.finishedGap.toFixed(0)} uds`
+            : row.materialGap >= 0
+              ? `Producir ${row.unitsToProduce.toFixed(0)} uds`
+              : `Faltan materiales ${Math.abs(row.materialGap).toFixed(0)} uds`;
+          const statusColor = row.finishedGap >= 0 ? "var(--green)" : row.materialGap >= 0 ? "var(--amber)" : "var(--red)";
+          return `<div style="border:1.5px solid var(--lavender);border-radius:16px;background:white;padding:12px;">
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;">
+              <div style="font-size:13px;color:var(--purple);font-weight:1000;">${row.label}</div>
+              <div style="font-size:11px;color:white;background:${statusColor};border-radius:999px;padding:5px 9px;font-weight:1000;">${statusText}</div>
+            </div>
+            <div style="display:grid;gap:8px;">
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:var(--gray);"><span>Plan ventas</span><span>${row.planUnits.toFixed(0)} uds</span></div>
+                <div style="height:11px;border-radius:999px;background:var(--lavender-light);overflow:hidden;margin-top:4px;"><div style="width:${Math.max(4,row.planUnits/maxCategoryDashboardUnits*100)}%;height:100%;background:var(--purple);"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:var(--gray);"><span>Producto terminado</span><span>${row.finishedStock.toFixed(0)} uds</span></div>
+                <div style="height:11px;border-radius:999px;background:var(--lavender-light);overflow:hidden;margin-top:4px;"><div style="width:${Math.max(row.finishedStock?4:0,finishedPct)}%;height:100%;background:${row.finishedGap>=0?"var(--green)":"var(--red)"};"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:var(--gray);"><span>Material físico + tránsito</span><span>${row.materialPhysical.toFixed(0)} + ${row.materialTransit.toFixed(0)} uds</span></div>
+                <div style="height:11px;border-radius:999px;background:var(--lavender-light);overflow:hidden;margin-top:4px;position:relative;">
+                  <div style="width:${Math.max(row.materialExpected?4:0,expectedPct)}%;height:100%;background:rgba(240,162,46,.38);"></div>
+                  <div style="width:${Math.max(row.materialPhysical?4:0,physicalPct)}%;height:100%;background:${row.materialGap>=0?"var(--green)":"var(--amber)"};position:absolute;left:0;top:0;"></div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        }).join("") : `<div style="font-size:12px;color:var(--gray);font-weight:800;">No hay plan de ventas con unidades para este período.</div>`}
+      </div>
+      ${skuGapRows.length ? `<div style="margin-top:14px;">
+        <div style="font-size:12px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Brechas principales por SKU</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:760px;">
+            <thead>
+              <tr style="border-bottom:2px solid var(--lavender);">
+                <th style="text-align:left;padding:8px 6px;color:var(--gray);font-weight:1000;">SKU</th>
+                <th style="text-align:right;padding:8px 6px;color:var(--gray);font-weight:1000;">Plan ventas</th>
+                <th style="text-align:right;padding:8px 6px;color:var(--gray);font-weight:1000;">Producto terminado</th>
+                <th style="text-align:right;padding:8px 6px;color:var(--gray);font-weight:1000;">A producir</th>
+                <th style="text-align:right;padding:8px 6px;color:var(--gray);font-weight:1000;">Material esperado</th>
+                <th style="text-align:right;padding:8px 6px;color:var(--gray);font-weight:1000;">Diferencia</th>
+                <th style="text-align:right;padding:8px 6px;color:var(--gray);font-weight:1000;">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${skuGapRows.map(row=>`
+                <tr style="border-bottom:1px solid var(--lavender-light);">
+                  <td style="padding:8px 6px;font-weight:1000;color:var(--purple);">${row.product.ref}<div style="font-size:10px;color:var(--gray);font-weight:800;">${safeText(row.product.name)} ${safeText(row.product.sub)}</div></td>
+                  <td style="text-align:right;padding:8px 6px;font-weight:900;color:var(--purple);">${row.planUnits.toFixed(0)}</td>
+                  <td style="text-align:right;padding:8px 6px;font-weight:900;color:${row.finishedGap>=0?"var(--green)":"var(--red)"};">${row.finishedStock.toFixed(0)}</td>
+                  <td style="text-align:right;padding:8px 6px;font-weight:900;color:var(--amber);">${row.unitsToProduce.toFixed(0)}</td>
+                  <td style="text-align:right;padding:8px 6px;font-weight:900;color:var(--gray);">${row.materialExpected.toFixed(0)}</td>
+                  <td style="text-align:right;padding:8px 6px;font-weight:1000;color:${row.materialGap>=0?"var(--green)":"var(--red)"};">${row.materialGap>=0?"+":""}${row.materialGap.toFixed(0)}</td>
+                  <td style="text-align:right;padding:8px 6px;"><span style="display:inline-block;border-radius:999px;background:${row.statusColor};color:white;font-weight:1000;padding:5px 9px;">${row.status}</span></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ""}
+    </div>
     <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.9fr);gap:12px;align-items:start;">
       <div style="border:1.5px solid var(--lavender);border-radius:14px;padding:12px;overflow:hidden;">
-        <div style="font-size:12px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Plan de ventas por mes y SKU</div>
-        ${monthSkuRows.length ? monthSkuRows.map(monthRow=>`
-          <div style="display:grid;grid-template-columns:110px 1fr 78px;gap:10px;align-items:center;margin-bottom:10px;">
-            <div style="font-size:12px;color:var(--gray);font-weight:1000;">${salesPlanMonthLabel(monthRow.month)}</div>
-            <div style="height:34px;border-radius:999px;background:var(--lavender-light);overflow:hidden;display:flex;box-shadow:inset 0 0 0 1px rgba(42,23,104,.08);">
-              ${monthRow.skuRows.map(r=>`<div title="${escapeAttr(r.product.ref)} · ${r.units.toFixed(0)} uds" style="width:${monthRow.total>0?Math.max(3,r.units/monthRow.total*100):0}%;background:${r.color};display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:1000;min-width:${r.units/monthRow.total>0.16?"34px":"0"};">${r.units/monthRow.total>0.16?r.product.ref:""}</div>`).join("")}
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;">
+          <div style="font-size:12px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;">Plan de ventas en unidades por mes y SKU</div>
+          <div style="font-size:11px;color:var(--gray);font-weight:900;">Cada color = un SKU</div>
+        </div>
+        ${monthSkuRows.length ? `<div style="display:grid;grid-template-columns:repeat(${Math.max(1,monthSkuRows.length)},minmax(92px,1fr));gap:12px;align-items:end;min-height:300px;">
+          ${monthSkuRows.map(monthRow=>`
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;">
+              <div style="font-size:25px;line-height:1;color:var(--purple);font-weight:1000;">${monthRow.total.toFixed(0)}</div>
+              <div style="height:220px;width:100%;display:flex;align-items:end;justify-content:center;">
+                <div style="height:${Math.max(12,monthRow.total/maxMonthTotal*210)}px;width:min(100%,120px);border-radius:14px 14px 6px 6px;background:var(--lavender-light);overflow:hidden;display:flex;flex-direction:column-reverse;box-shadow:inset 0 0 0 1px rgba(42,23,104,.08);">
+                  ${monthRow.skuRows.map(r=>`<div title="${escapeAttr(r.product.ref)} · ${r.units.toFixed(0)} uds" style="flex:${Math.max(.01,r.units)};min-height:${r.units/monthRow.total>0.11?"22px":"5px"};background:${r.color};display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:1000;">${r.units/monthRow.total>0.14?r.product.ref:""}</div>`).join("")}
+                </div>
+              </div>
+              <div style="font-size:12px;color:var(--gray);font-weight:1000;text-align:center;">${salesPlanMonthLabel(monthRow.month)}</div>
             </div>
-            <div style="font-size:18px;color:var(--purple);font-weight:1000;text-align:right;">${monthRow.total.toFixed(0)}</div>
-          </div>
-        `).join("") : `<div style="font-size:12px;color:var(--gray);font-weight:800;">Sin unidades planificadas para mostrar.</div>`}
+          `).join("")}
+        </div>` : `<div style="font-size:12px;color:var(--gray);font-weight:800;">Sin unidades planificadas para mostrar.</div>`}
       </div>
       <div style="border:1.5px solid var(--lavender);border-radius:14px;padding:12px;">
         <div style="font-size:12px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Demanda por categoría</div>
@@ -13980,9 +14142,37 @@ function renderAbastecimientoPlanDashboard(plan, materialRows) {
         `).join("") : `<div style="font-size:12px;color:var(--gray);font-weight:800;">Sin categorías con demanda.</div>`}
       </div>
     </div>
+    ${planCoverageRows.length ? `<div style="border:1.5px solid var(--lavender);border-radius:14px;padding:12px;margin-top:12px;">
+      <div style="font-size:12px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Cobertura contra el plan seleccionado</div>
+      <div style="font-size:11px;color:var(--gray);font-weight:800;margin-bottom:10px;">Producto terminado = unidades listas para vender. Materiales = empaques parametrizados para poder producir; tránsito se ve separado porque todavía no está disponible físicamente.</div>
+      <div style="display:grid;gap:8px;">
+        ${planCoverageRows.slice(0,10).map(row=>`
+          <div style="display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(180px,1fr) minmax(180px,1fr);gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;">
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;color:var(--purple);font-weight:1000;font-size:12px;"><span style="width:10px;height:10px;border-radius:50%;background:${row.color};"></span>${row.product.ref}</div>
+              <div style="font-size:11px;color:var(--gray);font-weight:800;">${safeText(row.product.name)} · plan ${row.planUnits.toFixed(0)} uds</div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:var(--gray);"><span>Producto terminado</span><span>${row.finishedStock.toFixed(0)} uds · ${row.finishedPct.toFixed(0)}%</span></div>
+              <div style="height:10px;border-radius:999px;background:var(--lavender-light);overflow:hidden;margin-top:4px;"><div style="width:${Math.min(100,row.finishedPct)}%;height:100%;background:${row.finishedPct>=100?"var(--green)":row.finishedPct>=60?"var(--amber)":"var(--red)"};"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:var(--gray);"><span>Material físico / con tránsito</span><span>${row.materialPhysicalPct.toFixed(0)}% / ${row.materialExpectedPct.toFixed(0)}%</span></div>
+              <div style="height:10px;border-radius:999px;background:var(--lavender-light);overflow:hidden;margin-top:4px;position:relative;">
+                <div style="width:${Math.min(100,row.materialExpectedPct)}%;height:100%;background:rgba(240,162,46,.35);"></div>
+                <div style="width:${Math.min(100,row.materialPhysicalPct)}%;height:100%;background:${row.materialPhysicalPct>=100?"var(--green)":row.materialPhysicalPct>=60?"var(--amber)":"var(--red)"};position:absolute;left:0;top:0;"></div>
+              </div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>` : ""}
     ${topSkuRows.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
       ${topSkuRows.map(row=>`<span style="display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--lavender);border-radius:999px;padding:7px 10px;font-size:11px;color:var(--purple);font-weight:1000;background:white;"><span style="width:10px;height:10px;border-radius:50%;background:${row.color};"></span>${row.product.ref} · ${Number(row.projectedUnits||0).toFixed(0)} uds</span>`).join("")}
     </div>` : ""}
+    <div style="margin-top:10px;border-radius:12px;background:#F7F1FF;border:1px solid var(--lavender);padding:10px 12px;font-size:12px;color:var(--purple);font-weight:850;line-height:1.45;">
+      Lectura: primero mira la demanda total por mes. Luego valida si esa demanda está cubierta con producto terminado y si existen materiales suficientes para producir lo que falta. El tránsito ayuda a planificar, pero no cuenta como inventario físico disponible.
+    </div>
   </div>`;
 }
 
@@ -14280,7 +14470,12 @@ function renderProduccion() {
     </div>
     <div style="font-size:12px;color:var(--gray);font-weight:800;margin-bottom:10px;">Si necesitas cambiar los meses, metas o canales, hazlo en BI → Planificación de ventas.</div>
     `}
-    <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:10px;">Base seleccionada: ${demandModeLabel} · ${periodLabel} · ${productionSource==="sales_plan"?"Venta proyectada por SKU + colchón de inventario":"Consumo total de todos los puntos"}</div>
+    <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:10px;">Base seleccionada: ${demandModeLabel} · ${periodLabel} · ${productionSource==="sales_plan"?"Venta proyectada por SKU + stock final objetivo":"Consumo total de todos los puntos"}</div>
+    ${productionSource==="sales_plan"?`
+      <div style="border-radius:14px;background:#F7F1FF;border:1.5px solid var(--lavender);padding:12px;margin-bottom:12px;color:var(--purple);font-size:12px;font-weight:850;line-height:1.45;">
+        Cómo se leen los días objetivo: si eliges septiembre a diciembre y pones 30 días, el sistema calcula la producción necesaria para vender septiembre, octubre, noviembre y diciembre, y además terminar diciembre con inventario para 30 días más. Es un stock final de protección, no un reemplazo del período proyectado.
+      </div>
+    `:""}
     <div class="section-title" style="margin-top:8px;">Proyecto especial</div>
     <div class="period-filter" style="margin:0 0 10px 0;flex-wrap:wrap;">
       <button class="period-btn ${!state.productionIncludeSpecialProject?"active":""}" data-production-special-project="off">No incluir</button>
@@ -14322,7 +14517,7 @@ function renderProduccion() {
         <div style="font-size:11px;color:var(--gray);font-weight:700;">unidades/día</div>
       </div>
       <div style="background:var(--lavender-light);border-radius:12px;padding:12px;">
-        <div style="font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">${productionSource==="sales_plan"?"Plan + colchón":"Requerimiento"} ${state.productionDays} días</div>
+        <div style="font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">${productionSource==="sales_plan"?"Plan + stock final":"Requerimiento"} ${state.productionDays} días</div>
         <div style="font-size:24px;color:var(--purple);font-weight:900;">${totalProjected.toFixed(1)}</div>
         <div style="font-size:11px;color:var(--gray);font-weight:700;">unidades</div>
       </div>
