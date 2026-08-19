@@ -6,8 +6,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WORTHY Control Center</title>
-<!-- v2026-08-06-control-center-direction -->
-<meta name="app-version" content="2026-08-06-02">
+<!-- v2026-08-19-login-diagnostics -->
+<meta name="app-version" content="2026-08-19-02">
 <meta name="theme-color" content="#9504FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WORTHY Control Center">
@@ -110,9 +110,19 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--off-
 .crm-pill { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:7px 11px; background:#ECFCCB; color:#365314; font-size:12px; font-weight:900; }
 .crm-alert { border-radius:13px; background:#FEF3C7; color:#92400E; padding:11px 13px; font-size:13px; font-weight:850; line-height:1.35; }
 .crm-empty { padding:18px; border:1.5px dashed var(--lavender); border-radius:14px; color:var(--gray); font-weight:800; background:#fbf9ff; }
+.crm-visual-grid { display:grid; grid-template-columns:1.05fr .95fr; gap:12px; margin-top:14px; }
+.crm-visual-card { background:#FFFFFF; border:1.5px solid var(--lavender); border-radius:16px; padding:15px; box-shadow:0 8px 24px rgba(45,27,105,.08); }
+.crm-visual-title { font-size:13px; font-weight:1000; color:var(--purple); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
+.crm-big-number { font-size:38px; line-height:1; color:var(--purple); font-weight:1000; letter-spacing:0; }
+.crm-donut { width:160px; height:160px; border-radius:50%; display:grid; place-items:center; margin:8px auto; box-shadow:inset 0 0 0 1px rgba(45,27,105,.10); }
+.crm-donut-hole { width:90px; height:90px; border-radius:50%; background:white; display:grid; place-items:center; text-align:center; padding:10px; box-shadow:0 4px 14px rgba(45,27,105,.10); }
+.crm-funnel-row { display:grid; grid-template-columns:92px minmax(0,1fr) 62px; gap:8px; align-items:center; margin:9px 0; }
+.crm-funnel-bar { height:28px; border-radius:9px; overflow:hidden; background:var(--lavender-light); border:1px solid var(--lavender); }
+.crm-funnel-fill { height:100%; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; color:white; font-size:11px; font-weight:1000; border-radius:8px; }
 @media (max-width: 720px) {
   .grid-4 { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .grid-2 { grid-template-columns:1fr; }
+  .crm-visual-grid { grid-template-columns:1fr; }
   .btn { flex:1 1 auto; }
   .crm-hero-title { font-size:22px; }
 }
@@ -1171,6 +1181,31 @@ th {
   background:#faf8ff;
 }
 
+thead th {
+  transition:background .15s ease,color .15s ease;
+}
+
+table.sortable-table thead th {
+  cursor:pointer;
+  user-select:none;
+}
+
+table.sortable-table thead th::after {
+  content:" ⇅";
+  font-size:.82em;
+  opacity:.38;
+}
+
+table.sortable-table thead th.sort-active {
+  background:var(--purple);
+  color:#fff !important;
+}
+
+table.sortable-table thead th.sort-active::after {
+  content:" ↓";
+  opacity:1;
+}
+
 tr:hover td {
   background:#fcfbff;
 }
@@ -1911,6 +1946,7 @@ const USERS = {
   "bodgas@worthy.com":  { role:"full",    name:"Bodega Central",emoji:"🏭", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "gerardo@worthy.com": { role:"full",    name:"Gerardo",       emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "rosita@worthy.com":  { role:"full",    name:"Rosita",        emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
+  "santy@worthy.com":   { role:"full",    name:"Santy",         emoji:"👤", canKardex:true,  canSell:true,  canBodega:true,  canFinanzas:true  },
   "asesor1@worthy.com": { role:"asesor",  name:"Asesor 1",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
   "asesor2@worthy.com": { role:"asesor",  name:"Asesor 2",      emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false },
   "aye@worthy.com":     { role:"venta_only", name:"Aye",        emoji:"👤", canKardex:false, canSell:true,  canBodega:false, canFinanzas:false, canStock:false, fixedStand:"quicentro" },
@@ -2316,14 +2352,14 @@ function formatDecimalLatam(value, decimals=2) {
 const fmt = n => `$${formatDecimalLatam(n, 2)}`;
 const fmtQty = (n, decimals=0) => formatDecimalLatam(n, decimals);
 const IVA_RATE = 0.15;
-const APP_VERSION = "2026-08-11-01";
-const APP_UPDATED_LABEL = "Actualizado: 11 ago 2026";
+const APP_VERSION = "2026-08-19-02";
+const APP_UPDATED_LABEL = "Actualizado: 19 ago 2026";
 const LOGIN_SPLASH_MS = 3000;
 const PENDING_SALES_KEY = "worthy-pos-pending-sales-v1";
 const PYG_MONTHLY_OVERRIDES_KEY = "worthy-pyg-monthly-overrides-v1";
 const RETRYABLE_ERROR_RE = /(quota|rate.?limit|resource.?exhausted|too many requests|deadline|unavailable|network|offline)/i;
-const LIVE_SALES_LIMIT = 350;
-const LIVE_STAND_SALES_LIMIT = 180;
+const LIVE_SALES_LIMIT = 2500;
+const LIVE_STAND_SALES_LIMIT = 500;
 const LIVE_FORECAST_SALES_LIMIT = 2500;
 const LIVE_JORNADAS_LIMIT = 120;
 const LIVE_KARDEX_LIMIT = 350;
@@ -2843,7 +2879,7 @@ function getCalendarWeekLabel(date) {
 }
 
 // period: "hoy" | "semana" | "mes" | "mesEspecifico" | "rango" | "todo"
-// Retorna {from,to} ISO inclusive. Semana siempre es lunes a domingo calendario.
+// Retorna {from,to} ISO inclusive. Semana es acumulada hasta hoy para no proyectar días futuros.
 function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
   const todayIso = today();
   const d = new Date(Date.now()-5*60*60*1000);
@@ -2852,8 +2888,7 @@ function getPeriodRange(period, mesAno, rangoDesde, rangoHasta) {
 
   if (period === "semana") {
     const monday = getMonday(d);
-    const sunday = new Date(monday); sunday.setDate(sunday.getDate()+6);
-    return { from: dateToIsoLocal(monday), to: dateToIsoLocal(sunday) };
+    return { from: dateToIsoLocal(monday), to: todayIso };
   }
 
   if (period === "mes") {
@@ -3283,6 +3318,9 @@ function defaultSalesPlanFixedCosts() {
     { id:"cumbaya_operador", name:"Guía / operador Cumbayá", type:"operator_daily", channelId:"cumbaya", amount:0 },
     { id:"puembo_arriendo", name:"Arriendo Puembo", type:"manual_monthly", amount:0 },
     { id:"puembo_operador", name:"Guía / operador Puembo", type:"operator_daily", channelId:"puembo", amount:0 },
+    { id:"condado_arriendo", name:"Arriendo Condado Shopping", type:"manual_monthly", amount:0, projectId:"condado_shopping" },
+    { id:"condado_operador", name:"Guía / operador Condado Shopping", type:"operator_daily", channelId:"condado_shopping", amount:0, projectId:"condado_shopping" },
+    { id:"condado_otros_fijos", name:"Otros costos Condado Shopping", type:"manual_monthly", amount:0, projectId:"condado_shopping" },
     { id:"bodega_arriendo", name:"Arriendo Bodega Central", type:"manual_monthly", amount:0 },
     { id:"otros_fijos", name:"Otros costos fijos", type:"manual_monthly", amount:0 },
   ];
@@ -3298,6 +3336,7 @@ function normalizeSalesPlanFixedCosts(costs) {
       ...(existing||{}),
       type: def.type,
       channelId: def.channelId,
+      projectId: def.projectId,
       amount: existing?.amount !== undefined ? Number(existing.amount||0) : def.amount,
       daysByMonth: (existing && typeof existing.daysByMonth === "object" && existing.daysByMonth) ? existing.daysByMonth : {},
       amountByMonth: (existing && typeof existing.amountByMonth === "object" && existing.amountByMonth) ? existing.amountByMonth : {}
@@ -3378,17 +3417,30 @@ function getDaysInMonthKey(monthKey) {
   return new Date(y || new Date().getFullYear(), m || 1, 0).getDate();
 }
 
+function isSpecialProjectCostActive(projectId, month) {
+  const project = SPECIAL_PROJECTS.find(p=>p.id===projectId);
+  const saved = state.specialProjects?.[projectId] || {};
+  if (!project) return true;
+  return !!saved.active && (project.months||[]).includes(month);
+}
+
 function getSalesPlanFixedCostRows(months, channels=[]) {
   return normalizeSalesPlanFixedCosts(state.salesPlanFixedCosts).map(cost=>{
     const byMonth = {};
     months.forEach((month,monthIndex)=>{
       const hasMonthAmount = cost.amountByMonth && Object.prototype.hasOwnProperty.call(cost.amountByMonth, month);
       const monthAmount = hasMonthAmount ? Number(cost.amountByMonth[month]||0) : Number(cost.amount||0);
+      const hasExplicitDays = cost.daysByMonth && Object.prototype.hasOwnProperty.call(cost.daysByMonth, month);
+      const projectCostActive = !cost.projectId || isSpecialProjectCostActive(cost.projectId, month) || hasMonthAmount || hasExplicitDays;
+      if (!projectCostActive) {
+        byMonth[month] = 0;
+        return;
+      }
       if(cost.type === "auto_rent_quicentro") {
         byMonth[month] = hasMonthAmount ? monthAmount : getQuicentroMonthlyRentBase(`${month}-01`);
       } else if(cost.type === "operator_daily") {
         const linkedChannel = channels.find(ch=>ch.id===cost.channelId);
-        const active = linkedChannel ? isSalesPlanChannelActive(linkedChannel, month, monthIndex) : true;
+        const active = linkedChannel ? isSalesPlanChannelActive(linkedChannel, month, monthIndex) : (cost.projectId ? projectCostActive : true);
         const defaultDays = active ? getDaysInMonthKey(month) : 0;
         const days = cost.daysByMonth?.[month] !== undefined ? Number(cost.daysByMonth[month]||0) : defaultDays;
         byMonth[month] = active ? Number(cost.amount||0) * days : 0;
@@ -3416,13 +3468,14 @@ function loadSalesPlanState() {
       rangoHasta: saved.rangoHasta || today(),
       matrixMetric: saved.matrixMetric || "units",
       matrixMonth: saved.matrixMonth || "total",
+      matrixStand: saved.matrixStand || "all",
       skuMetric: saved.skuMetric || "usd",
       fixedCosts: normalizeSalesPlanFixedCosts(saved.fixedCosts),
       channels: normalizeSalesPlanChannels(saved.channels)
     };
   } catch(e) {
     const d = new Date(today()+"T12:00:00"); d.setDate(d.getDate()-89);
-    return { month:today().slice(0,7), target:0, monthsCount:3, monthlyTargets:{}, monthlyExpenses:{}, period:"ultimos90", rangoDesde:dateToIsoLocal(d), rangoHasta:today(), matrixMetric:"units", matrixMonth:"total", skuMetric:"usd", fixedCosts:defaultSalesPlanFixedCosts(), channels:defaultSalesPlanChannels() };
+    return { month:today().slice(0,7), target:0, monthsCount:3, monthlyTargets:{}, monthlyExpenses:{}, period:"ultimos90", rangoDesde:dateToIsoLocal(d), rangoHasta:today(), matrixMetric:"units", matrixMonth:"total", matrixStand:"all", skuMetric:"usd", fixedCosts:defaultSalesPlanFixedCosts(), channels:defaultSalesPlanChannels() };
   }
 }
 
@@ -3439,6 +3492,7 @@ function saveSalesPlanState() {
       rangoHasta: state.salesPlanRangoHasta,
       matrixMetric: state.salesPlanMatrixMetric,
       matrixMonth: state.salesPlanMatrixMonth,
+      matrixStand: state.salesPlanMatrixStand,
       skuMetric: state.salesPlanSkuMetric,
       fixedCosts: state.salesPlanFixedCosts,
       channels: state.salesPlanChannels
@@ -3581,6 +3635,96 @@ function escapeAttr(value) {
   }[ch]));
 }
 
+function normalizeTableCellValue(cell) {
+  if (!cell) return { raw:"", numeric:null };
+  const input = cell.querySelector("input, select, textarea");
+  const raw = String(cell.dataset.sortValue ?? input?.value ?? cell.textContent ?? "").trim();
+  const compact = raw
+    .replace(/\s+/g, " ")
+    .replace(/USD|uds|unidades|meses|días|dias|tx|transacciones/gi, "")
+    .replace(/[^\d,.\-+%]/g, "");
+  if (!compact || /^[-–—]+$/.test(compact)) return { raw, numeric:null };
+  const hasComma = compact.includes(",");
+  const hasDot = compact.includes(".");
+  let normalized = compact.replace(/%/g, "");
+  if (hasComma && hasDot) {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    normalized = normalized.replace(",", ".");
+  }
+  const numeric = Number(normalized);
+  return { raw, numeric:Number.isFinite(numeric) ? numeric : null };
+}
+
+function isTableRowSortable(row, columnIndex) {
+  if (!row || !row.cells || row.cells.length <= columnIndex) return false;
+  return !Array.from(row.cells).some(cell=>Number(cell.colSpan||1) > 1 || Number(cell.rowSpan||1) > 1);
+}
+
+function sortTableByHeader(th) {
+  const table = th?.closest("table");
+  const thead = th?.closest("thead");
+  const tbody = table?.tBodies?.[0];
+  if (!table || !thead || !tbody) return;
+  const headerRow = th.parentElement;
+  const columnIndex = Array.from(headerRow.children).indexOf(th);
+  if (columnIndex < 0) return;
+  const rows = Array.from(tbody.rows);
+  const sortableRows = rows.filter(row=>isTableRowSortable(row, columnIndex));
+  if (sortableRows.length < 2) return;
+
+  sortableRows.sort((a,b)=>{
+    const av = normalizeTableCellValue(a.cells[columnIndex]);
+    const bv = normalizeTableCellValue(b.cells[columnIndex]);
+    if (av.numeric !== null && bv.numeric !== null) return bv.numeric - av.numeric;
+    return av.raw.localeCompare(bv.raw, "es", { numeric:true, sensitivity:"base" });
+  });
+
+  const sorted = new Set(sortableRows);
+  const fragment = document.createDocumentFragment();
+  let sortedIndex = 0;
+  rows.forEach(row=>{
+    if (sorted.has(row)) {
+      fragment.appendChild(sortableRows[sortedIndex++]);
+    } else {
+      fragment.appendChild(row);
+    }
+  });
+  tbody.appendChild(fragment);
+  table.querySelectorAll("thead th.sort-active").forEach(cell=>cell.classList.remove("sort-active"));
+  th.classList.add("sort-active");
+}
+
+function refreshSortableTables() {
+  document.querySelectorAll("#app table").forEach(table=>{
+    const headers = table.tHead?.rows?.[0]?.cells;
+    const body = table.tBodies?.[0];
+    if (!headers || !body || body.rows.length < 2) return;
+    table.classList.add("sortable-table");
+    Array.from(headers).forEach(th=>{
+      if (!th.hasAttribute("title")) th.setAttribute("title", "Ordenar esta columna");
+      th.setAttribute("tabindex", "0");
+    });
+  });
+}
+
+function installSortableTables() {
+  if (window.__worthySortableTablesInstalled) return;
+  window.__worthySortableTablesInstalled = true;
+  document.addEventListener("click", event=>{
+    if (event.target.closest("button, input, select, textarea, a, label")) return;
+    const th = event.target.closest("#app table.sortable-table thead th");
+    if (th) sortTableByHeader(th);
+  });
+  document.addEventListener("keydown", event=>{
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const th = event.target.closest?.("#app table.sortable-table thead th");
+    if (!th) return;
+    event.preventDefault();
+    sortTableByHeader(th);
+  });
+}
+
 function getSalesPlanRange() {
   const period = state.salesPlanPeriod || "ultimos90";
   const now = new Date(today()+"T12:00:00");
@@ -3663,7 +3807,7 @@ function getSalesPlanHistoricalChannelShares(range=getSalesPlanRange()) {
   return { totals, total };
 }
 
-function getSalesPlanHistoricalBestMonthBySku(range=getSalesPlanRange()) {
+function getSalesPlanHistoricalBestMonthBySku(range=getSalesPlanRange(), standId="all") {
   const channelByStand = {
     quicentro:"quicentro",
     mercadito:"mercadito",
@@ -3678,7 +3822,7 @@ function getSalesPlanHistoricalBestMonthBySku(range=getSalesPlanRange()) {
     return rows[productId];
   };
   (state.sales||[])
-    .filter(s=>!s.obsequio && s.fecha>=range.from && s.fecha<=range.to && Number(s.total||0)>0)
+    .filter(s=>!s.obsequio && s.fecha>=range.from && s.fecha<=range.to && Number(s.total||0)>0 && (standId==="all" || s.stand===standId))
     .forEach(sale=>{
       const channelId = channelByStand[sale.stand];
       if(!channelId) return;
@@ -3723,7 +3867,7 @@ function getSalesPlanEffectiveChannels(months, range) {
 
 function getSalesPlanModel() {
   const mix = getSalesPlanHistoricalMix();
-  const historicalBest = getSalesPlanHistoricalBestMonthBySku(mix.range);
+  const historicalBest = getSalesPlanHistoricalBestMonthBySku(mix.range, state.salesPlanMatrixStand || "all");
   const months = getSalesPlanMonths();
   const channels = getSalesPlanEffectiveChannels(months, mix.range);
   const fixedCostRows = getSalesPlanFixedCostRows(months, channels);
@@ -3840,6 +3984,37 @@ function getSalesPlanModel() {
     return { ...ch, targetsByMonth, byMonth, marginPerGrossDollar, gross, netSinIva, netAdjusted, units, cost, margin:netAdjusted-cost, marginPct:netAdjusted>0?(netAdjusted-cost)/netAdjusted*100:0, skuRows };
   });
 
+  const specialProjectPlan = getSpecialProjectPlan("condado_shopping");
+  const specialProjectChannel = getSalesPlanSpecialProjectChannel(specialProjectPlan, months);
+  if (specialProjectChannel) {
+    channelRows.push(specialProjectChannel);
+    months.forEach(month=>{
+      const monthData = specialProjectChannel.byMonth[month] || { gross:0, netSinIva:0, netAdjusted:0, units:0, cost:0, margin:0 };
+      monthTotals[month].gross += monthData.gross;
+      monthTotals[month].netSinIva += monthData.netSinIva;
+      monthTotals[month].netAdjusted += monthData.netAdjusted;
+      monthTotals[month].units += monthData.units;
+      monthTotals[month].cost += monthData.cost;
+      monthTotals[month].margin += monthData.margin;
+    });
+    specialProjectChannel.skuRows.forEach(row=>{
+      if (!skuTotals[row.product.id]) return;
+      skuTotals[row.product.id].gross += row.gross;
+      skuTotals[row.product.id].netAdjusted += row.netAdjusted;
+      skuTotals[row.product.id].units += row.units;
+      skuTotals[row.product.id].cost += row.cost;
+      skuTotals[row.product.id].margin += row.margin;
+      months.forEach(month=>{
+        const monthData = row.byMonth[month] || { gross:0, netAdjusted:0, units:0, cost:0, margin:0 };
+        skuTotals[row.product.id].byMonth[month].gross += monthData.gross;
+        skuTotals[row.product.id].byMonth[month].netAdjusted += monthData.netAdjusted;
+        skuTotals[row.product.id].byMonth[month].units += monthData.units;
+        skuTotals[row.product.id].byMonth[month].cost += monthData.cost;
+        skuTotals[row.product.id].byMonth[month].margin += monthData.margin;
+      });
+    });
+  }
+
   const totalGross = channelRows.reduce((sum,r)=>sum+r.gross,0);
   const totalNetAdjusted = channelRows.reduce((sum,r)=>sum+r.netAdjusted,0);
   const totalCost = channelRows.reduce((sum,r)=>sum+r.cost,0);
@@ -3861,7 +4036,7 @@ function getSalesPlanModel() {
     monthTotals,
     rawShareTotal,
     channels:channelRows,
-    skus:Object.values(skuTotals).filter(r=>r.gross>0).sort((a,b)=>b.gross-a.gross),
+    skus:Object.values(skuTotals).filter(r=>r.gross>0).sort((a,b)=>b.netAdjusted-a.netAdjusted),
     target,
     totalRequiredMargin,
     totalGross,
@@ -3932,6 +4107,60 @@ function getSpecialProjectUnitsBySku(projectId="condado_shopping", monthsOverrid
     acc[row.product.id] = months.reduce((sum,month)=>sum+Number(row.byMonth?.[month]?.units||0),0);
     return acc;
   },{});
+}
+
+function isSpecialProjectSalesPlanActive(projectId="condado_shopping") {
+  const projectState = state.specialProjects?.[projectId] || {};
+  return projectState.salesPlanActive === true;
+}
+
+function getSalesPlanSpecialProjectChannel(plan, months) {
+  if (!plan?.project || !isSpecialProjectSalesPlanActive(plan.project.id)) return null;
+  const channel = {
+    id:`special_${plan.project.id}`,
+    name:plan.project.name,
+    responsable:"Proyecto especial",
+    discount:0,
+    sharePct:0,
+    historicalShare:null,
+    activeFromMonth:plan.project.months?.[0] || months[0],
+    specialProject:true
+  };
+  const byMonth = months.reduce((acc,month)=>{
+    acc[month] = { gross:0, netSinIva:0, netAdjusted:0, units:0, cost:0, margin:0 };
+    return acc;
+  },{});
+  const skuRows = [];
+  plan.rows.forEach(row=>{
+    const skuRow = { product:row.product, gross:0, netAdjusted:0, units:0, cost:0, margin:0, byMonth:{} };
+    months.forEach(month=>{
+      const units = Number(row.byMonth?.[month]?.units||0);
+      const gross = units * getPrice(row.product.id);
+      const netSinIva = getTaxBreakdown(gross).sinIva;
+      const netAdjusted = netSinIva;
+      const cost = units * getCost(row.product.id);
+      const margin = netAdjusted - cost;
+      byMonth[month].gross += gross;
+      byMonth[month].netSinIva += netSinIva;
+      byMonth[month].netAdjusted += netAdjusted;
+      byMonth[month].units += units;
+      byMonth[month].cost += cost;
+      byMonth[month].margin += margin;
+      skuRow.gross += gross;
+      skuRow.netAdjusted += netAdjusted;
+      skuRow.units += units;
+      skuRow.cost += cost;
+      skuRow.margin += margin;
+      skuRow.byMonth[month] = { gross, netAdjusted, units, cost, margin };
+    });
+    if (skuRow.units > 0 || skuRow.gross > 0) skuRows.push(skuRow);
+  });
+  const gross = Object.values(byMonth).reduce((sum,m)=>sum+m.gross,0);
+  const netSinIva = Object.values(byMonth).reduce((sum,m)=>sum+m.netSinIva,0);
+  const netAdjusted = Object.values(byMonth).reduce((sum,m)=>sum+m.netAdjusted,0);
+  const units = Object.values(byMonth).reduce((sum,m)=>sum+m.units,0);
+  const cost = Object.values(byMonth).reduce((sum,m)=>sum+m.cost,0);
+  return { ...channel, targetsByMonth:Object.fromEntries(months.map(month=>[month, byMonth[month].gross])), byMonth, marginPerGrossDollar:0, gross, netSinIva, netAdjusted, units, cost, margin:netAdjusted-cost, marginPct:netAdjusted>0?(netAdjusted-cost)/netAdjusted*100:0, skuRows };
 }
 
 function getSelectedSpecialProjectMonthsByMode(mode, project=SPECIAL_PROJECTS[0]) {
@@ -4053,6 +4282,525 @@ function getPurchaseCoverageRows() {
       unitCost: Number(item.cantidad||0)>0 ? Number(item.costoTotal||0) / Number(item.cantidad||0) : 0,
     };
   });
+}
+
+const INV_PLAN_PERIODS = [
+  { id:"ultimos30", label:"Últimos 30 días" },
+  { id:"ultimos60", label:"Últimos 60 días" },
+  { id:"ultimos90", label:"Últimos 90 días" },
+  { id:"ponderado", label:"Ponderado 30/60/90" },
+  { id:"mesEspecifico", label:"Mes" },
+  { id:"rango", label:"Rango" },
+  { id:"todo", label:"Todo" },
+];
+
+const INV_PLAN_GROUPS = [
+  { id:"lip_balm_6g", label:"Lip Balm 6g", skus:["WLBN6","WLBP6","WLBR6"] },
+  { id:"deo_30g", label:"Desodorantes 30g", skus:["WDS30","WDSK30"] },
+  { id:"deo_45g", label:"Desodorantes 45g", skus:["WDS45","WDSK45"] },
+  { id:"vidrio_50ml", label:"Vidrio 50ml", skus:["WMO45","WHT50"] },
+];
+
+function dateAddDaysIso(iso, days) {
+  const d = new Date(`${iso || today()}T12:00:00`);
+  d.setDate(d.getDate() + Number(days||0));
+  return dateToIsoLocal(d);
+}
+
+function monthKeyFromDate(date) {
+  return dateToIsoLocal(date).slice(0,7);
+}
+
+function getInvPlanMonths() {
+  const count = Math.max(1, Math.min(12, Number(state.invPlanMonthsCount||4)));
+  const start = state.invPlanStartMonth || today().slice(0,7);
+  return Array.from({ length:count }, (_,idx)=>addMonthKey(start, idx));
+}
+
+function getInvPlanPeriodRange(period) {
+  const current = today();
+  const id = period || state.invPlanPeriod || "ultimos90";
+  if (id === "ultimos30" || id === "ultimos60" || id === "ultimos90") {
+    const days = Number(id.replace("ultimos","")) || 90;
+    return { from:dateAddDaysIso(current, -(days-1)), to:current, days, label:`Últimos ${days} días` };
+  }
+  if (id === "ponderado") {
+    return { from:dateAddDaysIso(current, -89), to:current, days:90, label:"Ponderado 30/60/90" };
+  }
+  if (id === "mesEspecifico") {
+    const month = state.invPlanMesAno || current.slice(0,7);
+    const [y,m] = month.split("-").map(Number);
+    const to = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2,"0")}`;
+    return { from:`${month}-01`, to, days:countDaysInclusive(`${month}-01`, to), label:salesPlanMonthLabel(month) };
+  }
+  if (id === "rango") {
+    const range = getPeriodRange("rango", state.invPlanMesAno, state.invPlanRangoDesde, state.invPlanRangoHasta);
+    return { ...range, days:countDaysInclusive(range.from, range.to), label:`${fmtDate(range.from)} – ${fmtDate(range.to)}` };
+  }
+  if (id === "todo") {
+    const range = getActualSalesDateRangeForStand("all");
+    return { ...range, days:countDaysInclusive(range.from, range.to), label:`Todo · ${fmtDate(range.from)} – ${fmtDate(range.to)}` };
+  }
+  return { from:dateAddDaysIso(current, -89), to:current, days:90, label:"Últimos 90 días" };
+}
+
+function getSalesUnitsBySkuForDateRange(from, to) {
+  const totals = {};
+  (state.sales||[]).forEach(sale=>{
+    if (!saleInDateRange(sale, from, to) || sale.obsequio) return;
+    const units = forecastSaleUnitsBySku(sale);
+    Object.entries(units).forEach(([productId, qty])=>{
+      totals[productId] = (totals[productId]||0) + Number(qty||0);
+    });
+  });
+  return totals;
+}
+
+function normalizeUnitsToMonthly(units, days) {
+  return Number(units||0) / Math.max(1, Number(days||30)) * 30;
+}
+
+function getInvPlanDemandModel() {
+  const period = state.invPlanPeriod || "ultimos90";
+  if (period === "ponderado") {
+    const weights = [
+      { days:30, weight:0.5 },
+      { days:60, weight:0.3 },
+      { days:90, weight:0.2 },
+    ];
+    const rows = {};
+    weights.forEach(cfg=>{
+      const range = {
+        from:dateAddDaysIso(today(), -(cfg.days-1)),
+        to:today()
+      };
+      const units = getSalesUnitsBySkuForDateRange(range.from, range.to);
+      CATALOG.forEach(product=>{
+        rows[product.id] = (rows[product.id]||0) + normalizeUnitsToMonthly(units[product.id]||0, cfg.days) * cfg.weight;
+      });
+    });
+    return { period, range:getInvPlanPeriodRange("ponderado"), monthlyUnitsBySku:rows, label:"Demanda mensual ponderada: 50% últimos 30 días, 30% últimos 60 días, 20% últimos 90 días." };
+  }
+  const range = getInvPlanPeriodRange(period);
+  const units = getSalesUnitsBySkuForDateRange(range.from, range.to);
+  const monthlyUnitsBySku = CATALOG.reduce((acc,product)=>{
+    acc[product.id] = normalizeUnitsToMonthly(units[product.id]||0, range.days);
+    return acc;
+  },{});
+  return { period, range, monthlyUnitsBySku, label:`Demanda mensual equivalente basada en ${range.label}.` };
+}
+
+function getMaterialStockByCode(materialCode) {
+  if (!materialCode) return 0;
+  const master = PACKAGING_MATERIAL_MASTER[materialCode];
+  const rows = (state.materials||[]).filter(m=>
+    m.materialCode === materialCode ||
+    m.id === `MAT-${materialCode}` ||
+    canonicalMaterialKey(m.nombre) === canonicalMaterialKey(master?.name || "")
+  );
+  return rows.reduce((sum,row)=>sum+Number(row.stock||0),0);
+}
+
+function getTransitBySkuForInventoryPlan() {
+  return getResolvedPurchaseMaterials().reduce((acc,item)=>{
+    const isTransit = String(item.estado||"").toLowerCase().includes("tránsito") || String(item.estado||"").toLowerCase().includes("transito");
+    if (!isTransit) return acc;
+    const sku = item.skus?.[0];
+    if (!sku) return acc;
+    const eta = item.fechaLlegada || item.eta || dateAddDaysIso(today(), getInvPlanLeadTimeDays());
+    if (!acc[sku]) acc[sku] = { qty:0, cost:0, eta, materials:[] };
+    acc[sku].qty += Number(item.cantidad||0);
+    acc[sku].cost += Number(item.costoTotal||0);
+    acc[sku].eta = acc[sku].eta && acc[sku].eta < eta ? acc[sku].eta : eta;
+    acc[sku].materials.push(item.material);
+    return acc;
+  },{});
+}
+
+function getInvPlanLeadTimeDays() {
+  return Math.max(0, Number(state.invPlanLeadProdDays||0)) +
+    Math.max(0, Number(state.invPlanLeadTransportDays||0)) +
+    Math.max(0, Number(state.invPlanLeadSafetyDays||0));
+}
+
+function getInvPlanMultiplier(month) {
+  const raw = state.invPlanMultipliers?.[month];
+  if (raw === undefined || raw === null || raw === "") return 1;
+  return Math.max(0, Number(raw||0) / 100);
+}
+
+function getInvPlanRows() {
+  const demand = getInvPlanDemandModel();
+  const months = getInvPlanMonths();
+  const transitBySku = getTransitBySkuForInventoryPlan();
+  const leadDays = getInvPlanLeadTimeDays();
+  const safetyPct = Math.max(0, Number(state.invPlanSafetyPct||0)) / 100;
+  const moq = Math.max(1, Number(state.invPlanMoq||300));
+  const targetMonths = Math.max(1, Number(state.invPlanTargetMonths||5));
+
+  return CATALOG.map(product=>{
+    const monthlyBase = Number(demand.monthlyUnitsBySku[product.id]||0);
+    const dailyBase = monthlyBase / 30;
+    const physical = getTotalFinishedGoodsStock(product.id);
+    const committed = 0;
+    const inProduction = 0;
+    const transit = transitBySku[product.id] || { qty:0, cost:0, eta:"", materials:[] };
+    const netAvailable = Math.max(0, physical - committed);
+    const leadDemand = dailyBase * leadDays;
+    const safetyStock = leadDemand * safetyPct;
+    const reorderPoint = leadDemand + safetyStock;
+    const depletionDays = dailyBase > 0 ? netAvailable / dailyBase : null;
+    const depletionDate = depletionDays === null ? "" : dateAddDaysIso(today(), Math.floor(depletionDays));
+    const daysToSafety = dailyBase > 0 ? Math.max(0, (netAvailable - safetyStock) / dailyBase) : null;
+    const orderBeforeDate = daysToSafety === null ? "" : dateAddDaysIso(today(), Math.floor(daysToSafety - leadDays));
+    const projectedDemandTarget = months.slice(0, targetMonths).reduce((sum,month)=>sum + monthlyBase * getInvPlanMultiplier(month),0) ||
+      monthlyBase * targetMonths;
+    const rawRecommended = Math.max(0, projectedDemandTarget + safetyStock - netAvailable - inProduction - Number(transit.qty||0));
+    const moqRecommended = rawRecommended > 0 ? Math.ceil(rawRecommended / moq) * moq : 0;
+    const unitCost = Number(getCost(product.id)||0);
+    const materialCodes = (PRODUCTION_PACKAGING_MATERIALS[product.id]||[]).map(m=>m.materialCode).filter(Boolean);
+    const physicalMaterials = materialCodes.reduce((sum,code)=>sum+getMaterialStockByCode(code),0);
+    const materialCapacity = physicalMaterials + Number(transit.qty||0);
+    const coverageMonths = monthlyBase > 0 ? netAvailable / monthlyBase : null;
+    const stockSignal = coverageMonths === null ? {label:"Sin demanda", color:"var(--gray)"} :
+      coverageMonths < 1 ? {label:"Crítico", color:"var(--red)"} :
+      coverageMonths < 2 ? {label:"Vigilar", color:"var(--amber)"} :
+      {label:"Cubierto", color:"var(--green)"};
+
+    return {
+      product,
+      monthlyBase,
+      dailyBase,
+      physical,
+      committed,
+      netAvailable,
+      inProduction,
+      transitQty:Number(transit.qty||0),
+      transitCost:Number(transit.cost||0),
+      transitEta:transit.eta,
+      transitMaterials:transit.materials,
+      materialCapacity,
+      reorderPoint,
+      safetyStock,
+      leadDemand,
+      depletionDays,
+      depletionDate,
+      orderBeforeDate,
+      projectedDemandTarget,
+      rawRecommended,
+      moqRecommended,
+      estimatedMoney:moqRecommended * unitCost,
+      unitCost,
+      coverageMonths,
+      stockSignal,
+    };
+  }).sort((a,b)=>{
+    if (a.moqRecommended !== b.moqRecommended) return b.moqRecommended - a.moqRecommended;
+    const ac = Number.isFinite(Number(a.coverageMonths)) ? Number(a.coverageMonths) : 999999;
+    const bc = Number.isFinite(Number(b.coverageMonths)) ? Number(b.coverageMonths) : 999999;
+    return ac-bc || b.monthlyBase-a.monthlyBase;
+  });
+}
+
+function getInvPlanProjectionRows(row) {
+  const months = getInvPlanMonths();
+  let opening = Number(row?.netAvailable||0);
+  return months.map(month=>{
+    const consumption = Number(row?.monthlyBase||0) * getInvPlanMultiplier(month);
+    const transitEntry = row?.transitEta && String(row.transitEta).slice(0,7) === month ? Number(row.transitQty||0) : 0;
+    const productionEntry = 0;
+    const closing = opening + transitEntry + productionEntry - consumption;
+    const result = { month, opening, consumption, transitEntry, productionEntry, closing };
+    opening = closing;
+    return result;
+  });
+}
+
+function getInvPlanGroupedMoqRows(rows) {
+  const rowBySku = rows.reduce((acc,row)=>{ acc[row.product.id]=row; return acc; },{});
+  const moq = Math.max(1, Number(state.invPlanMoq||300));
+  return INV_PLAN_GROUPS.map(group=>{
+    const items = group.skus.map(sku=>rowBySku[sku]).filter(Boolean);
+    const totalBase = items.reduce((sum,row)=>sum+Number(row.monthlyBase||0),0);
+    const totalRaw = items.reduce((sum,row)=>sum+Number(row.rawRecommended||0),0);
+    return {
+      ...group,
+      totalBase,
+      totalRaw,
+      totalMoq:items.reduce((sum,row)=>sum+Number(row.moqRecommended||0),0),
+      items:items.map(row=>({
+        ...row,
+        mixPct: totalBase>0 ? Number(row.monthlyBase||0)/totalBase*100 : 0,
+        groupMoq: Number(row.rawRecommended||0)>0 ? Math.ceil(Number(row.rawRecommended||0)/moq)*moq : 0
+      }))
+    };
+  }).filter(group=>group.items.length);
+}
+
+function renderInventoryPurchasePlanning() {
+  const rows = getInvPlanRows();
+  const demand = getInvPlanDemandModel();
+  const months = getInvPlanMonths();
+  const criticalRows = rows.filter(row=>row.moqRecommended>0 || (Number(row.coverageMonths||999)<1));
+  const totalRecommended = rows.reduce((sum,row)=>sum+Number(row.moqRecommended||0),0);
+  const totalMoney = rows.reduce((sum,row)=>sum+Number(row.estimatedMoney||0),0);
+  const transitUnits = rows.reduce((sum,row)=>sum+Number(row.transitQty||0),0);
+  const selectedId = state.invPlanSelectedSku || "all";
+  const selectedRow = selectedId === "all" ? rows[0] : rows.find(row=>row.product.id===selectedId) || rows[0];
+  const projectionRows = selectedRow ? getInvPlanProjectionRows(selectedRow) : [];
+  const groupRows = getInvPlanGroupedMoqRows(rows);
+  const leadDays = getInvPlanLeadTimeDays();
+  const period = state.invPlanPeriod || "ultimos90";
+  const totals = {
+    physical: rows.reduce((sum,row)=>sum+Number(row.physical||0),0),
+    monthlyBase: rows.reduce((sum,row)=>sum+Number(row.monthlyBase||0),0),
+    reorderPoint: rows.reduce((sum,row)=>sum+Number(row.reorderPoint||0),0),
+  };
+
+  return `<div>
+    <div class="card card-purple" style="padding:16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:900;text-transform:uppercase;letter-spacing:.7px;">Cadena de abastecimiento</div>
+          <div style="font-size:26px;color:white;font-weight:900;margin-top:4px;">Planificación de Inventario y Compras</div>
+          <div style="font-size:12px;color:var(--lavender);font-weight:700;margin-top:4px;">Se alimenta de ventas reales filtradas, inventario físico, compras en tránsito, producción pendiente, lead time, MOQ y costos. Sirve para decidir qué comprar, cuándo ordenar, a quién pedir y cuánto dinero reservar.</div>
+        </div>
+        <div style="text-align:right;min-width:180px;">
+          <div style="font-size:11px;color:var(--lavender);font-weight:800;">Base de cálculo</div>
+          <div style="font-size:17px;font-weight:900;color:var(--lime);">${safeText(demand.range.label)}</div>
+          <div style="font-size:11px;color:var(--lavender);font-weight:800;">Lead time total ${leadDays} días</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:12px;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:8px;">1. Base de demanda</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        ${INV_PLAN_PERIODS.map(p=>`<button class="period-btn ${period===p.id?"active":""}" data-inv-plan-period="${p.id}">${p.label}</button>`).join("")}
+      </div>
+      ${period==="mesEspecifico"?`<input type="month" class="dispatch-input" id="inv-plan-mes" value="${safeAttr(state.invPlanMesAno||today().slice(0,7))}" max="${today().slice(0,7)}" style="max-width:220px;margin-bottom:8px;">`:""}
+      ${period==="rango"?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:8px;">
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Desde<input type="date" class="dispatch-input" id="inv-plan-rango-desde" value="${safeAttr(state.invPlanRangoDesde||today())}" max="${today()}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Hasta<input type="date" class="dispatch-input" id="inv-plan-rango-hasta" value="${safeAttr(state.invPlanRangoHasta||today())}" max="${today()}"></label>
+      </div>`:""}
+      <div style="font-size:11px;color:var(--gray);font-weight:750;">${safeText(demand.label)} Se toman todos los puntos de venta reales y se calcula a nivel SKU/variante.</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;">
+      ${[
+        ["SKU a revisar",`${criticalRows.length}`,criticalRows.length?"Con compra o cobertura crítica":"Sin faltantes visibles"],
+        ["Stock físico terminado",`${totals.physical.toFixed(0)} uds`,"No incluye tránsito"],
+        ["Demanda mensual base",`${totals.monthlyBase.toFixed(0)} uds`,"Equivalente mensual"],
+        ["Material en tránsito",`${transitUnits.toFixed(0)} uds`,"No disponible hasta llegada"],
+        ["Compra sugerida MOQ",`${totalRecommended.toFixed(0)} uds`,"Ajustada a mínimos"],
+        ["Dinero estimado",fmt(totalMoney),"Con costo unitario actual"]
+      ].map((c,idx)=>`
+        <div class="card" style="padding:13px;border-left:5px solid ${idx===0&&criticalRows.length?"var(--red)":idx===3?"var(--amber)":idx===5?"var(--lime)":"var(--purple)"};">
+          <div style="font-size:11px;color:var(--gray);font-weight:900;text-transform:uppercase;">${c[0]}</div>
+          <div style="font-size:22px;color:${idx===0&&criticalRows.length?"var(--red)":idx===5?"var(--purple)":"var(--purple)"};font-weight:900;margin-top:4px;">${c[1]}</div>
+          <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:3px;">${c[2]}</div>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="card" style="padding:12px;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:8px;">2. Parámetros de compra</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Inicio proyección<input type="month" class="dispatch-input" id="inv-plan-start-month" value="${safeAttr(state.invPlanStartMonth||today().slice(0,7))}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Meses a proyectar<input type="number" min="1" max="12" class="dispatch-input" id="inv-plan-months-count" value="${Number(state.invPlanMonthsCount||4)}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Producción días<input type="number" min="0" class="dispatch-input" id="inv-plan-lead-prod" value="${Number(state.invPlanLeadProdDays||0)}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Importación días<input type="number" min="0" class="dispatch-input" id="inv-plan-lead-transport" value="${Number(state.invPlanLeadTransportDays||0)}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Colchón días<input type="number" min="0" class="dispatch-input" id="inv-plan-lead-safety" value="${Number(state.invPlanLeadSafetyDays||0)}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Stock seguridad %<input type="number" min="0" max="200" class="dispatch-input" id="inv-plan-safety" value="${Number(state.invPlanSafetyPct||0)}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">MOQ unidades<input type="number" min="1" class="dispatch-input" id="inv-plan-moq" value="${Number(state.invPlanMoq||300)}"></label>
+        <label style="font-size:11px;color:var(--gray);font-weight:900;">Meses a cubrir compra<input type="number" min="1" max="24" class="dispatch-input" id="inv-plan-target-months" value="${Number(state.invPlanTargetMonths||5)}"></label>
+      </div>
+      <div style="font-size:11px;color:var(--gray);font-weight:750;margin-top:8px;">Punto de reorden = demanda durante lead time + stock de seguridad. Compra sugerida = meses a cubrir menos stock físico, producción y compras en tránsito.</div>
+    </div>
+
+    <div class="card" style="padding:12px;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:8px;">3. Multiplicador de crecimiento por mes</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;">
+        ${months.map(month=>`
+          <label style="font-size:11px;color:var(--gray);font-weight:900;">${salesPlanMonthLabel(month)}
+            <input type="number" min="0" step="5" class="dispatch-input inv-plan-multiplier" data-inv-plan-month="${safeAttr(month)}" value="${Number(state.invPlanMultipliers?.[month] ?? 100)}">
+            <span style="font-size:10px;color:var(--gray);font-weight:700;">100 = igual a demanda base</span>
+          </label>
+        `).join("")}
+      </div>
+    </div>
+
+    <div class="card" style="overflow-x:auto;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:2px;">4. Decisión ejecutiva por SKU</div>
+      <div style="font-size:12px;color:var(--gray);font-weight:750;margin-bottom:8px;">Lectura simple: qué SKU está en riesgo, cuánto hay físico, qué viene en tránsito y cuál es la acción recomendada.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px;">
+        <thead><tr style="border-bottom:2px solid var(--lavender);">
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">SKU</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Stock físico</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--amber);font-weight:900;">En tránsito</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Cobertura</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--purple);font-weight:900;">Acción</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Dinero</th>
+        </tr></thead>
+        <tbody>
+          ${rows.slice(0,12).map(row=>{
+            const action = row.moqRecommended>0
+              ? `Comprar ${row.moqRecommended.toFixed(0)} uds antes de ${row.orderBeforeDate?fmtDate(row.orderBeforeDate):"definir fecha"}`
+              : row.transitQty>0
+                ? "Esperar llegada, no comprar hoy"
+                : "Sin compra sugerida";
+            return `<tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:8px 4px;font-weight:1000;color:var(--purple);">${row.product.ref}<div style="font-size:10px;color:var(--gray);font-weight:750;">${row.product.emoji} ${row.product.name} ${row.product.sub}</div></td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${row.physical.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--amber);">${row.transitQty.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:${row.stockSignal.color};">${row.coverageMonths===null?"Sin venta":`${row.coverageMonths.toFixed(1)} meses`}</td>
+              <td style="padding:8px 4px;font-weight:900;color:${row.moqRecommended>0?"var(--red)":row.transitQty>0?"var(--amber)":"var(--green)"};">${action}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${fmt(row.estimatedMoney)}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <details class="card" style="overflow-x:auto;margin-bottom:12px;">
+      <summary style="cursor:pointer;font-size:13px;font-weight:1000;color:var(--purple);">Ver detalle técnico completo de cobertura, punto de reorden, MOQ y dinero</summary>
+      <div class="section-title" style="margin:10px 0 2px;">Inventario, cobertura y compra sugerida por SKU</div>
+      <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:8px;">Ordenado por prioridad: primero los SKU con compra sugerida y menor cobertura. Las compras en tránsito se restan de la recomendación, pero no se cuentan como stock físico.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:1260px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">SKU</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Demanda mes</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Stock físico</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Comprometido</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Disponible neto</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">En producción</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--amber);font-weight:900;">En tránsito</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Punto reorden</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Cobertura</th>
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Agotamiento</th>
+            <th style="text-align:left;padding:8px 4px;color:var(--red);font-weight:900;">Ordenar antes</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Compra sugerida</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">MOQ</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Dinero</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row=>`
+            <tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:8px 4px;font-weight:1000;color:var(--purple);">${row.product.ref}<div style="font-size:10px;color:var(--gray);font-weight:750;">${row.product.emoji} ${row.product.name} ${row.product.sub}</div></td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">${row.monthlyBase.toFixed(1)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${row.physical.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${row.committed.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${row.netAvailable.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${row.inProduction.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--amber);">${row.transitQty.toFixed(0)}${row.transitEta?`<div style="font-size:9px;color:var(--gray);font-weight:700;">ETA ${fmtDate(row.transitEta)}</div>`:""}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${row.reorderPoint.toFixed(1)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:${row.stockSignal.color};">${row.coverageMonths===null?"Sin venta":`${row.coverageMonths.toFixed(1)} meses`}<div style="font-size:9px;font-weight:900;">${row.stockSignal.label}</div></td>
+              <td style="padding:8px 4px;font-weight:800;color:var(--gray);">${row.depletionDate?fmtDate(row.depletionDate):"Sin venta"}</td>
+              <td style="padding:8px 4px;font-weight:1000;color:${row.moqRecommended>0?"var(--red)":"var(--green)"};">${row.orderBeforeDate?fmtDate(row.orderBeforeDate):"No requerido"}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:${row.rawRecommended>0?"var(--red)":"var(--green)"};">${row.rawRecommended.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);background:var(--lavender-light);">${row.moqRecommended.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${fmt(row.estimatedMoney)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--purple);background:var(--lavender-light);">
+            <td style="padding:8px 4px;font-weight:1000;color:var(--purple);">TOTAL</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${totals.monthlyBase.toFixed(1)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${totals.physical.toFixed(0)}</td>
+            <td></td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${rows.reduce((s,r)=>s+r.netAvailable,0).toFixed(0)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${rows.reduce((s,r)=>s+r.inProduction,0).toFixed(0)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--amber);">${transitUnits.toFixed(0)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${totals.reorderPoint.toFixed(0)}</td>
+            <td colspan="3"></td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--red);">${rows.reduce((s,r)=>s+r.rawRecommended,0).toFixed(0)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${totalRecommended.toFixed(0)}</td>
+            <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${fmt(totalMoney)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </details>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:12px;">
+      <div class="card" style="overflow-x:auto;">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <div>
+            <div class="section-title" style="margin-bottom:2px;">5. Proyección mensual de inventario</div>
+            <div style="font-size:12px;color:var(--gray);font-weight:700;">Simula cómo queda el inventario si vendemos según la demanda base y entran compras en tránsito.</div>
+          </div>
+          <select class="dispatch-input" id="inv-plan-selected-sku" style="max-width:280px;">
+            <option value="all" ${selectedId==="all"?"selected":""}>SKU prioritario automático</option>
+            ${rows.map(row=>`<option value="${safeAttr(row.product.id)}" ${selectedId===row.product.id?"selected":""}>${safeText(row.product.ref)} · ${safeText(row.product.name)} ${safeText(row.product.sub)}</option>`).join("")}
+          </select>
+        </div>
+        ${selectedRow?`<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:620px;">
+          <thead><tr style="border-bottom:2px solid var(--lavender);">
+            <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Mes</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Inv inicial</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--red);font-weight:900;">Consumo proyectado</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--amber);font-weight:900;">Entradas tránsito</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Entradas producción</th>
+            <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Inv final</th>
+          </tr></thead>
+          <tbody>
+            ${projectionRows.map(pr=>`
+              <tr style="border-bottom:1px solid var(--lavender-light);">
+                <td style="padding:8px 4px;font-weight:1000;color:var(--purple);">${salesPlanMonthLabel(pr.month)}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:900;">${pr.opening.toFixed(0)}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--red);">${pr.consumption.toFixed(0)}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--amber);">${pr.transitEntry.toFixed(0)}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">${pr.productionEntry.toFixed(0)}</td>
+                <td style="text-align:right;padding:8px 4px;font-weight:1000;color:${pr.closing<0?"var(--red)":"var(--purple)"};">${pr.closing.toFixed(0)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`:`<div style="padding:18px;color:var(--gray);font-weight:800;">No hay SKU para proyectar.</div>`}
+      </div>
+      <div class="card" style="padding:12px;">
+        <div class="section-title" style="margin-bottom:8px;">Lectura ejecutiva</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${criticalRows.slice(0,5).map(row=>`
+            <div style="padding:10px;border-radius:10px;background:${row.moqRecommended>0?"#FEE2E2":"var(--lavender-light)"};">
+              <div style="font-weight:1000;color:var(--purple);">${row.product.ref} · ${row.product.name}</div>
+              <div style="font-size:11px;color:var(--gray);font-weight:800;">Comprar ${row.moqRecommended.toFixed(0)} uds MOQ · ordenar antes de ${row.orderBeforeDate?fmtDate(row.orderBeforeDate):"definir"} · inversión ${fmt(row.estimatedMoney)}.</div>
+            </div>
+          `).join("") || `<div style="padding:10px;border-radius:10px;background:#DCFCE7;color:var(--green);font-weight:900;">No hay compra sugerida con los parámetros actuales.</div>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="overflow-x:auto;margin-bottom:12px;">
+      <div class="section-title" style="margin-bottom:2px;">6. MOQ y mix por variante</div>
+      <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:8px;">Evita el error de comprar “900 lip balms” sin saber cuánto corresponde a Nude, Pink y Red. Cada variante rota distinto.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:900px;">
+        <thead><tr style="border-bottom:2px solid var(--lavender);">
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">Grupo</th>
+          <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:900;">SKU</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Demanda mes</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:900;">Mix</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Compra sugerida</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Compra MOQ</th>
+          <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Dinero</th>
+        </tr></thead>
+        <tbody>
+          ${groupRows.flatMap(group=>group.items.map((row,idx)=>`
+            <tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:8px 4px;font-weight:1000;color:var(--purple);">${idx===0?safeText(group.label):""}</td>
+              <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${row.product.ref}<div style="font-size:10px;color:var(--gray);font-weight:750;">${row.product.name} ${row.product.sub}</div></td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">${row.monthlyBase.toFixed(1)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--gray);">${row.mixPct.toFixed(1)}%</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:${row.rawRecommended>0?"var(--red)":"var(--green)"};">${row.rawRecommended.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);background:var(--lavender-light);">${row.groupMoq.toFixed(0)}</td>
+              <td style="text-align:right;padding:8px 4px;font-weight:1000;color:var(--purple);">${fmt(row.groupMoq * row.unitCost)}</td>
+            </tr>
+          `)).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
 }
 
 function getSaleWeekdayId(sale) {
@@ -4516,6 +5264,195 @@ function getMonthlySalesComparison(baseSales) {
     });
 }
 
+function getMonthlyCategorySkuAudit(baseSales) {
+  const categories = activeCompareCategories();
+  const skus = activeCompareSkus(categories);
+  const wantedCategories = new Set(categories);
+  const wantedSkus = new Set(skus);
+  const weekdays = new Set(activeCompareWeekdays());
+  const categoryMap = {};
+  const skuMap = {};
+  const monthMap = {};
+
+  SALES_CATEGORY_META.forEach(cat=>{
+    if (wantedCategories.has(cat.id)) {
+      categoryMap[cat.id] = { id:cat.id, label:cat.label, usd:0, units:0, months:{} };
+    }
+  });
+
+  CATALOG.filter(product=>wantedCategories.has(product.cat) && wantedSkus.has(product.id)).forEach(product=>{
+    skuMap[product.id] = {
+      id:product.id,
+      ref:product.ref || product.id,
+      label:`${product.name} ${product.sub}`,
+      emoji:product.emoji || "",
+      categoryId:product.cat,
+      categoryLabel:SALES_CATEGORY_META.find(cat=>cat.id===product.cat)?.label || product.cat,
+      usd:0,
+      units:0,
+      months:{}
+    };
+  });
+
+  (baseSales||[]).forEach(sale=>{
+    const saleIso = saleDateIso(sale);
+    if(!saleIso || !weekdays.has(getSaleWeekdayId(sale))) return;
+    const monthKey = saleIso.slice(0,7);
+    getSaleAllocatedComponents(sale).forEach(component=>{
+      const product = CATALOG.find(p=>p.id===component.id);
+      const categoryId = product?.cat || "otros";
+      if(!wantedCategories.has(categoryId) || !wantedSkus.has(component.id)) return;
+      const usd = Number(component.net||0);
+      const units = Number(component.qty||0);
+      if(usd<=0 && units<=0) return;
+
+      if(!monthMap[monthKey]) monthMap[monthKey] = { monthKey, label:formatMonthLabel(monthKey), usd:0, units:0 };
+      monthMap[monthKey].usd += usd;
+      monthMap[monthKey].units += units;
+
+      if(!categoryMap[categoryId]) {
+        categoryMap[categoryId] = { id:categoryId, label:SALES_CATEGORY_META.find(cat=>cat.id===categoryId)?.label || categoryId, usd:0, units:0, months:{} };
+      }
+      if(!categoryMap[categoryId].months[monthKey]) categoryMap[categoryId].months[monthKey] = { usd:0, units:0 };
+      categoryMap[categoryId].usd += usd;
+      categoryMap[categoryId].units += units;
+      categoryMap[categoryId].months[monthKey].usd += usd;
+      categoryMap[categoryId].months[monthKey].units += units;
+
+      if(!skuMap[component.id]) {
+        skuMap[component.id] = {
+          id:component.id,
+          ref:product?.ref || component.id,
+          label:product ? `${product.name} ${product.sub}` : component.id,
+          emoji:product?.emoji || "",
+          categoryId,
+          categoryLabel:SALES_CATEGORY_META.find(cat=>cat.id===categoryId)?.label || categoryId,
+          usd:0,
+          units:0,
+          months:{}
+        };
+      }
+      if(!skuMap[component.id].months[monthKey]) skuMap[component.id].months[monthKey] = { usd:0, units:0 };
+      skuMap[component.id].usd += usd;
+      skuMap[component.id].units += units;
+      skuMap[component.id].months[monthKey].usd += usd;
+      skuMap[component.id].months[monthKey].units += units;
+    });
+  });
+
+  const months = Object.values(monthMap).sort((a,b)=>a.monthKey.localeCompare(b.monthKey));
+  const categoriesRows = Object.values(categoryMap)
+    .filter(row=>row.usd>0 || row.units>0)
+    .sort((a,b)=>b.usd-a.usd || b.units-a.units || a.label.localeCompare(b.label));
+  const skuRows = Object.values(skuMap)
+    .filter(row=>row.usd>0 || row.units>0)
+    .sort((a,b)=>b.usd-a.usd || b.units-a.units || a.label.localeCompare(b.label));
+  return { months, categories:categoriesRows, skus:skuRows };
+}
+
+function renderMonthlyCategorySkuAudit(audit, metric) {
+  const months = audit.months || [];
+  const valueFor = row => metric==="units" ? Number(row.units||0) : Number(row.usd||0);
+  const categories = [...(audit.categories || [])]
+    .sort((a,b)=>valueFor(b)-valueFor(a) || String(a.label||"").localeCompare(String(b.label||"")));
+  const skus = [...(audit.skus || [])]
+    .sort((a,b)=>valueFor(b)-valueFor(a) || String(a.label||"").localeCompare(String(b.label||"")));
+  const cellValue = data => {
+    const usd = Number(data?.usd||0);
+    const units = Number(data?.units||0);
+    if(metric==="units") return `${units.toFixed(0)} uds`;
+    if(metric==="both") return `${fmt(usd)} · ${units.toFixed(0)} uds`;
+    return fmt(usd);
+  };
+  const maxCategory = Math.max(...categories.map(valueFor), 1);
+  const maxSkuMonth = Math.max(...skus.flatMap(row=>months.map(month=>metric==="units"?Number(row.months?.[month.monthKey]?.units||0):Number(row.months?.[month.monthKey]?.usd||0))), 1);
+  return `<div class="card" style="margin-bottom:12px;border:2px solid var(--purple);">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;">
+      <div>
+        <div class="section-title" style="font-size:15px;color:var(--purple);">Auditoría visual de ventas por categoría y SKU</div>
+        <div style="font-size:12px;color:var(--gray);font-weight:800;">Misma base del comparativo mensual: punto de venta, período, categoría, SKU y día de semana seleccionados.</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--gray);font-weight:1000;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;text-align:right;">Ver auditoría en</div>
+        <div class="period-filter" style="margin:0;gap:6px;">
+          ${[
+            ["usd","Dólares sin IVA"],
+            ["units","Unidades"],
+            ["both","Ambos"]
+          ].map(([id,label])=>`<button class="period-btn ${metric===id?"active":""}" data-ventas-compare-metric="${id}" style="min-width:96px;padding:8px 10px;font-size:11px;">${label}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+
+    ${!months.length?`<div style="text-align:center;padding:26px 8px;color:var(--gray);font-size:13px;font-weight:800;">Sin datos con estos filtros.</div>`:`
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:14px;">
+        ${categories.map(cat=>{
+          const width = Math.max(5, (valueFor(cat) / maxCategory) * 100);
+          return `<div style="background:#FFFFFF;border:1.5px solid var(--lavender);border-radius:14px;padding:12px;box-shadow:0 6px 18px rgba(45,27,105,.06);">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+              <div style="font-size:14px;font-weight:1000;color:var(--purple);">${safeText(cat.label)}</div>
+              <div style="font-size:13px;font-weight:1000;color:var(--lime-dark);white-space:nowrap;">${cellValue(cat)}</div>
+            </div>
+            <div style="height:9px;background:var(--lavender-light);border-radius:999px;overflow:hidden;margin:10px 0;">
+              <div style="height:100%;width:${width.toFixed(1)}%;background:linear-gradient(90deg,var(--purple),var(--lime));border-radius:999px;"></div>
+            </div>
+            <div style="display:grid;gap:5px;">
+              ${months.map(month=>{
+                const data = cat.months?.[month.monthKey] || { usd:0, units:0 };
+                return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:850;color:var(--gray);">
+                  <span>${month.label}</span><strong style="color:var(--purple);">${cellValue(data)}</strong>
+                </div>`;
+              }).join("")}
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${Math.max(760, 300 + months.length*120)}px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--purple);">
+              <th style="text-align:left;padding:9px 5px;color:var(--purple);font-weight:1000;">SKU</th>
+              <th style="text-align:left;padding:9px 5px;color:var(--purple);font-weight:1000;">Categoría</th>
+              ${months.map(month=>`<th style="text-align:right;padding:9px 5px;color:var(--purple);font-weight:1000;">${month.label}</th>`).join("")}
+              <th style="text-align:right;padding:9px 5px;color:var(--purple);font-weight:1000;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${skus.map(row=>`<tr style="border-bottom:1px solid var(--lavender-light);">
+              <td style="padding:8px 5px;font-weight:1000;color:var(--purple);">${safeText(row.emoji)} ${safeText(row.ref)}<div style="font-size:10px;color:var(--gray);font-weight:800;">${safeText(row.label)}</div></td>
+              <td style="padding:8px 5px;font-weight:900;color:var(--gray);">${safeText(row.categoryLabel)}</td>
+              ${months.map(month=>{
+                const data = row.months?.[month.monthKey] || { usd:0, units:0 };
+                const monthValue = metric==="units" ? Number(data.units||0) : Number(data.usd||0);
+                const width = maxSkuMonth>0 ? Math.max(0, (monthValue/maxSkuMonth)*100) : 0;
+                return `<td style="text-align:right;padding:8px 5px;font-weight:900;color:var(--purple);">
+                  <div>${cellValue(data)}</div>
+                  <div style="height:5px;background:var(--lavender-light);border-radius:99px;overflow:hidden;margin-top:4px;">
+                    <div style="height:100%;width:${width.toFixed(1)}%;background:${metric==="units"?"var(--lime)":"var(--purple)"};border-radius:99px;"></div>
+                  </div>
+                </td>`;
+              }).join("")}
+              <td style="text-align:right;padding:8px 5px;font-weight:1000;color:var(--lime-dark);background:var(--lavender-light);">${cellValue(row)}</td>
+            </tr>`).join("")}
+          </tbody>
+          <tfoot>
+            <tr class="finance-total-row">
+              <td style="padding:10px 5px;font-weight:1000;">TOTAL</td>
+              <td></td>
+              ${months.map(month=>`<td style="text-align:right;padding:10px 5px;font-weight:1000;">${cellValue(month)}</td>`).join("")}
+              <td style="text-align:right;padding:10px 5px;font-weight:1000;">${cellValue({
+                usd:months.reduce((sum,month)=>sum+Number(month.usd||0),0),
+                units:months.reduce((sum,month)=>sum+Number(month.units||0),0)
+              })}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `}
+  </div>`;
+}
+
 function getMonthlySalesHistory(baseSales) {
   const selectedStand = state.ventasMonthlyHistoryStand || "all";
   const totals = {};
@@ -4843,6 +5780,129 @@ function renderCrmRows(rows, totalNet, emptyText="Sin datos CRM para este filtro
   </table>`;
 }
 
+function renderCrmVisualBars(title, rows, totalNet, emptyText="Sin datos CRM para este filtro.") {
+  if (!rows.length) {
+    return `<div class="card-sub">
+      <div class="section-title">${title}</div>
+      <div class="muted" style="padding:14px;border:1px dashed var(--line);border-radius:10px;">${emptyText}</div>
+    </div>`;
+  }
+  const maxNet = Math.max(...rows.map(row=>Number(row.net||0)), 1);
+  return `<div class="card-sub" style="background:linear-gradient(135deg,#FFFFFF 0%,#FBFAFF 100%);">
+    <div class="section-title">${title}</div>
+    <div style="display:grid;gap:10px;">
+      ${rows.slice(0,6).map((row,index)=>{
+        const share = totalNet > 0 ? (row.net / totalNet) * 100 : 0;
+        const width = Math.max(4, Math.min(100, (Number(row.net||0) / maxNet) * 100));
+        const color = ["var(--purple)","var(--green)","#F0A330","#4E7DE8","#D96C6C","#7C5CEB"][index%6];
+        return `<div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px;">
+            <div style="font-size:13px;font-weight:1000;color:var(--purple);min-width:0;">${safeText(row.label)}</div>
+            <div style="font-size:12px;font-weight:1000;color:var(--purple);white-space:nowrap;">${row.count} venta(s) · ${share.toFixed(1)}%</div>
+          </div>
+          <div style="height:22px;background:var(--lavender-light);border-radius:999px;overflow:hidden;border:1px solid var(--lavender);">
+            <div style="width:${width.toFixed(1)}%;height:100%;background:${color};border-radius:999px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#FFFFFF;font-size:11px;font-weight:1000;">${fmt(row.net)}</div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function renderCrmInsightCard(label, value, note, tone="purple") {
+  const palette = {
+    purple: { bg:"#F7F1FF", color:"var(--purple)" },
+    green: { bg:"#ECFCCB", color:"#365314" },
+    orange: { bg:"#FEF3C7", color:"#92400E" },
+    red: { bg:"#FEE2E2", color:"#991B1B" }
+  }[tone] || { bg:"#F7F1FF", color:"var(--purple)" };
+  return `<div class="kpi-card" style="background:${palette.bg};">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value" style="color:${palette.color};font-size:24px;">${value}</div>
+    <div class="kpi-note">${note}</div>
+  </div>`;
+}
+
+function buildCrmConicGradient(rows, metric="net") {
+  const colors = ["var(--purple)","var(--green)","#F0A330","#4E7DE8","#D96C6C","#7C5CEB","#5EB8B2"];
+  const total = rows.reduce((sum,row)=>sum + Number(row[metric]||0), 0);
+  if (!rows.length || total <= 0) return "var(--lavender-light)";
+  let cursor = 0;
+  return rows.slice(0,7).map((row,index)=>{
+    const start = cursor;
+    cursor += (Number(row[metric]||0) / total) * 100;
+    return `${colors[index%colors.length]} ${start.toFixed(1)}% ${cursor.toFixed(1)}%`;
+  }).join(",");
+}
+
+function renderCrmDonutCard(title, rows, totalNet, centerLabel="líder") {
+  if (!rows.length) {
+    return `<div class="crm-visual-card">
+      <div class="crm-visual-title">${title}</div>
+      <div class="crm-empty">Sin datos CRM para este filtro.</div>
+    </div>`;
+  }
+  const top = rows[0];
+  const topShare = totalNet > 0 ? (top.net / totalNet) * 100 : 0;
+  const gradient = buildCrmConicGradient(rows, "net");
+  const colors = ["var(--purple)","var(--green)","#F0A330","#4E7DE8","#D96C6C","#7C5CEB","#5EB8B2"];
+  return `<div class="crm-visual-card">
+    <div class="crm-visual-title">${title}</div>
+    <div class="crm-donut" style="background:conic-gradient(${gradient});">
+      <div class="crm-donut-hole">
+        <div style="font-size:18px;font-weight:1000;color:var(--purple);line-height:1.05;">${topShare.toFixed(0)}%</div>
+        <div style="font-size:10px;font-weight:900;color:var(--gray);text-transform:uppercase;">${centerLabel}</div>
+      </div>
+    </div>
+    <div style="font-size:17px;font-weight:1000;color:var(--purple);text-align:center;">${safeText(top.label)}</div>
+    <div class="muted" style="font-size:12px;text-align:center;margin-top:3px;">${top.count} venta(s) · ${fmt(top.net)} sin IVA</div>
+    <div style="display:grid;gap:7px;margin-top:12px;">
+      ${rows.slice(0,5).map((row,index)=>{
+        const share = totalNet > 0 ? (row.net / totalNet) * 100 : 0;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;font-weight:850;">
+          <span style="display:flex;align-items:center;gap:7px;min-width:0;color:var(--purple);"><i style="width:10px;height:10px;border-radius:3px;background:${colors[index%colors.length]};display:inline-block;"></i>${safeText(row.label)}</span>
+          <span style="color:var(--gray);white-space:nowrap;">${share.toFixed(1)}%</span>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function renderCrmFunnelCard(rows, totalCount) {
+  if (!rows.length) {
+    return `<div class="crm-visual-card">
+      <div class="crm-visual-title">Embudo de cliente</div>
+      <div class="crm-empty">Sin datos CRM para este filtro.</div>
+    </div>`;
+  }
+  const maxCount = Math.max(...rows.map(row=>Number(row.count||0)), 1);
+  const colors = ["var(--purple)","var(--green)","#F0A330","#4E7DE8","#D96C6C"];
+  return `<div class="crm-visual-card">
+    <div class="crm-visual-title">Embudo de cliente</div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <div>
+        <div class="crm-big-number">${totalCount}</div>
+        <div class="muted" style="font-size:12px;">ventas con lectura CRM</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:20px;font-weight:1000;color:var(--purple);">${rows[0]?.count || 0}</div>
+        <div class="muted" style="font-size:12px;">${safeText(rows[0]?.label || "Sin dato")}</div>
+      </div>
+    </div>
+    ${rows.slice(0,5).map((row,index)=>{
+      const share = totalCount > 0 ? (row.count / totalCount) * 100 : 0;
+      const width = Math.max(8, Math.min(100, (Number(row.count||0) / maxCount) * 100));
+      return `<div class="crm-funnel-row">
+        <div style="font-size:12px;font-weight:1000;color:var(--purple);">${safeText(row.label)}</div>
+        <div class="crm-funnel-bar">
+          <div class="crm-funnel-fill" style="width:${width.toFixed(1)}%;background:${colors[index%colors.length]};">${row.count}</div>
+        </div>
+        <div style="font-size:12px;font-weight:1000;color:var(--gray);text-align:right;">${share.toFixed(1)}%</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
 function renderCRM() {
   const allSales = getCrmFilteredSales();
   const crmSales = allSales.filter(sale=>sale.crmTipo || sale.crmOrigen);
@@ -4861,6 +5921,15 @@ function renderCRM() {
   const recentRows = [...crmSales].sort((a,b)=>(b.timestamp||"").localeCompare(a.timestamp||"")).slice(0,10);
   const topOrigin = originRows[0]?.label || "Sin lectura";
   const topCategory = categoryRows[0]?.label || "Sin categoría";
+  const newRate = crmSales.length ? (newCount / crmSales.length) * 100 : 0;
+  const repurchaseRate = crmSales.length ? (repurchaseCount / crmSales.length) * 100 : 0;
+  const recommendedRate = crmSales.length ? (recommendedCount / crmSales.length) * 100 : 0;
+  const newSales = crmSales.filter(s=>s.crmTipo==="nuevo");
+  const newCategoryRows = getCrmCategoryRows(newSales);
+  const attractionCategory = newCategoryRows[0] || categoryRows[0] || null;
+  const attractionBaseNet = newCategoryRows.length ? salesNetTotal(newSales) : crmNet;
+  const attractionShare = attractionCategory && attractionBaseNet > 0 ? (attractionCategory.net / attractionBaseNet) * 100 : 0;
+  const crmCaptureTone = coverage >= 80 ? "green" : coverage >= 40 ? "orange" : "red";
   const selectedStandName = state.crmStand==="all" ? "Todos los puntos" : (PUNTOS_VENTA.find(st=>st.id===state.crmStand)?.name || state.crmStand);
 
   return `<div class="section card">
@@ -4901,21 +5970,24 @@ function renderCRM() {
       </div>
     `:""}
 
-    <div class="grid-4" style="margin-top:14px;">
-      <div class="kpi-card"><div class="kpi-label">Ventas analizadas</div><div class="kpi-value">${crmSales.length}</div><div class="kpi-note">Solo ventas con CRM completo o parcial</div></div>
-      <div class="kpi-card"><div class="kpi-label">Venta sin IVA</div><div class="kpi-value">${fmt(crmNet)}</div><div class="kpi-note">Base real del CRM capturado</div></div>
-      <div class="kpi-card"><div class="kpi-label">Ticket promedio</div><div class="kpi-value">${fmt(crmSales.length?crmNet/crmSales.length:0)}</div><div class="kpi-note">Venta sin IVA / ventas CRM</div></div>
-      <div class="kpi-card"><div class="kpi-label">Origen principal</div><div class="kpi-value" style="font-size:20px;">${safeText(topOrigin)}</div><div class="kpi-note">Mayor venta sin IVA</div></div>
+    <div class="crm-visual-grid">
+      ${renderCrmFunnelCard(typeRows, crmSales.length)}
+      ${renderCrmDonutCard("Origen del cliente", originRows, crmNet, "origen líder")}
     </div>
 
-    <div class="grid-4" style="margin-top:12px;">
-      <div class="mini-card"><div class="mini-label">Clientes nuevos</div><div class="mini-value">${newCount}</div></div>
-      <div class="mini-card"><div class="mini-label">Recompras</div><div class="mini-value">${repurchaseCount}</div></div>
-      <div class="mini-card"><div class="mini-label">Recomendados</div><div class="mini-value">${recommendedCount}</div></div>
-      <div class="mini-card"><div class="mini-label">Categoría líder</div><div class="mini-value" style="font-size:19px;">${safeText(topCategory)}</div></div>
+    <div class="grid-4" style="margin-top:14px;">
+      ${renderCrmInsightCard("Tasa de recompra", `${repurchaseRate.toFixed(1)}%`, `${repurchaseCount} recompra(s) de ${crmSales.length} venta(s) CRM`, repurchaseRate >= 25 ? "green" : repurchaseRate >= 10 ? "orange" : "red")}
+      ${renderCrmInsightCard("Clientes nuevos", `${newRate.toFixed(1)}%`, `${newCount} cliente(s) nuevo(s) capturado(s)`, newRate >= 35 ? "green" : newRate >= 15 ? "orange" : "purple")}
+      ${renderCrmInsightCard("Categoría que atrae", safeText(attractionCategory?.label || "Sin dato"), attractionCategory ? `${attractionShare.toFixed(1)}% de la venta ${newCategoryRows.length ? "de clientes nuevos" : "CRM capturada"}` : "Sin datos suficientes", attractionCategory ? "green" : "orange")}
+      ${renderCrmInsightCard("Cobertura CRM", `${coverage.toFixed(1)}%`, `${crmSales.length} de ${allSales.length} venta(s) del filtro tienen CRM`, crmCaptureTone)}
     </div>
 
     ${noCrmCount?`<div class="crm-alert" style="margin-top:12px;">Dato de calidad: en este filtro existen ${allSales.length} venta(s) reales y ${noCrmCount} no tienen etiqueta CRM porque fueron anteriores o se registraron sin ese campo. Cobertura CRM del filtro: ${coverage.toFixed(1)}%.</div>`:""}
+
+    <div class="grid-2" style="margin-top:14px;">
+      ${renderCrmVisualBars("Venta CRM por tipo de cliente", typeRows, crmNet)}
+      ${renderCrmVisualBars("Venta CRM por origen", originRows, crmNet)}
+    </div>
 
     <div class="grid-2" style="margin-top:14px;">
       <div class="card-sub">
@@ -5688,7 +6760,7 @@ function getCanalesMarginAudit(rows) {
       netAtPvp,
       marginPct:netAtPvp > 0 ? ((netAtPvp - row.cogs) / netAtPvp) * 100 : 0
     };
-  }).sort((a,b)=>b.cogs-a.cogs);
+  }).sort((a,b)=>b.marginPct-a.marginPct || b.netAtPvp-a.netAtPvp);
   audit.routineRows = [...audit.routineMap.values()].map(row=>({
     ...row,
     margin:row.net-row.cogs,
@@ -6513,7 +7585,7 @@ function renderFinanzas() {
     if(!y||!m) return "Mes elegido";
     return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
   })();
-  const periodLabels = { today:"Hoy", week:`Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`, month:`Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`, monthSpecific:finMesLabel, range:`Rango · ${fmtDate(from)} – ${fmtDate(to)}`, all:`Histórico real · ${fmtDate(from)} – ${fmtDate(to)}` };
+  const periodLabels = { today:"Hoy", week:`Semana acumulada · ${fmtDate(from)} – ${fmtDate(to)}`, month:`Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`, monthSpecific:finMesLabel, range:`Rango · ${fmtDate(from)} – ${fmtDate(to)}`, all:`Histórico real · ${fmtDate(from)} – ${fmtDate(to)}` };
 
   const financeModel = getFinanceModel(from, to, state.finStore, { applyPygOverrides:true });
   const { filteredSales, filteredGastos, ventas, cogs, gastosByCat, totalGastos, utilidadOperativa } = financeModel;
@@ -7445,6 +8517,7 @@ let state = {
   salesPlanRangoHasta: SALES_PLAN_INITIAL.rangoHasta,
   salesPlanMatrixMetric: SALES_PLAN_INITIAL.matrixMetric,
   salesPlanMatrixMonth: SALES_PLAN_INITIAL.matrixMonth,
+  salesPlanMatrixStand: SALES_PLAN_INITIAL.matrixStand,
   salesPlanSkuMetric: SALES_PLAN_INITIAL.skuMetric,
   salesPlanFixedCosts: SALES_PLAN_INITIAL.fixedCosts,
   salesPlanChannels: SALES_PLAN_INITIAL.channels,
@@ -7475,6 +8548,20 @@ let state = {
   stockSeguroMesAno: today().slice(0,7),
   stockSeguroRangoDesde: today(),
   stockSeguroRangoHasta: today(),
+  invPlanPeriod: "ultimos90",
+  invPlanMesAno: today().slice(0,7),
+  invPlanRangoDesde: today(),
+  invPlanRangoHasta: today(),
+  invPlanStartMonth: today().slice(0,7),
+  invPlanMonthsCount: 4,
+  invPlanLeadProdDays: 45,
+  invPlanLeadTransportDays: 45,
+  invPlanLeadSafetyDays: 0,
+  invPlanSafetyPct: 15,
+  invPlanMoq: 300,
+  invPlanTargetMonths: 5,
+  invPlanSelectedSku: "all",
+  invPlanMultipliers: {},
   editingStock: null,
   editStockVal: "",
   success: null,
@@ -7648,6 +8735,134 @@ function sheetFromObjects(rows, headers) {
   return XLSX.utils.aoa_to_sheet(data);
 }
 
+function roundMoney(value) {
+  return Number(Number(value||0).toFixed(2));
+}
+
+function getSaleExportMonthInfo(sale) {
+  const iso = saleDateIso(sale);
+  const monthKey = iso ? iso.slice(0,7) : "";
+  return {
+    iso,
+    monthKey,
+    monthLabel: monthKey ? formatMonthLabel(monthKey) : ""
+  };
+}
+
+function getProductCategoryLabel(product) {
+  return SALES_CATEGORY_META.find(c=>c.id===product?.cat)?.label
+    || CATS.find(c=>c.id===product?.cat)?.label
+    || product?.cat
+    || "";
+}
+
+function getProductBarcode(product) {
+  return product?.codigoBarras
+    || product?.codigo_barras
+    || product?.barcode
+    || product?.barCode
+    || product?.ean
+    || product?.upc
+    || "";
+}
+
+function getSaleExportDetailRows(sales, extraResolver=null) {
+  const rows = [];
+  (sales||[])
+    .slice()
+    .sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||"")))
+    .forEach(sale=>{
+      const month = getSaleExportMonthInfo(sale);
+      const hora = formatTimeInAppZone(sale.timestamp);
+      const standName = PUNTOS_VENTA.find(s=>s.id===sale.stand)?.name || sale.stand || "";
+      const invSourceName = getInventoryLocationName(getInvSourceForStand(sale.stand));
+      const payment = PAYMENTS.find(p=>p.id===sale.pago)?.label || sale.pago || "";
+      const userName = sale.vendedorNombre || sale.usuarioNombre || sale.vendedor || sale.registradoPor || "";
+      const userEmail = sale.vendedorEmail || sale.usuarioEmail || "";
+      const extra = typeof extraResolver === "function" ? (extraResolver(sale)||{}) : {};
+      const components = getSaleAllocatedComponents(sale);
+
+      if (!components.length) {
+        const tax = getTaxBreakdown(sale.total||0);
+        rows.push([
+          month.monthKey, month.monthLabel, month.iso, hora, sale.id||"", sale._docId||"",
+          standName, invSourceName, "", "", "", "", "", 0, 0, 0,
+          roundMoney(tax.sinIva), roundMoney(tax.iva), roundMoney(tax.total),
+          0, 0, roundMoney(tax.sinIva), "", payment, sale.descuento||0,
+          sale.obsequio ? "Sí" : "No", sale.historica ? "Sí" : "No", userName,
+          userEmail, sale.nota||"", "", "No", "", extra.queuedAt||"",
+          extra.attempts||"", extra.lastError||""
+        ]);
+        return;
+      }
+
+      components.forEach(component=>{
+        const product = component.product || CATALOG.find(p=>p.id===component.id) || {};
+        const qty = Number(component.qty||0);
+        const gross = Number(component.gross||0);
+        const net = Number(component.net||0);
+        const iva = Math.max(0, gross-net);
+        const cost = Number(component.cogs||0);
+        const unitCost = qty > 0 ? cost / qty : 0;
+        const margin = net - cost;
+        const marginPct = net > 0 ? margin / net * 100 : 0;
+        const originalItem = component.item || {};
+        const isRoutine = originalItem.isRutina || originalItem.rutinaId || originalItem.rutinaItems;
+        rows.push([
+          month.monthKey,
+          month.monthLabel,
+          month.iso,
+          hora,
+          sale.id||"",
+          sale._docId||"",
+          standName,
+          invSourceName,
+          getProductCategoryLabel(product),
+          product.id || component.id || "",
+          product.ref || component.id || "",
+          getProductBarcode(product),
+          product.name || component.name || "",
+          product.sub || "",
+          qty,
+          qty > 0 ? roundMoney(net/qty) : 0,
+          qty > 0 ? roundMoney(gross/qty) : 0,
+          roundMoney(net),
+          roundMoney(iva),
+          roundMoney(gross),
+          roundMoney(unitCost),
+          roundMoney(cost),
+          roundMoney(margin),
+          net > 0 ? Number(marginPct.toFixed(1)) : 0,
+          payment,
+          sale.descuento||0,
+          sale.obsequio ? "Sí" : "No",
+          sale.historica ? "Sí" : "No",
+          userName,
+          userEmail,
+          sale.nota||"",
+          [originalItem.name, originalItem.sub].filter(Boolean).join(" "),
+          isRoutine ? "Sí" : "No",
+          originalItem.rutinaId || originalItem.ref || originalItem.id || "",
+          extra.queuedAt||"",
+          extra.attempts||"",
+          extra.lastError||""
+        ]);
+      });
+    });
+  return rows;
+}
+
+const SALES_DETAIL_EXPORT_HEADERS = [
+  "Mes", "Mes etiqueta", "Fecha", "Hora", "ID venta", "ID documento",
+  "Punto de venta", "Bodega que descuenta", "Categoría", "SKU", "Referencia",
+  "Código de barras", "Producto", "Presentación", "Unidades",
+  "Precio unitario sin IVA", "Precio unitario PVP", "Subtotal sin IVA", "IVA",
+  "Total con IVA", "Costo unitario", "Costo total", "Margen bruto",
+  "% margen bruto", "Pago", "Descuento%", "Obsequio", "Histórica",
+  "Usuario", "Email usuario", "Nota", "Item original", "Es rutina",
+  "Rutina/paquete", "En cola desde", "Intentos", "Último error"
+];
+
 async function exportToExcel() {
   try {
     showToast("Preparando backup completo...");
@@ -7680,17 +8895,21 @@ async function exportToExcel() {
       ["Despachos", despachosRows.length],
       ["Materias primas y materiales", materiasRows.length],
       ["Nota", "Backup completo consultado directamente desde Firebase"],
+      ["Hoja Ventas", "Resumen por venta; se conserva para restaurar backups sin romper compatibilidad"],
+      ["Hoja Ventas Detalle", "Detalle por línea/SKU con mes, categoría, código de barras, unidades, subtotal, IVA, total, costo y margen"],
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(metaData), "Resumen");
 
     // Hoja 1: Ventas
     const ventasData = [
-      ["ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago","Descuento%","Obsequio","Histórica","Nota","Usuario","Email usuario","Editado por","Editado en"],
+      ["Mes","ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago","Descuento%","Obsequio","Histórica","Nota","Usuario","Email usuario","Editado por","Editado en"],
       ...ventas.sort((a,b)=>String(a.timestamp||"").localeCompare(String(b.timestamp||""))).map(v=>{
+        const month = getSaleExportMonthInfo(v);
         const hora = formatTimeInAppZone(v.timestamp);
         const subtotalSinIva = (v.total||0)/1.15;
         const iva = subtotalSinIva*0.15;
         return [
+          month.monthKey,
           v.id, v.fecha, hora,
           PUNTOS_VENTA.find(s=>s.id===v.stand)?.name||v.stand||"",
           (v.items||[]).map(i=>`${i.name} x${i.qty} @${fmt(i.price)}`).join("; "),
@@ -7711,6 +8930,9 @@ async function exportToExcel() {
     ];
     const wsVentas = XLSX.utils.aoa_to_sheet(ventasData);
     XLSX.utils.book_append_sheet(wb, wsVentas, "Ventas");
+
+    const ventasDetalleRows = getSaleExportDetailRows(ventas);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([SALES_DETAIL_EXPORT_HEADERS, ...ventasDetalleRows]), "Ventas Detalle");
 
     // Hoja 2: Inventario
     const invMap = {};
@@ -7792,7 +9014,7 @@ function exportPendingSalesBackup() {
 
   const wb = XLSX.utils.book_new();
   const ventasRows = [[
-    "ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago",
+    "Mes","ID","Fecha","Hora","Stand","Productos","Subtotal","IVA","Total","Pago",
     "Descuento%","Obsequio","Nota","Usuario","Email usuario","En cola desde","Intentos","Último error"
   ]];
   const gastosRows = [[
@@ -7802,9 +9024,11 @@ function exportPendingSalesBackup() {
 
   pending.forEach(entry=>{
     const v = entry.sale || {};
+    const month = getSaleExportMonthInfo(v);
     const hora = formatTimeInAppZone(v.timestamp);
     const tax = getTaxBreakdown(v.total||0);
     ventasRows.push([
+      month.monthKey,
       v.id, v.fecha, hora,
       PUNTOS_VENTA.find(s=>s.id===v.stand)?.name||v.stand||"",
       (v.items||[]).map(i=>`${i.name} x${i.qty} @${fmt(i.price)}`).join("; "),
@@ -7828,6 +9052,15 @@ function exportPendingSalesBackup() {
   });
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ventasRows), "Ventas pendientes");
+  const pendingDetailRows = getSaleExportDetailRows(pending.map(entry=>entry.sale||{}), sale=>{
+    const entry = pending.find(p=>(p.sale||{}).id === sale.id);
+    return entry ? {
+      queuedAt: entry.queuedAt,
+      attempts: entry.attempts,
+      lastError: entry.lastError
+    } : {};
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([SALES_DETAIL_EXPORT_HEADERS, ...pendingDetailRows]), "Ventas pendientes detalle");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gastosRows), "Gastos pendientes");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rawRows), "Respaldo técnico");
 
@@ -8219,6 +9452,7 @@ function render() {
     return;
   }
   app.innerHTML = renderApp();
+  refreshSortableTables();
   bindApp();
 }
 
@@ -8273,6 +9507,23 @@ function renderLoading() {
 }
 
 // ─── LOGIN ────────────────────────────────────────────────────
+function loginErrorMessage(error, email) {
+  const code = error?.code || "";
+  if (code === "auth/user-not-found") {
+    return `El usuario ${email} no existe en Firebase Authentication. Créalo en Firebase > Authentication > Usuarios.`;
+  }
+  if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+    return "Correo o contraseña incorrectos. Si el usuario existe, restablece la clave en Firebase Authentication.";
+  }
+  if (code === "auth/too-many-requests") {
+    return "Firebase bloqueó temporalmente el acceso por muchos intentos. Espera unos minutos e intenta nuevamente.";
+  }
+  if (code === "auth/network-request-failed") {
+    return "No hay conexión con Firebase. Revisa internet e intenta nuevamente.";
+  }
+  return "No se pudo iniciar sesión. Revisa que el usuario exista en Firebase Authentication y que la clave sea correcta.";
+}
+
 function renderLogin() {
   return `<div class="login-screen">
     <div class="login-isotipo-wrap">
@@ -8299,7 +9550,7 @@ function renderLogin() {
 function bindLogin() {
   const btn = document.getElementById("login-btn");
   const doLogin = async () => {
-    const email = document.getElementById("login-email").value.trim();
+    const email = document.getElementById("login-email").value.trim().toLowerCase();
     const pwd = document.getElementById("login-pwd").value;
     const err = document.getElementById("login-error");
     if (!email||!pwd) { err.textContent="Ingresa correo y contraseña"; return; }
@@ -8307,7 +9558,8 @@ function bindLogin() {
     try {
       await auth.signInWithEmailAndPassword(email, pwd);
     } catch(e) {
-      err.textContent = "Correo o contraseña incorrectos";
+      console.warn("Login error", e?.code, e?.message);
+      err.textContent = loginErrorMessage(e, email);
       btn.disabled = false; btn.textContent = "Ingresar";
     }
   };
@@ -8369,19 +9621,19 @@ function renderApp() {
 }
 
 function canUseDespachos() {
-  return ["gerardo@worthy.com","rosita@worthy.com","bodega@worthy.com","bodgas@worthy.com"].includes((state.user?.email||"").toLowerCase());
+  return ["gerardo@worthy.com","rosita@worthy.com","santy@worthy.com","bodega@worthy.com","bodgas@worthy.com"].includes((state.user?.email||"").toLowerCase());
 }
 
 function canUseProduction() {
-  return ["gerardo@worthy.com","rosita@worthy.com"].includes((state.user?.email||"").toLowerCase());
+  return ["gerardo@worthy.com","rosita@worthy.com","santy@worthy.com"].includes((state.user?.email||"").toLowerCase());
 }
 
 function isLeadershipUser() {
-  return ["gerardo@worthy.com","rosita@worthy.com","bodega@worthy.com","bodgas@worthy.com"].includes((state.user?.email||"").toLowerCase());
+  return ["gerardo@worthy.com","rosita@worthy.com","santy@worthy.com","bodega@worthy.com","bodgas@worthy.com"].includes((state.user?.email||"").toLowerCase());
 }
 
 function isSensitiveFinanceUser() {
-  return ["gerardo@worthy.com","rosita@worthy.com"].includes((state.user?.email||"").toLowerCase());
+  return ["gerardo@worthy.com","rosita@worthy.com","santy@worthy.com"].includes((state.user?.email||"").toLowerCase());
 }
 
 function canUseWorthyAssistant() {
@@ -8578,7 +9830,7 @@ const WORLD_DEFS = [
     title:"INTELIGENCIA DE NEGOCIOS",
     navLabel:"BI",
     subtitle:"Proyecciones, planificación, rentabilidad, crecimiento y decisiones ejecutivas.",
-    tabs:["dashboard","indicadores","canales","crm","planificacion_ventas","forecast"]
+    tabs:["dashboard","indicadores","canales","crm","planificacion_ventas"]
   },
   {
     id:"ventas",
@@ -8594,7 +9846,7 @@ const WORLD_DEFS = [
     title:"CADENA DE ABASTECIMIENTO",
     navLabel:"Abastec.",
     subtitle:"Producto terminado, materias primas, materiales, cobertura, compras, bodega y kardex.",
-    tabs:["inventario","stock_seguro","requerimiento_compra","compras","bodega","despachar","kardex","materiales"]
+    tabs:["inventario","plan_inventario_compras","stock_seguro","requerimiento_compra","compras","bodega","despachar","kardex","materiales"]
   },
   {
     id:"produccion",
@@ -8625,6 +9877,7 @@ const MODULE_COPY = {
   jornada:{title:"Jornadas", desc:"Inicio y cierre de turno con conteo físico."},
   ventas:{title:"Informes de ventas", desc:"Ventas sin IVA, SKUs, horarios, usuarios y comparativos."},
   historico_ventas:{title:"Carga manual", desc:"Registrar ventas faltantes con fecha, hora, pago e inventario opcional."},
+  plan_inventario_compras:{title:"Plan Inventario y Compras", desc:"Demanda por SKU, inventario futuro, punto de reorden, MOQ, fechas y dinero requerido."},
   requerimiento_compra:{title:"Plan de Abastecimiento", desc:"Plan de ventas y producción convertido en materiales, faltantes y dinero requerido."},
   compras:{title:"Compras", desc:"Órdenes realizadas, compras en tránsito y cobertura futura."},
   inventario:{title:"Inventario Total", desc:"Producto terminado por punto, bodega y total del negocio."},
@@ -8658,6 +9911,7 @@ function getTabsForRole(role) {
     {id:"planificacion_ventas",icon:"🎯",label:"Planificación"},
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"historico_ventas",icon:"✍️",label:"Carga manual"},
+    {id:"plan_inventario_compras",icon:"🧭",label:"Plan Inv."},
     {id:"requerimiento_compra",icon:"🧮",label:"Plan Abast."},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"inventario",icon:"📦",label:"Inv. Total"},
@@ -8672,6 +9926,7 @@ function getTabsForRole(role) {
     {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"inventario",icon:"📦",label:"Inv. Total"},
     {id:"stock_seguro",icon:"🛡️",label:"Cobertura"},
+    {id:"plan_inventario_compras",icon:"🧭",label:"Plan Inv."},
     {id:"requerimiento_compra",icon:"🧮",label:"Plan Abast."},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"materiales",icon:"🧾",label:"Materiales"},
@@ -8687,12 +9942,12 @@ function getTabsForRole(role) {
     ...(u.canFinanzas?[{id:"canales",icon:"🎪",label:"Canales"}]:[]),
     ...(u.canFinanzas?[{id:"crm",icon:"🧩",label:"CRM"}]:[]),
     ...(u.canFinanzas?[{id:"planificacion_ventas",icon:"🎯",label:"Planificación"}]:[]),
-    ...(u.canFinanzas?[{id:"forecast",icon:"📐",label:"Forecast"}]:[]),
     ...(canUseProduction()?[{id:"produccion",icon:"🏭",label:"Producción"}]:[]),
     {id:"pos",icon:"🛒",label:"Vender"},
     {id:"jornada",icon:"🕘",label:"Jornada"},
     {id:"ventas",icon:"📋",label:"Ventas"},
     {id:"historico_ventas",icon:"✍️",label:"Carga manual"},
+    {id:"plan_inventario_compras",icon:"🧭",label:"Plan Inv."},
     {id:"requerimiento_compra",icon:"🧮",label:"Plan Abast."},
     {id:"compras",icon:"🧾",label:"Compras"},
     {id:"inventario",icon:"📦",label:"Inv. Total"},
@@ -8976,6 +10231,7 @@ function renderTab() {
     case "pos":        return renderPOS();
     case "jornada":    return renderJornada();
     case "inventario": return renderInventario();
+    case "plan_inventario_compras": return (role==="admin"||role==="full"||role==="bodega") ? renderInventoryPurchasePlanning() : "<p>No autorizado</p>";
     case "stock_seguro": return (role==="admin"||role==="full"||role==="bodega") ? renderStockSeguro() : "<p>No autorizado</p>";
     case "requerimiento_compra": return (role==="admin"||role==="full"||role==="bodega") ? renderRequerimientoCompra() : "<p>No autorizado</p>";
     case "compras": return (role==="admin"||role==="full"||role==="bodega") ? renderCompras() : "<p>No autorizado</p>";
@@ -9561,10 +10817,13 @@ function getRentStage(value, days=1, thresholds=null) {
 
 function buildDynamicRentStages(d) {
   const days = Math.max(1, d.days||1);
-  const marginRate = d.ventas > 0 ? Math.max(d.margenBruto / d.ventas, 0.01) : 0.64;
-  const fixedToCover = Math.max(d.arriendo + d.sellerCommission + d.bankAndManualCommission, 0);
-  const breakEven = fixedToCover / marginRate;
-  const periodBreakEven = Math.max(breakEven, 78 * days);
+  const variableCosts = Math.max(Number(d.cogs||0) + Number(d.bankAndManualCommission||0) + Number(d.sellerVariable||0), 0);
+  const contributionRate = d.ventas > 0
+    ? Math.max((Number(d.ventas||0) - variableCosts) / Number(d.ventas||1), 0.05)
+    : 0.64;
+  const fixedToCover = Math.max(Number(d.arriendo||0) + Number(d.sellerBase||0) + Number(d.marketing||0), 0);
+  const breakEven = fixedToCover > 0 ? fixedToCover / contributionRate : 0;
+  const periodBreakEven = Math.max(breakEven, 1);
   return [
     { id:"riesgo", label:"Riesgo", min:0, max:Math.max(periodBreakEven-0.01,0), color:"#D96C6C" },
     { id:"equilibrio", label:"Equilibrio", min:periodBreakEven, max:periodBreakEven*1.15, color:"#E8C66A" },
@@ -9733,7 +10992,11 @@ function renderRentGauge(title, value, days, subtitle, stages=null) {
   const gaugeStages = stages || RENT_STAGES;
   const max = stages ? Math.max(stages[stages.length-1].min * 1.15, value, 1) : 170 * Math.max(1, days||1);
   const ratio = Math.min(value / max, 1);
-  const angle = -90 + ratio * 180;
+  const rangeLabel = s => {
+    if (s.id === "riesgo") return `< ${fmt(s.max + 0.01)}`;
+    if (s.id === "escalabilidad") return `> ${fmt(s.min)}`;
+    return `${fmt(s.min)} a ${fmt(s.max)}`;
+  };
   return `<div style="background:linear-gradient(135deg,var(--purple) 0%,#9504FB 100%);border-radius:16px;padding:16px;border:1px solid rgba(200,184,232,.45);box-shadow:0 6px 20px rgba(45,27,105,.28);">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
       <div>
@@ -9742,25 +11005,20 @@ function renderRentGauge(title, value, days, subtitle, stages=null) {
       </div>
       <div style="font-size:13px;color:#0B0B16;background:${stage.color};border-radius:999px;padding:5px 9px;font-weight:1000;">${stage.label}</div>
     </div>
-    <div style="height:236px;position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.35);">
-      <div style="position:absolute;left:50%;top:24px;transform:translateX(-50%);width:440px;height:440px;border-radius:50%;background:conic-gradient(from 270deg,#D96C6C 0deg 82deg,#E8C66A 82deg 98deg,#DFA36B 98deg 126deg,#A8DCAB 126deg 158deg,#39FF14 158deg 180deg,transparent 180deg 360deg);"></div>
-      <div style="position:absolute;left:50%;top:86px;transform:translateX(-50%);width:300px;height:300px;border-radius:50%;background:var(--purple);"></div>
-      <div style="position:absolute;left:50%;bottom:0;width:6px;height:168px;background:linear-gradient(#FFFFFF,#6B7280);transform-origin:bottom center;transform:translateX(-50%) rotate(${angle}deg);border-radius:6px;"></div>
-      <div style="position:absolute;left:50%;bottom:-18px;transform:translateX(-50%);width:72px;height:72px;border-radius:50%;background:var(--purple);border:6px solid #1F2937;"></div>
-      <div style="position:absolute;left:0;bottom:10px;font-size:15px;color:#FFFFFF;font-weight:900;">$0</div>
-      <div style="position:absolute;right:0;bottom:10px;font-size:15px;color:#39FF14;font-weight:900;">${fmt(max)}+</div>
-      <div style="position:absolute;left:50%;top:96px;transform:translateX(-50%);text-align:center;">
-        <div style="font-size:36px;color:#FFFFFF;font-weight:1000;line-height:1;">${fmt(value)}</div>
-        <div style="font-size:13px;color:${stage.color};font-weight:1000;margin-top:6px;">${stage.label}</div>
+    <div style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:14px;">
+      <div style="font-size:38px;color:#FFFFFF;font-weight:1000;line-height:1;">${fmt(value)}</div>
+      <div style="font-size:13px;color:#FFFFFF;font-weight:850;margin-top:7px;">Punto de equilibrio: ${fmt(gaugeStages.find(s=>s.id==="equilibrio")?.min || 0)}</div>
+      <div style="margin-top:14px;height:14px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;">
+        <div style="width:${(ratio*100).toFixed(1)}%;height:100%;border-radius:999px;background:${stage.color};box-shadow:0 0 16px rgba(255,255,255,.25);"></div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:12px;">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:10px;">
       ${gaugeStages.map(s=>`<div style="height:6px;border-radius:99px;background:${s.color};opacity:${s.id===stage.id?1:.45};"></div>`).join("")}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:7px;">
-      ${gaugeStages.map(s=>`<div style="font-size:12px;color:${s.color};font-weight:900;text-align:center;line-height:1.18;">
-        <div>${fmt(s.min)}</div>
-        <div>${s.label}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px;margin-top:8px;">
+      ${gaugeStages.map(s=>`<div style="font-size:11px;color:#FFFFFF;font-weight:850;text-align:left;line-height:1.22;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:7px;${s.id===stage.id?"outline:2px solid "+s.color+";":""}">
+        <div style="color:${s.color};font-weight:1000;">${s.label}</div>
+        <div>${rangeLabel(s)}</div>
       </div>`).join("")}
     </div>
   </div>`;
@@ -9877,7 +11135,7 @@ function renderExecutiveSummary(d) {
 function renderRentabilidadDashboard() {
   const d = getRentData();
   const stores = [{id:"all",name:"Todos"},...PUNTOS_VENTA];
-  const periodLabel = state.rentPeriod==="week" ? `Semana · ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
+  const periodLabel = state.rentPeriod==="week" ? `Semana acumulada · ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
     : state.rentPeriod==="month" ? `Mes acumulado · ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
     : state.rentPeriod==="range" ? `Rango · ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
     : "Día actual";
@@ -9932,7 +11190,7 @@ function renderAdminDashboard() {
     return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
   })();
   const periodLabel = state.inicioPeriod==="hoy" ? "Hoy"
-    : state.inicioPeriod==="semana" ? `Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`
+    : state.inicioPeriod==="semana" ? `Semana acumulada · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.inicioPeriod==="mes" ? `Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.inicioPeriod==="mesEspecifico" ? mesEspecificoLabel
     : state.inicioPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
@@ -11163,6 +12421,7 @@ function getStockSeguroPeriodLabel() {
 
 function getInventoryCoverageRows(locationId, demandConfig=null) {
   const cfg = demandConfig || { period:"mejor3m" };
+  const transitBySku = getTransitBySkuForInventoryPlan();
   if ((cfg.period || "mejor3m") !== "mejor3m") {
     const standIds = new Set(getSalesStandIdsForInventoryLocation(locationId));
     const { from, to } = getPeriodRange(cfg.period, cfg.mesAno, cfg.rangoDesde, cfg.rangoHasta);
@@ -11182,8 +12441,11 @@ function getInventoryCoverageRows(locationId, demandConfig=null) {
       const units = Number(totals[p.id]||0);
       const avgDaily = units > 0 ? units / dayCount : 0;
       const inventory = getInventoryUnitsForLocation(locationId, p.id);
+      const transitQty = Number(transitBySku[p.id]?.qty||0);
+      const expectedInventory = inventory + transitQty;
       const coverage = avgDaily > 0 ? inventory / avgDaily : null;
-      acc[p.id] = { inventory, avgDaily, coverage, bestMonth:null, bestMonthUnits:units, dayCount };
+      const expectedCoverage = avgDaily > 0 ? expectedInventory / avgDaily : null;
+      acc[p.id] = { inventory, transitQty, expectedInventory, avgDaily, coverage, expectedCoverage, bestMonth:null, bestMonthUnits:units, dayCount };
       return acc;
     },{});
   }
@@ -11213,8 +12475,11 @@ function getInventoryCoverageRows(locationId, demandConfig=null) {
     },{ key:monthKeys[0], units:0 });
     const avgDaily = best.units > 0 ? best.units / daysInMonthKey(best.key) : 0;
     const inventory = getInventoryUnitsForLocation(locationId, p.id);
+    const transitQty = Number(transitBySku[p.id]?.qty||0);
+    const expectedInventory = inventory + transitQty;
     const coverage = avgDaily > 0 ? inventory / avgDaily : null;
-    acc[p.id] = { inventory, avgDaily, coverage, bestMonth:best.key, bestMonthUnits:best.units };
+    const expectedCoverage = avgDaily > 0 ? expectedInventory / avgDaily : null;
+    acc[p.id] = { inventory, transitQty, expectedInventory, avgDaily, coverage, expectedCoverage, bestMonth:best.key, bestMonthUnits:best.units };
     return acc;
   },{});
 }
@@ -11222,8 +12487,17 @@ function getInventoryCoverageRows(locationId, demandConfig=null) {
 function getInventoryCoverageSummary(rowsByProduct) {
   const rows = Object.values(rowsByProduct||{});
   const inventory = rows.reduce((sum,r)=>sum+Number(r.inventory||0),0);
+  const transitQty = rows.reduce((sum,r)=>sum+Number(r.transitQty||0),0);
+  const expectedInventory = inventory + transitQty;
   const avgDaily = rows.reduce((sum,r)=>sum+Number(r.avgDaily||0),0);
-  return { inventory, avgDaily, coverage: avgDaily > 0 ? inventory / avgDaily : null };
+  return {
+    inventory,
+    transitQty,
+    expectedInventory,
+    avgDaily,
+    coverage: avgDaily > 0 ? inventory / avgDaily : null,
+    expectedCoverage: avgDaily > 0 ? expectedInventory / avgDaily : null,
+  };
 }
 
 function formatCoverageDays(value) {
@@ -11232,18 +12506,26 @@ function formatCoverageDays(value) {
   return `${Number(value).toFixed(value < 10 ? 1 : 0)} días`;
 }
 
-function renderCoverageCells(row={ inventory:0, avgDaily:0, coverage:null }, compact=true, highlight=false) {
+function renderCoverageCells(row={ inventory:0, transitQty:0, avgDaily:0, coverage:null, expectedCoverage:null }, compact=true, highlight=false) {
   const stock = Number(row.inventory||0);
+  const transit = Number(row.transitQty||0);
   const avg = Number(row.avgDaily||0);
   const coverage = row.coverage;
+  const expectedCoverage = row.expectedCoverage;
   const stockColor = stock===0 ? "var(--red)" : stock<=5 ? "var(--amber)" : "var(--gray)";
   const coverageColor = coverage===null ? "var(--gray)" : coverage < 7 ? "var(--red)" : coverage < 15 ? "var(--amber)" : "var(--green)";
   const bg = highlight ? "background:var(--lavender-light);" : "";
   const leftBorder = highlight ? "border-left:2px solid var(--purple);" : "border-left:1px solid var(--lavender-light);";
   return `
-    <td style="text-align:center;padding:6px 3px;font-weight:900;color:${stockColor};${leftBorder}${bg}">${stock}</td>
+    <td style="text-align:center;padding:6px 3px;${leftBorder}${bg}">
+      <div style="font-weight:900;color:${stockColor};">${stock}</div>
+      ${transit>0?`<div style="font-size:9px;font-weight:900;color:var(--amber);line-height:1.1;">+${transit} tránsito</div>`:""}
+    </td>
     <td style="text-align:center;padding:6px 3px;font-weight:800;color:var(--gray);${bg}">${avg>0?avg.toFixed(2):"0.00"}</td>
-    <td style="text-align:center;padding:6px 3px;font-weight:900;color:${coverageColor};${bg}">${formatCoverageDays(coverage)}</td>
+    <td style="text-align:center;padding:6px 3px;${bg}">
+      <div style="font-weight:900;color:${coverageColor};">${formatCoverageDays(coverage)}</div>
+      ${transit>0?`<div style="font-size:9px;font-weight:900;color:var(--gray);line-height:1.1;">esp. ${formatCoverageDays(expectedCoverage)}</div>`:""}
+    </td>
   `;
 }
 
@@ -11261,6 +12543,7 @@ function getStockSeguroRows(daysOverride) {
   const days = Math.max(1, Number(daysOverride||state.stockSeguroDays||30));
   const demandLocations = getStockSeguroDemandLocations();
   const demandConfig = getStockSeguroPeriodConfig();
+  const transitBySku = getTransitBySkuForInventoryPlan();
   const coverageByLocation = demandLocations.reduce((acc,loc)=>{
     acc[loc.id] = getInventoryCoverageRows(loc.id, demandConfig);
     return acc;
@@ -11322,23 +12605,31 @@ function getStockSeguroRows(daysOverride) {
     const totalInventario = locations.reduce((sum,loc)=>sum+loc.inventory,0);
     const totalVentaDiaria = locations.reduce((sum,loc)=>sum+loc.avgDaily,0);
     const totalObjetivo = locations.reduce((sum,loc)=>sum+loc.objetivo,0);
+    const transitQty = Number(transitBySku[product.id]?.qty||0);
     const totalInventarioNegocio = totalInventario + centralStock;
+    const totalInventarioEsperado = totalInventarioNegocio + transitQty;
     const totalFaltante = locations.reduce((sum,loc)=>sum+Math.max(0,-loc.diferencia),0);
     const totalExceso = locations.reduce((sum,loc)=>sum+Math.max(0,loc.diferencia),0);
     const coberturaPuntos = totalVentaDiaria > 0 ? totalInventario / totalVentaDiaria : null;
     const coberturaNegocio = totalVentaDiaria > 0 ? totalInventarioNegocio / totalVentaDiaria : null;
+    const coberturaEsperadaNegocio = totalVentaDiaria > 0 ? totalInventarioEsperado / totalVentaDiaria : null;
     const diferenciaNegocio = totalInventarioNegocio - totalObjetivo;
+    const diferenciaEsperadaNegocio = totalInventarioEsperado - totalObjetivo;
     return {
       product, locations, centralStock, actions,
       totalVentaDiaria,
       totalInventario,
+      transitQty,
       totalInventarioNegocio,
+      totalInventarioEsperado,
       totalObjetivo,
       totalFaltante,
       totalExceso,
       coberturaPuntos,
       coberturaNegocio,
-      diferenciaNegocio
+      coberturaEsperadaNegocio,
+      diferenciaNegocio,
+      diferenciaEsperadaNegocio
     };
   });
 }
@@ -11445,8 +12736,10 @@ function renderStockSeguro() {
           <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:900;">Inventario<br>puntos venta</th>
           <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:900;">Inventario<br>Bodega Central</th>
           <th style="text-align:center;padding:8px 6px;color:var(--purple);font-weight:900;">Inventario Total<br>Negocio</th>
+          <th style="text-align:center;padding:8px 6px;color:var(--amber);font-weight:900;">En tránsito<br>asociado al SKU</th>
           <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:900;">Requerimiento Inventario<br>${days} días Total Negocio</th>
           <th style="text-align:center;padding:8px 6px;color:var(--purple);font-weight:900;">Cobertura Ventas<br>Total Negocio</th>
+          <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:900;">Cobertura esperada<br>con tránsito</th>
           <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:900;">Balance<br>Total Negocio</th>
         </tr>
       </thead>
@@ -11460,8 +12753,10 @@ function renderStockSeguro() {
             <td style="text-align:center;padding:7px 6px;font-weight:900;color:var(--gray);">${r.totalInventario}</td>
             <td style="text-align:center;padding:7px 6px;font-weight:900;color:var(--gray);">${r.centralStock}</td>
             <td style="text-align:center;padding:7px 6px;font-weight:900;color:var(--purple);background:var(--lavender-light);">${r.totalInventarioNegocio}</td>
+            <td style="text-align:center;padding:7px 6px;font-weight:900;color:var(--amber);">${r.transitQty>0?`${r.transitQty} uds`:"-"}</td>
             <td style="text-align:center;padding:7px 6px;font-weight:900;color:var(--purple);">${r.totalObjetivo}</td>
             <td style="text-align:center;padding:7px 6px;font-weight:900;color:${coverageColor};">${formatCoverageDays(r.coberturaNegocio)}</td>
+            <td style="text-align:center;padding:7px 6px;font-weight:900;color:var(--gray);">${r.transitQty>0?formatCoverageDays(r.coberturaEsperadaNegocio):"-"}</td>
             <td style="text-align:center;padding:7px 6px;font-weight:900;color:${balanceColor};">${r.diferenciaNegocio<0?`Faltan ${Math.abs(Math.ceil(r.diferenciaNegocio))}`:`Sobra ${Math.floor(r.diferenciaNegocio)}`}</td>
           </tr>`;
         }).join("")}
@@ -11570,6 +12865,34 @@ function renderInventario() {
           acc.total += value;
           return acc;
         },{ total:0, materiales:{qty:0,value:0,rows:[]}, materias_primas:{qty:0,value:0,rows:[]} });
+      const renderTransitDetails = (title, rows, qtyLabel="uds") => `<details class="card" style="margin-bottom:10px;border-left:5px solid var(--amber);">
+        <summary style="cursor:pointer;font-weight:1000;color:var(--purple);font-size:13px;">${title} · ${rows.length} registro(s)</summary>
+        <div style="font-size:11px;color:var(--gray);font-weight:750;margin:6px 0 10px;">Detalle de compras comprometidas. No se suman como disponible hasta que se registren como inventario físico.</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:860px;">
+            <thead><tr style="border-bottom:2px solid var(--lavender);">
+              <th style="text-align:left;padding:7px 4px;color:var(--gray);font-weight:900;">Código</th>
+              <th style="text-align:left;padding:7px 4px;color:var(--gray);font-weight:900;">Material</th>
+              <th style="text-align:right;padding:7px 4px;color:var(--gray);font-weight:900;">Cantidad</th>
+              <th style="text-align:right;padding:7px 4px;color:var(--gray);font-weight:900;">Costo</th>
+              <th style="text-align:left;padding:7px 4px;color:var(--gray);font-weight:900;">Proveedor / origen</th>
+              <th style="text-align:left;padding:7px 4px;color:var(--gray);font-weight:900;">Compra</th>
+              <th style="text-align:left;padding:7px 4px;color:var(--gray);font-weight:900;">Llegada estimada</th>
+            </tr></thead>
+            <tbody>
+              ${rows.map(item=>`<tr style="border-bottom:1px solid var(--lavender-light);">
+                <td style="padding:7px 4px;font-weight:1000;color:var(--purple);">${safeText(item.materialCode||item.codigo||"-")}</td>
+                <td style="padding:7px 4px;font-weight:850;color:var(--purple);">${safeText(item.material||item.nombre||item.descripcion||"Material")}</td>
+                <td style="text-align:right;padding:7px 4px;font-weight:900;color:var(--gray);">${Number(item.qty||0).toFixed(qtyLabel==="uds"?0:1)} ${qtyLabel}</td>
+                <td style="text-align:right;padding:7px 4px;font-weight:900;color:var(--purple);">${fmt(Number(item.value||0))}</td>
+                <td style="padding:7px 4px;font-weight:800;color:var(--gray);">${safeText([item.proveedor||item.supplier, item.origen||item.origin].filter(Boolean).join(" · ") || "-")}</td>
+                <td style="padding:7px 4px;font-weight:800;color:var(--gray);">${item.fechaCompra?fmtDate(item.fechaCompra):safeText(item.fecha||"-")}</td>
+                <td style="padding:7px 4px;font-weight:900;color:var(--amber);">${item.fechaLlegadaEstimada?fmtDate(item.fechaLlegadaEstimada):(item.eta?fmtDate(item.eta):"-")}</td>
+              </tr>`).join("") || `<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--gray);font-weight:800;">No hay registros en tránsito.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </details>`;
       const inventoryGroups = [
         { label:"Producto terminado", desc:"SKU listos para vender en puntos y bodegas.", units:`${totalUnitsGeneral} uds`, value:totalGeneral, tone:"var(--purple)" },
         { label:"Producto en proceso", desc:"Lotes iniciados aún no cerrados.", units:"0 uds", value:0, tone:"var(--amber)" },
@@ -11635,11 +12958,34 @@ function renderInventario() {
             <div style="font-size:11px;color:var(--gray);font-weight:780;">${Number(transitSummary.materias_primas.qty||0).toFixed(1)} unidades base · no disponible todavía</div>
           </div>
         </div>
+        ${renderTransitDetails("Detalle de materiales de empaque en tránsito", transitSummary.materiales.rows, "uds")}
+        ${renderTransitDetails("Detalle de materias primas en tránsito", transitSummary.materias_primas.rows, "unid.")}
       </div>`:""}
 
-      <div class="section-title">Stock por SKU — todos los puntos</div>
-      <div style="font-size:11px;color:var(--gray);font-weight:700;margin:-4px 0 8px;">Venta promedio diaria: mejor mes en unidades dentro de los últimos 3 meses, dividido entre todos los días del mes.</div>
-      <div style="overflow-x:auto;">
+      <div class="card" style="margin-bottom:12px;">
+        <div class="section-title">Stock por punto · lectura ejecutiva</div>
+        <div style="font-size:12px;color:var(--gray);font-weight:750;margin-bottom:10px;">Primero mira el estado general. Luego abre el detalle por SKU solo cuando necesites auditar un producto o punto específico.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;">
+          ${stockCoverageLocations.map(pt=>{
+            const summary = getInventoryCoverageSummary(coverageByLocation[pt.id]);
+            const inv = state.inventory[pt.id]||{};
+            const value = CATALOG.reduce((s,p)=>s+(inv[p.id]||0)*getCost(p.id),0);
+            return `<div style="border:1.5px solid var(--lavender);border-radius:12px;padding:12px;background:white;">
+              <div style="font-size:12px;color:var(--purple);font-weight:1000;">${pt.emoji} ${pt.name}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">
+                <div><div style="font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">Unidades</div><div style="font-size:19px;color:var(--purple);font-weight:1000;">${summary.inventory}</div></div>
+                <div><div style="font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">Cobertura</div><div style="font-size:19px;color:var(--purple);font-weight:1000;">${formatCoverageDays(summary.coverage)}</div></div>
+              </div>
+              ${canSeeCosts?`<div style="font-size:11px;color:var(--gray);font-weight:800;margin-top:7px;">Valor al costo ${fmt(value)}</div>`:""}
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+
+      <details class="card" style="overflow-x:auto;margin-bottom:12px;">
+        <summary style="cursor:pointer;font-size:13px;font-weight:1000;color:var(--purple);">Ver detalle por SKU y punto</summary>
+        <div class="section-title" style="margin-top:10px;">Stock por SKU — todos los puntos</div>
+        <div style="font-size:11px;color:var(--gray);font-weight:700;margin:-4px 0 8px;">Venta promedio diaria: mejor mes en unidades dentro de los últimos 3 meses, dividido entre todos los días del mes. El inventario mostrado es físico; si hay tránsito asociado al SKU, aparece debajo y se calcula una cobertura esperada.</div>
         <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:1120px;">
           <thead>
             <tr style="border-bottom:2px solid var(--lavender);">
@@ -11649,9 +12995,9 @@ function renderInventario() {
             </tr>
             <tr style="border-bottom:2px solid var(--lavender);">
               ${[...stockCoverageLocations.map(pt=>pt.id), "consolidado"].map(()=>`
-                <th style="text-align:center;padding:5px 3px;color:var(--gray);font-weight:800;">Inventario</th>
+                <th style="text-align:center;padding:5px 3px;color:var(--gray);font-weight:800;">Inventario<br>físico</th>
                 <th style="text-align:center;padding:5px 3px;color:var(--gray);font-weight:800;">Venta prom.<br>diaria</th>
-                <th style="text-align:center;padding:5px 3px;color:var(--gray);font-weight:800;">Cobertura</th>
+                <th style="text-align:center;padding:5px 3px;color:var(--gray);font-weight:800;">Cobertura<br>física / esperada</th>
               `).join("")}
             </tr>
           </thead>
@@ -11682,7 +13028,7 @@ function renderInventario() {
             </tr>`:""}
           </tfoot>
         </table>
-      </div>`;
+      </details>`;
     }
 
     // Vista individual de un punto (stand o bodega)
@@ -11711,15 +13057,15 @@ function renderInventario() {
     </div>
 
     <div class="section-title">Stock por SKU — toca ✏️ para ajustar</div>
-    <div style="font-size:11px;color:var(--gray);font-weight:700;margin:-4px 0 8px;">Venta promedio diaria: mejor mes en unidades dentro de los últimos 3 meses, dividido entre todos los días del mes.</div>
+    <div style="font-size:11px;color:var(--gray);font-weight:700;margin:-4px 0 8px;">Venta promedio diaria: mejor mes en unidades dentro de los últimos 3 meses, dividido entre todos los días del mes. El inventario mostrado es físico; si hay tránsito asociado al SKU, aparece debajo y se calcula una cobertura esperada.</div>
     <div class="card" style="overflow-x:auto;padding:0;">
       <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:620px;">
         <thead>
           <tr style="border-bottom:2px solid var(--lavender);">
             <th style="text-align:left;padding:8px 6px;color:var(--gray);font-weight:800;">Producto</th>
-            <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:800;">Inventario</th>
+            <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:800;">Inventario físico</th>
             <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:800;">Venta prom. diaria</th>
-            <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:800;">Cobertura</th>
+            <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:800;">Cobertura física / esperada</th>
             <th style="text-align:center;padding:8px 6px;color:var(--gray);font-weight:800;">Ajuste</th>
           </tr>
         </thead>
@@ -11730,9 +13076,15 @@ function renderInventario() {
             const stockColor = row.inventory===0 ? "var(--red)" : row.inventory<=5 ? "var(--amber)" : "var(--gray)";
             return `<tr style="border-bottom:1px solid var(--lavender-light);">
               <td style="padding:7px 6px;font-weight:800;color:var(--purple);">${p.emoji} ${p.name} <span style="font-weight:500;color:var(--gray);">${p.sub}</span><div style="font-size:10px;color:var(--gray);font-weight:700;">${p.ref}</div></td>
-              <td style="text-align:center;padding:7px 6px;font-weight:900;color:${stockColor};">${row.inventory}</td>
+              <td style="text-align:center;padding:7px 6px;">
+                <div style="font-weight:900;color:${stockColor};">${row.inventory}</div>
+                ${Number(row.transitQty||0)>0?`<div style="font-size:10px;font-weight:900;color:var(--amber);">+${Number(row.transitQty||0)} tránsito</div>`:""}
+              </td>
               <td style="text-align:center;padding:7px 6px;font-weight:800;color:var(--gray);">${row.avgDaily>0?row.avgDaily.toFixed(2):"0.00"}</td>
-              <td style="text-align:center;padding:7px 6px;font-weight:900;color:${coverageColor};">${formatCoverageDays(row.coverage)}</td>
+              <td style="text-align:center;padding:7px 6px;">
+                <div style="font-weight:900;color:${coverageColor};">${formatCoverageDays(row.coverage)}</div>
+                ${Number(row.transitQty||0)>0?`<div style="font-size:10px;font-weight:900;color:var(--gray);">esp. ${formatCoverageDays(row.expectedCoverage)}</div>`:""}
+              </td>
               <td style="text-align:center;padding:7px 6px;">
                 ${state.editingStock===p.id?`
                   <input type="number" class="inv-edit-input" id="inv-input" value="${state.editStockVal}" min="0">
@@ -11861,7 +13213,7 @@ function renderForecast() {
   const horizonOptions = [1,5,10,15,30,45,60,90];
   const dayCount = Math.max(1, countDaysInclusive(from, to));
   const periodLabel = state.forecastPeriod==="hoy" ? "Hoy"
-    : state.forecastPeriod==="semana" ? `Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`
+    : state.forecastPeriod==="semana" ? `Semana acumulada · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.forecastPeriod==="mes" ? `Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.forecastPeriod==="mesEspecifico" ? new Date(`${state.forecastMesAno||today().slice(0,7)}-01T12:00:00`).toLocaleDateString("es-EC",{month:"long",year:"numeric"})
     : state.forecastPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
@@ -12266,6 +13618,7 @@ function renderSpecialProjectsSalesPlan(plan) {
   const projectState = state.specialProjects?.[project.id] || {};
   const monthFactors = projectState.monthFactors || {};
   const purchaseDeadline = getSpecialProjectPurchaseDeadline(project);
+  const activeInSalesPlan = isSpecialProjectSalesPlanActive(project.id);
   return `<div class="card" style="overflow-x:auto;margin-bottom:12px;border-left:5px solid var(--amber);">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px;">
       <div>
@@ -12273,11 +13626,16 @@ function renderSpecialProjectsSalesPlan(plan) {
         <div style="font-size:16px;color:var(--purple);font-weight:1000;">${project.name}</div>
         <div style="font-size:12px;color:var(--gray);font-weight:750;margin-top:3px;">Venta inicia en ${salesPlanMonthLabel(project.months[0])}. Inventario listo en ${salesPlanMonthLabel(project.inventoryReadyMonth)}. Compra/importación sugerida antes de ${fmtDate(purchaseDeadline)} por lead time de ${project.leadTimeDays} días.</div>
         <div style="font-size:12px;color:var(--gray);font-weight:750;margin-top:3px;">Base automática: mejor mes histórico de ${project.referenceLabel}${reference.month?` (${salesPlanMonthLabel(reference.month)}, ${reference.units.toFixed(0)} uds)`:""} · Escenario ${scenario.label}.</div>
+        <div style="font-size:12px;color:${activeInSalesPlan?"var(--green)":"var(--gray)"};font-weight:900;margin-top:5px;">${activeInSalesPlan?"Incluido en el plan comercial, P&G, presupuesto por canal/SKU, plan por SKU y matriz.":"No incluido en los cálculos principales hasta que lo actives."}</div>
       </div>
       <div style="text-align:right;background:var(--lavender-light);border-radius:12px;padding:10px 12px;min-width:150px;">
         <div style="font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">Unidades proyecto</div>
         <div style="font-size:22px;color:var(--purple);font-weight:1000;">${totalUnits.toFixed(0)}</div>
       </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <button class="period-btn ${activeInSalesPlan?"active":""}" data-special-project-sales-plan="on">Incluir Condado en el plan</button>
+      <button class="period-btn ${!activeInSalesPlan?"active":""}" data-special-project-sales-plan="off">No incluir Condado</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
       ${SPECIAL_PROJECT_SCENARIOS.map(s=>`<button class="period-btn ${scenario.id===s.id?"active":""}" data-special-project-scenario="${s.id}" title="${s.note}">${s.label}</button>`).join("")}
@@ -12511,6 +13869,112 @@ function getPurchaseRequirementMaterialRows(planRows) {
   }).sort((a,b)=>b.requiredMoney-a.requiredMoney || b.shortage-a.shortage || a.name.localeCompare(b.name));
 }
 
+function renderAbastecimientoPlanDashboard(plan, materialRows) {
+  const months = plan.months || [];
+  const rows = plan.rows || [];
+  const palette = ["#2A1768","#95C94A","#F0A22E","#4D7DE8","#E45858","#7C5CFF","#2BAE8F","#C25BB8","#6B7280","#F97316"];
+  const specialUnitsBySkuMonth = {};
+  if (state.purchaseIncludeSpecialProject && plan.specialProjectPlan?.project && plan.specialProjectMonths?.length) {
+    plan.specialProjectMonths.forEach(month=>{
+      specialUnitsBySkuMonth[month] = getSpecialProjectUnitsBySku(plan.specialProjectPlan.project.id, [month]);
+    });
+  }
+  const monthSkuRows = months.map(month=>{
+    const skuRows = rows.map((row,idx)=>{
+      const baseUnits = Number(row.byMonth?.[month]?.units||0);
+      const specialUnits = Number(specialUnitsBySkuMonth[month]?.[row.product.id]||0);
+      return { product:row.product, units:baseUnits+specialUnits, color:palette[idx%palette.length] };
+    }).filter(r=>r.units>0);
+    const total = skuRows.reduce((sum,r)=>sum+r.units,0);
+    return { month, skuRows, total };
+  });
+  const totalDemand = rows.reduce((sum,row)=>sum+Number(row.projectedUnits||0),0);
+  const totalFinishedStock = rows.reduce((sum,row)=>sum+Number(row.stock||0),0);
+  const requiredMaterials = materialRows.reduce((sum,row)=>sum+Number(row.required||0),0);
+  const coveredMaterials = materialRows.reduce((sum,row)=>sum+Math.min(Number(row.required||0), Number(row.available||0)),0);
+  const materialCoveragePct = requiredMaterials > 0 ? Math.min(100, coveredMaterials/requiredMaterials*100) : 100;
+  const finishedCoveragePct = totalDemand > 0 ? Math.min(100, totalFinishedStock/totalDemand*100) : 100;
+  const totalRequiredMoney = materialRows.reduce((sum,row)=>sum+Number(row.requiredMoney||0),0);
+  const categoryRows = PRODUCTION_CATEGORIES.map(cat=>{
+    const units = rows
+      .filter(row=>cat.productIds.includes(row.product.id))
+      .reduce((sum,row)=>sum+Number(row.projectedUnits||0),0);
+    return { ...cat, units };
+  }).filter(row=>row.units>0).sort((a,b)=>b.units-a.units);
+  const maxCategoryUnits = Math.max(1, ...categoryRows.map(row=>row.units));
+  const topSkuRows = rows
+    .map((row,idx)=>({ ...row, color:palette[idx%palette.length] }))
+    .sort((a,b)=>Number(b.projectedUnits||0)-Number(a.projectedUnits||0))
+    .slice(0,8);
+
+  return `<div class="card" style="padding:14px;margin-bottom:12px;border:2px solid rgba(42,23,104,.18);">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;">
+      <div>
+        <div class="section-title" style="margin-bottom:2px;">Dashboard gráfico del plan</div>
+        <div style="font-size:12px;color:var(--gray);font-weight:800;">Plan de ventas conectado · ${months.length ? `${salesPlanMonthLabel(months[0])} → ${salesPlanMonthLabel(months[months.length-1])}` : "sin meses"} · unidades por SKU.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">
+          Mes inicial
+          <input type="month" id="purchase-plan-month" value="${escapeAttr(state.salesPlanMonth || today().slice(0,7))}" class="dispatch-input" style="width:145px;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--gray);font-weight:900;text-transform:uppercase;">
+          Meses
+          <select id="purchase-plan-months-count" class="dispatch-select" style="width:120px;">
+            ${[1,2,3,4,6,12].map(n=>`<option value="${n}" ${Number(state.salesPlanMonthsCount||3)===n?"selected":""}>${n}</option>`).join("")}
+          </select>
+        </label>
+        <button class="period-btn" id="purchase-plan-sep-dec">Sep → dic 2026</button>
+        <button class="period-btn" id="purchase-plan-go-sales">Editar plan de ventas</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px;">
+      ${[
+        ["Demanda del período", `${totalDemand.toFixed(0)} uds`, "Plan comercial por SKU", "var(--purple)"],
+        ["Producto terminado", `${finishedCoveragePct.toFixed(0)}%`, `${totalFinishedStock.toFixed(0)} uds contra plan`, finishedCoveragePct>=100?"var(--green)":finishedCoveragePct>=60?"var(--amber)":"var(--red)"],
+        ["Materiales cubiertos", `${materialCoveragePct.toFixed(0)}%`, "Stock físico + tránsito esperado", materialCoveragePct>=100?"var(--green)":materialCoveragePct>=60?"var(--amber)":"var(--red)"],
+        ["Dinero por comprar", fmt(totalRequiredMoney), "Faltante real después del tránsito", totalRequiredMoney>0?"var(--red)":"var(--green)"]
+      ].map(([label,value,note,color])=>`
+        <div style="border-radius:16px;padding:14px;background:linear-gradient(135deg,rgba(42,23,104,.08),rgba(193,207,0,.10));border:1.5px solid var(--lavender);">
+          <div style="font-size:11px;color:var(--gray);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;">${label}</div>
+          <div style="font-size:26px;color:${color};font-weight:1000;margin-top:4px;line-height:1;">${value}</div>
+          <div style="font-size:11px;color:var(--gray);font-weight:800;margin-top:5px;">${note}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.9fr);gap:12px;align-items:start;">
+      <div style="border:1.5px solid var(--lavender);border-radius:14px;padding:12px;overflow:hidden;">
+        <div style="font-size:12px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Plan de ventas por mes y SKU</div>
+        ${monthSkuRows.length ? monthSkuRows.map(monthRow=>`
+          <div style="display:grid;grid-template-columns:110px 1fr 78px;gap:10px;align-items:center;margin-bottom:10px;">
+            <div style="font-size:12px;color:var(--gray);font-weight:1000;">${salesPlanMonthLabel(monthRow.month)}</div>
+            <div style="height:34px;border-radius:999px;background:var(--lavender-light);overflow:hidden;display:flex;box-shadow:inset 0 0 0 1px rgba(42,23,104,.08);">
+              ${monthRow.skuRows.map(r=>`<div title="${escapeAttr(r.product.ref)} · ${r.units.toFixed(0)} uds" style="width:${monthRow.total>0?Math.max(3,r.units/monthRow.total*100):0}%;background:${r.color};display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:1000;min-width:${r.units/monthRow.total>0.16?"34px":"0"};">${r.units/monthRow.total>0.16?r.product.ref:""}</div>`).join("")}
+            </div>
+            <div style="font-size:18px;color:var(--purple);font-weight:1000;text-align:right;">${monthRow.total.toFixed(0)}</div>
+          </div>
+        `).join("") : `<div style="font-size:12px;color:var(--gray);font-weight:800;">Sin unidades planificadas para mostrar.</div>`}
+      </div>
+      <div style="border:1.5px solid var(--lavender);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;color:var(--purple);font-weight:1000;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Demanda por categoría</div>
+        ${categoryRows.length ? categoryRows.map(row=>`
+          <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:1000;color:var(--purple);">
+              <span>${row.label}</span><span>${row.units.toFixed(0)} uds</span>
+            </div>
+            <div style="height:8px;border-radius:999px;background:var(--lavender-light);overflow:hidden;margin-top:5px;">
+              <div style="width:${Math.max(3,row.units/maxCategoryUnits*100)}%;height:100%;background:linear-gradient(90deg,var(--purple),var(--lime));"></div>
+            </div>
+          </div>
+        `).join("") : `<div style="font-size:12px;color:var(--gray);font-weight:800;">Sin categorías con demanda.</div>`}
+      </div>
+    </div>
+    ${topSkuRows.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      ${topSkuRows.map(row=>`<span style="display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--lavender);border-radius:999px;padding:7px 10px;font-size:11px;color:var(--purple);font-weight:1000;background:white;"><span style="width:10px;height:10px;border-radius:50%;background:${row.color};"></span>${row.product.ref} · ${Number(row.projectedUnits||0).toFixed(0)} uds</span>`).join("")}
+    </div>` : ""}
+  </div>`;
+}
+
 function renderRequerimientoCompra() {
   const plan = getPurchaseProductionPlanRows();
   const materialRows = getPurchaseRequirementMaterialRows(plan.rows);
@@ -12559,6 +14023,8 @@ function renderRequerimientoCompra() {
         </div>
       </div>
     </div>
+
+    ${renderAbastecimientoPlanDashboard(plan, materialRows)}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;">
       ${[
@@ -12818,7 +14284,10 @@ function renderProduccion() {
       </div>
       <div style="border-radius:12px;background:#FEF3C7;color:#92400E;padding:10px 12px;font-size:12px;font-weight:900;margin-bottom:10px;">Incluyendo ${condadoSelectedUnits.toFixed(0)} unidades adicionales para Condado Shopping. Si faltan materiales importados, compra sugerida antes de ${fmtDate(condadoPurchaseDeadline)} por lead time de ${condadoPlan.project.leadTimeDays} días.</div>
     `:""}
-    <div class="section-title" style="margin-top:8px;">Días objetivo de inventario</div>
+    <div class="section-title" style="margin-top:8px;">Días de inventario final objetivo</div>
+    <div style="font-size:12px;color:var(--gray);font-weight:800;margin-bottom:8px;line-height:1.45;">
+      Si usas histórico, este número indica cuántos días quieres cubrir desde hoy. Si usas Plan de Ventas, significa cubrir el período elegido y además terminar ese período con este colchón de inventario. Ejemplo: septiembre a diciembre + 30 días = producir para cubrir septiembre-diciembre y cerrar diciembre con inventario para 30 días más.
+    </div>
     <div class="period-filter" style="margin:0;flex-wrap:wrap;">
       ${horizonOptions.map(d=>`<button class="period-btn ${Number(state.productionDays)===d?"active":""}" data-production-days="${d}">${d} días</button>`).join("")}
     </div>
@@ -13070,6 +14539,7 @@ function renderPlanificacionVentas() {
   const specialProjectPlan = getSpecialProjectPlan("condado_shopping");
   const matrixMetric = state.salesPlanMatrixMetric || "units";
   const matrixMonth = months.includes(state.salesPlanMatrixMonth) ? state.salesPlanMatrixMonth : "total";
+  const matrixStand = state.salesPlanMatrixStand || "all";
   const planMonth = state.salesPlanMonth || today().slice(0,7);
   const monthLabel = (() => {
     const [y,m] = planMonth.split("-").map(Number);
@@ -13122,6 +14592,7 @@ function renderPlanificacionVentas() {
               ${[1,2,3,4,6,12].map(n=>`<option value="${n}" ${Number(state.salesPlanMonthsCount||3)===n?"selected":""}>${n} ${n===1?"mes":"meses"}</option>`).join("")}
             </select>
           </label>
+          <button class="period-btn" id="sales-plan-sep-dec" style="align-self:end;background:rgba(193,207,0,.22);color:white;border-color:rgba(255,255,255,.4);">Sep → dic 2026</button>
         </div>
       </div>
     </div>
@@ -13270,14 +14741,17 @@ function renderPlanificacionVentas() {
         <tbody>
           ${model.channels.map((ch,idx)=>`
             <tr style="border-bottom:1px solid var(--lavender-light);">
-              <td style="padding:6px 4px;"><input class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="name" value="${escapeAttr(ch.name)}" style="min-width:170px;"></td>
-              <td style="padding:6px 4px;"><input class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="responsable" value="${escapeAttr(ch.responsable)}" style="min-width:130px;"></td>
+              <td style="padding:6px 4px;">${ch.specialProject?`<strong style="color:var(--purple);">${escapeAttr(ch.name)}</strong><div style="font-size:10px;color:var(--amber);font-weight:900;">Proyecto especial</div>`:`<input class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="name" value="${escapeAttr(ch.name)}" style="min-width:170px;">`}</td>
+              <td style="padding:6px 4px;">${ch.specialProject?`<span style="font-weight:900;color:var(--gray);">${escapeAttr(ch.responsable)}</span>`:`<input class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="responsable" value="${escapeAttr(ch.responsable)}" style="min-width:130px;">`}</td>
               <td style="text-align:right;padding:8px 6px;font-weight:900;color:var(--gray);">${ch.historicalShare===null?"-":ch.historicalShare.toFixed(1)+"%"}</td>
-              <td style="text-align:right;padding:6px 4px;"><input type="number" min="0" max="100" step="1" class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="sharePct" value="${Number(ch.sharePct||0)}" style="width:88px;text-align:right;"></td>
+              <td style="text-align:right;padding:6px 4px;">${ch.specialProject?`<span style="font-weight:900;color:var(--gray);">Se suma aparte</span>`:`<input type="number" min="0" max="100" step="1" class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="sharePct" value="${Number(ch.sharePct||0)}" style="width:88px;text-align:right;">`}</td>
               ${months.map((month,monthIndex)=>{
                 const active = isSalesPlanChannelActive(ch, month, monthIndex);
                 const monthShare = getSalesPlanChannelShareForMonth(ch, month);
-                return `<td style="text-align:right;padding:6px 6px;font-weight:900;color:${active?"var(--purple)":"var(--gray)"};">
+                return ch.specialProject ? `<td style="text-align:right;padding:6px 6px;font-weight:900;color:var(--purple);">
+                  <div style="font-size:10px;color:var(--gray);font-weight:800;">Desde proyecto</div>
+                  <div>${fmt(ch.byMonth?.[month]?.netAdjusted||0)}</div>
+                </td>` : `<td style="text-align:right;padding:6px 6px;font-weight:900;color:${active?"var(--purple)":"var(--gray)"};">
                   <label style="display:flex;justify-content:flex-end;align-items:center;gap:5px;font-size:10px;color:var(--gray);font-weight:800;">
                     <input type="checkbox" data-sales-plan-channel-active="${idx}" data-sales-plan-active-month="${month}" ${active?"checked":""}>
                     Activo
@@ -13289,7 +14763,7 @@ function renderPlanificacionVentas() {
                   <div>${active?fmt(ch.byMonth?.[month]?.netAdjusted||0):"-"}</div>
                 </td>`;
               }).join("")}
-              <td style="text-align:right;padding:6px 4px;"><input type="number" min="0" max="100" step="1" class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="discount" value="${ch.discount}" style="width:80px;text-align:right;"></td>
+              <td style="text-align:right;padding:6px 4px;">${ch.specialProject?`<strong style="color:var(--gray);">0%</strong>`:`<input type="number" min="0" max="100" step="1" class="dispatch-input" data-sales-plan-channel="${idx}" data-sales-plan-channel-field="discount" value="${ch.discount}" style="width:80px;text-align:right;">`}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${fmt(ch.netAdjusted)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${fmt(ch.cost)}</td>
               <td style="text-align:right;padding:8px 4px;font-weight:900;color:${ch.margin>=0?"var(--lime-dark)":"var(--red)"};">${fmt(ch.margin)}</td>
@@ -13481,9 +14955,13 @@ function renderPlanificacionVentas() {
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
         <div>
           <div class="section-title" style="margin-bottom:2px;">Matriz SKU x canal</div>
-          <div style="font-size:12px;color:var(--gray);font-weight:700;">Cruza cada SKU contra cada canal usando la rotación histórica seleccionada. Dólares = venta sin IVA después de descuento.</div>
+          <div style="font-size:12px;color:var(--gray);font-weight:700;">Cruza cada SKU contra cada canal usando la rotación histórica seleccionada. Dólares = venta sin IVA después de descuento. El mejor mes histórico responde al punto de venta elegido.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <select id="sales-plan-matrix-stand" class="dispatch-select" style="width:190px;">
+            <option value="all" ${matrixStand==="all"?"selected":""}>Todos los puntos</option>
+            ${PUNTOS_VENTA.map(p=>`<option value="${escapeAttr(p.id)}" ${matrixStand===p.id?"selected":""}>${escapeAttr(p.name)}</option>`).join("")}
+          </select>
           <button class="period-btn ${state.salesPlanMatrixMonth==="total"?"active":""}" data-sales-plan-matrix-month="total">Periodo</button>
           ${months.map(month=>`<button class="period-btn ${state.salesPlanMatrixMonth===month?"active":""}" data-sales-plan-matrix-month="${month}">${salesPlanMonthLabel(month)}</button>`).join("")}
           <button class="period-btn ${state.salesPlanMatrixMetric==="units"?"active":""}" data-sales-plan-matrix-metric="units">Unidades</button>
@@ -13563,7 +15041,7 @@ function renderVentas() {
     return new Date(y, m-1, 1).toLocaleDateString("es-EC",{month:"long",year:"numeric"});
   })();
   const periodLabel = state.ventasPeriod==="hoy" ? "Hoy"
-    : state.ventasPeriod==="semana" ? `Semana calendario · ${fmtDate(from)} – ${fmtDate(to)}`
+    : state.ventasPeriod==="semana" ? `Semana acumulada · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.ventasPeriod==="mes" ? `Mes acumulado · ${fmtDate(from)} – ${fmtDate(to)}`
     : state.ventasPeriod==="mesEspecifico" ? mesEspecificoLabel
     : state.ventasPeriod==="rango" ? `${fmtDate(from)} – ${fmtDate(to)}`
@@ -13598,18 +15076,18 @@ function renderVentas() {
       : comparePeriod==="rango"
         ? `${fmtDate(compareRange.from)} – ${fmtDate(compareRange.to)}`
         : "Todo el histórico";
-  const monthlyCompare = getMonthlySalesComparison(compareBaseSales);
-  const monthlyComparePayload = encodeURIComponent(JSON.stringify({
-    labels:monthlyCompare.map(r=>r.label),
-    usd:monthlyCompare.map(r=>Number(r.usd.toFixed(2))),
-    units:monthlyCompare.map(r=>Number(r.units.toFixed(2))),
-    metric:state.ventasCompareMetric || "usd"
-  }));
   const compareCategories = state.ventasCompareCategories || ["all"];
   const compareSkus = state.ventasCompareSkus || ["all"];
   const compareSkuOptions = getCompareSkuOptions(activeCompareCategories());
   const compareWeekdays = state.ventasCompareWeekdays || ["all"];
   const compareMetric = state.ventasCompareMetric || "usd";
+  const monthlyCompare = getMonthlySalesComparison(compareBaseSales);
+  const monthlyComparePayload = encodeURIComponent(JSON.stringify({
+    labels:monthlyCompare.map(r=>r.label),
+    usd:monthlyCompare.map(r=>Number(r.usd.toFixed(2))),
+    units:monthlyCompare.map(r=>Number(r.units.toFixed(2))),
+    metric:compareMetric
+  }));
   const compareCategoryLabel = compareCategories.includes("all")
     ? "Todas las categorías"
     : SALES_CATEGORY_META.filter(c=>compareCategories.includes(c.id)).map(c=>c.label).join(", ");
@@ -13619,12 +15097,20 @@ function renderVentas() {
   const compareWeekdayLabel = compareWeekdays.includes("all")
     ? "Todos los días"
     : SALES_WEEKDAY_FILTERS.filter(d=>compareWeekdays.includes(d.id)).map(d=>d.label).join(", ");
-  const monthlyMax = monthlyCompare.reduce((max,r)=>Math.max(max,r.usd),0);
+  const monthlyValue = row => compareMetric==="units" ? Number(row.units||0) : Number(row.usd||0);
+  const monthlyValueLabel = row => compareMetric==="units"
+    ? `${Number(row.units||0).toFixed(0)} uds`
+    : compareMetric==="both"
+      ? `${fmt(row.usd)} · ${Number(row.units||0).toFixed(0)} uds`
+      : fmt(row.usd);
+  const monthlyMax = monthlyCompare.reduce((max,r)=>Math.max(max,monthlyValue(r)),0);
   const skuRanking = getCompareSkuRanking(compareBaseSales);
   const maxSkuUsd = skuRanking.byUsd.reduce((max,r)=>Math.max(max,r.usd),0);
   const maxSkuUnits = skuRanking.byUnits.reduce((max,r)=>Math.max(max,r.units),0);
+  const monthlyCategorySkuAudit = getMonthlyCategorySkuAudit(compareBaseSales);
   const heatmap = getSalesHeatmap(compareBaseSales);
   const heatValueLabel = value => heatmap.metric==="usd" ? fmt(value) : heatmap.metric==="units" ? `${Number(value||0).toFixed(0)} und` : `${Number(value||0).toFixed(0)} tx`;
+  const heatMetricLabel = heatmap.metric==="usd" ? "Dólares = ventas sin IVA" : heatmap.metric==="units" ? "Unidades vendidas" : "Transacciones";
   const heatCell = value => {
     const intensity = heatmap.maxValue>0 ? Number(value||0)/heatmap.maxValue : 0;
     const bg = intensity===0 ? "#F8F5FF" : `rgba(45,27,105,${0.10 + intensity*0.78})`;
@@ -13655,7 +15141,7 @@ function renderVentas() {
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px;">
         <div>
           <div style="font-size:13px;color:var(--purple);font-weight:1000;">Mapa de calor · días y horas</div>
-          <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:2px;">Dólares = ventas sin IVA · Horario comercial ${String(HEATMAP_START_HOUR).padStart(2,"0")}:00-${String(HEATMAP_END_HOUR).padStart(2,"0")}:00</div>
+          <div style="font-size:11px;color:var(--gray);font-weight:700;margin-top:2px;">${heatMetricLabel} · Horario comercial ${String(HEATMAP_START_HOUR).padStart(2,"0")}:00-${String(HEATMAP_END_HOUR).padStart(2,"0")}:00</div>
         </div>
         <div class="period-filter" style="margin:0;flex-wrap:wrap;">
           ${[
@@ -13747,6 +15233,8 @@ function renderVentas() {
 
   ${renderVentasMonthlyHistory(state.sales)}
 
+  ${renderMonthlyCategorySkuAudit(monthlyCategorySkuAudit, compareMetric)}
+
   <div class="card" style="margin-bottom:12px;">
     <div class="section-title">Comparativo mensual de ventas</div>
     <div style="font-size:12px;color:var(--gray);font-weight:700;margin-bottom:10px;">${comparePeriodLabel} · ${compareCategoryLabel} · ${compareSkuLabel} · ${compareWeekdayLabel} · ${state.adminStoreFilter==="all"?"Todos los puntos":PUNTOS_VENTA.find(s=>s.id===state.adminStoreFilter)?.name||state.adminStoreFilter}</div>
@@ -13815,8 +15303,11 @@ function renderVentas() {
           <thead>
             <tr style="border-bottom:2px solid var(--lavender);">
               <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">Mes</th>
-              <th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Ventas sin IVA</th>
-              <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Unidades</th>
+              ${compareMetric==="units"
+                ? `<th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Unidades</th>`
+                : compareMetric==="both"
+                  ? `<th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Ventas sin IVA</th><th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Unidades</th>`
+                  : `<th style="text-align:right;padding:8px 4px;color:var(--purple);font-weight:900;">Ventas sin IVA</th>`}
               <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Transacciones</th>
               <th style="text-align:right;padding:8px 4px;color:var(--gray);font-weight:800;">Ticket prom.</th>
               <th style="text-align:left;padding:8px 4px;color:var(--gray);font-weight:800;">Vs mes anterior</th>
@@ -13824,13 +15315,16 @@ function renderVentas() {
           </thead>
           <tbody>
             ${monthlyCompare.map(r=>{
-              const width = monthlyMax>0 ? Math.max(5,(r.usd/monthlyMax)*100) : 0;
+              const width = monthlyMax>0 ? Math.max(5,(monthlyValue(r)/monthlyMax)*100) : 0;
               const growthColor = r.growth===null ? "var(--gray)" : r.growth>=0 ? "var(--green)" : "var(--red)";
               const growthLabel = r.growth===null ? "-" : `${r.growth>=0?"+":""}${r.growth.toFixed(1)}%`;
               return `<tr style="border-bottom:1px solid var(--lavender-light);">
                 <td style="padding:8px 4px;font-weight:900;color:var(--purple);">${r.label}</td>
-                <td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(r.usd)}</td>
-                <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.units.toFixed(0)}</td>
+                ${compareMetric==="units"
+                  ? `<td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${r.units.toFixed(0)} uds</td>`
+                  : compareMetric==="both"
+                    ? `<td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(r.usd)}</td><td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.units.toFixed(0)} uds</td>`
+                    : `<td style="text-align:right;padding:8px 4px;font-weight:900;color:var(--purple);">${fmt(r.usd)}</td>`}
                 <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${r.tx}</td>
                 <td style="text-align:right;padding:8px 4px;font-weight:800;color:var(--gray);">${fmt(r.avgTicket)}</td>
                 <td style="padding:8px 4px;">
@@ -14641,6 +16135,87 @@ function bindApp() {
     state.stockSeguroDays = Math.max(1, Number(e.target.value||30));
     render();
   });
+  document.querySelectorAll("[data-inv-plan-period]").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.invPlanPeriod = btn.dataset.invPlanPeriod || "ultimos90"; render(); });
+  });
+  document.getElementById("inv-plan-mes")?.addEventListener("change",e=>{
+    state.invPlanMesAno = e.target.value || today().slice(0,7);
+    render();
+  });
+  document.getElementById("inv-plan-rango-desde")?.addEventListener("change",e=>{
+    state.invPlanRangoDesde = e.target.value || today();
+    render();
+  });
+  document.getElementById("inv-plan-rango-hasta")?.addEventListener("change",e=>{
+    state.invPlanRangoHasta = e.target.value || today();
+    render();
+  });
+  document.getElementById("inv-plan-start-month")?.addEventListener("change",e=>{
+    state.invPlanStartMonth = e.target.value || today().slice(0,7);
+    render();
+  });
+  document.getElementById("inv-plan-months-count")?.addEventListener("change",e=>{
+    state.invPlanMonthsCount = Math.max(1, Math.min(12, Number(e.target.value||4)));
+    render();
+  });
+  document.getElementById("purchase-plan-sep-dec")?.addEventListener("click",()=>{
+    state.salesPlanMonth = "2026-09";
+    state.salesPlanMonthsCount = 4;
+    state.salesPlanMatrixMonth = "total";
+    saveSalesPlanState();
+    render();
+  });
+  document.getElementById("purchase-plan-go-sales")?.addEventListener("click",()=>{
+    state.world = "inteligencia";
+    state.tab = "planificacion_ventas";
+    render();
+  });
+  document.getElementById("purchase-plan-month")?.addEventListener("change",e=>{
+    state.salesPlanMonth = e.target.value || today().slice(0,7);
+    saveSalesPlanState();
+    render();
+  });
+  document.getElementById("purchase-plan-months-count")?.addEventListener("change",e=>{
+    state.salesPlanMonthsCount = Math.max(1, Math.min(12, Number(e.target.value||3)));
+    state.salesPlanMatrixMonth = "total";
+    saveSalesPlanState();
+    render();
+  });
+  document.getElementById("inv-plan-lead-prod")?.addEventListener("change",e=>{
+    state.invPlanLeadProdDays = Math.max(0, Number(e.target.value||0));
+    render();
+  });
+  document.getElementById("inv-plan-lead-transport")?.addEventListener("change",e=>{
+    state.invPlanLeadTransportDays = Math.max(0, Number(e.target.value||0));
+    render();
+  });
+  document.getElementById("inv-plan-lead-safety")?.addEventListener("change",e=>{
+    state.invPlanLeadSafetyDays = Math.max(0, Number(e.target.value||0));
+    render();
+  });
+  document.getElementById("inv-plan-safety")?.addEventListener("change",e=>{
+    state.invPlanSafetyPct = Math.max(0, Number(e.target.value||0));
+    render();
+  });
+  document.getElementById("inv-plan-moq")?.addEventListener("change",e=>{
+    state.invPlanMoq = Math.max(1, Number(e.target.value||300));
+    render();
+  });
+  document.getElementById("inv-plan-target-months")?.addEventListener("change",e=>{
+    state.invPlanTargetMonths = Math.max(1, Math.min(24, Number(e.target.value||5)));
+    render();
+  });
+  document.getElementById("inv-plan-selected-sku")?.addEventListener("change",e=>{
+    state.invPlanSelectedSku = e.target.value || "all";
+    render();
+  });
+  document.querySelectorAll(".inv-plan-multiplier").forEach(input=>{
+    input.addEventListener("change",e=>{
+      const month = e.target.dataset.invPlanMonth;
+      state.invPlanMultipliers = { ...(state.invPlanMultipliers||{}), [month]:Math.max(0, Number(e.target.value||100)) };
+      render();
+    });
+  });
   document.getElementById("sales-plan-month")?.addEventListener("change",e=>{
     state.salesPlanMonth = e.target.value || today().slice(0,7);
     saveSalesPlanState();
@@ -14648,6 +16223,13 @@ function bindApp() {
   });
   document.getElementById("sales-plan-months-count")?.addEventListener("change",e=>{
     state.salesPlanMonthsCount = Math.max(1, Math.min(12, Number(e.target.value||3)));
+    saveSalesPlanState();
+    render();
+  });
+  document.getElementById("sales-plan-sep-dec")?.addEventListener("click",()=>{
+    state.salesPlanMonth = "2026-09";
+    state.salesPlanMonthsCount = 4;
+    state.salesPlanMatrixMonth = "total";
     saveSalesPlanState();
     render();
   });
@@ -14757,6 +16339,11 @@ function bindApp() {
       render();
     });
   });
+  document.getElementById("sales-plan-matrix-stand")?.addEventListener("change",e=>{
+    state.salesPlanMatrixStand = e.target.value || "all";
+    saveSalesPlanState();
+    render();
+  });
   document.querySelectorAll("[data-sales-plan-sku-metric]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       state.salesPlanSkuMetric = btn.dataset.salesPlanSkuMetric || "usd";
@@ -14848,6 +16435,21 @@ function bindApp() {
           ...current,
           scenario: scenario.id,
           monthFactors
+        }
+      };
+      saveSpecialProjectsState();
+      render();
+    });
+  });
+  document.querySelectorAll("[data-special-project-sales-plan]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const projectId = "condado_shopping";
+      const current = state.specialProjects?.[projectId] || {};
+      state.specialProjects = {
+        ...(state.specialProjects||{}),
+        [projectId]: {
+          ...current,
+          salesPlanActive: btn.dataset.specialProjectSalesPlan === "on"
         }
       };
       saveSpecialProjectsState();
@@ -16841,14 +18443,14 @@ function setupListeners(userInfo) {
   const sellingTabs = ["pos","jornada","ventas"];
   const sellingContext = !!state.selectedStand && sellingTabs.includes(activeTab);
   const lightTabs = ["worlds","world","cambiar"];
-  const analyticsSalesTabs = ["dashboard","indicadores","canales","crm","forecast","produccion","ventas","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"];
-  const needsInventory = ["dashboard","indicadores","pos","jornada","inventario","stock_seguro","requerimiento_compra","bodega","despachar"].includes(activeTab);
+  const analyticsSalesTabs = ["dashboard","indicadores","canales","crm","forecast","produccion","ventas","inventario","stock_seguro","plan_inventario_compras","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad"];
+  const needsInventory = ["dashboard","indicadores","pos","jornada","inventario","stock_seguro","plan_inventario_compras","requerimiento_compra","bodega","despachar"].includes(activeTab);
   const needsSales = analyticsSalesTabs.includes(activeTab) || activeTab === "jornada";
   const needsJornadas = activeTab === "jornada";
-  const needsConfig = ["dashboard","indicadores","canales","crm","pos","ventas","forecast","produccion","inventario","stock_seguro","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad","historico_ventas"].includes(activeTab);
+  const needsConfig = ["dashboard","indicadores","canales","crm","pos","ventas","forecast","produccion","inventario","stock_seguro","plan_inventario_compras","planificacion_ventas","requerimiento_compra","compras","finanzas","rentabilidad","historico_ventas"].includes(activeTab);
   const needsFinance = !!userInfo.canFinanzas && ["finanzas","rentabilidad","ventas","planificacion_ventas","indicadores","canales"].includes(activeTab);
   const needsKardex = (userInfo.role==="full" || userInfo.role==="bodega") && ["kardex","bodega","despachar"].includes(activeTab);
-  const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega" || userInfo.role==="admin") && ["materiales","produccion","requerimiento_compra","compras","inventario","stock_seguro"].includes(activeTab);
+  const needsMaterials = (userInfo.role==="full" || userInfo.role==="bodega" || userInfo.role==="admin") && ["materiales","produccion","plan_inventario_compras","requerimiento_compra","compras","inventario","stock_seguro"].includes(activeTab);
   const listenerKey = JSON.stringify({
     role:userInfo.role,
     tab:activeTab,
@@ -16867,7 +18469,7 @@ function setupListeners(userInfo) {
 
   // Listen to all inventories
   if (needsInventory) {
-    const canUseSingleInventoryDoc = (userInfo.role==="asesor" || userInfo.fixedStand || (activeTab==="pos" || activeTab==="jornada")) && state.selectedStand && !["dashboard","stock_seguro","requerimiento_compra","bodega","despachar"].includes(activeTab);
+    const canUseSingleInventoryDoc = (userInfo.role==="asesor" || userInfo.fixedStand || (activeTab==="pos" || activeTab==="jornada")) && state.selectedStand && !["dashboard","stock_seguro","plan_inventario_compras","requerimiento_compra","bodega","despachar"].includes(activeTab);
     if (canUseSingleInventoryDoc) {
       const invSourceId = getActiveInvSourceId();
       state.unsubInventory = db.collection("inventarios").doc(invSourceId).onSnapshot(doc=>{
@@ -17026,6 +18628,7 @@ setInterval(()=>{ if(loadPendingSales().length) processPendingSalesQueue(); }, 6
 // Initial render
 state.pendingSales = loadPendingSales();
 schedulePendingSalesRetry();
+installSortableTables();
 render();
 </script>
 </body>
